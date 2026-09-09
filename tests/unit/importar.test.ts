@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseDia, parseEstudiantes, parseGenero, parseHora, parseHorarios, parsearCsv } from '../../lib/importar';
+import { parseDia, parseEstudiantes, parseGenero, parseHora, parseHorarios, parseRangos, parsearCsv } from '../../lib/importar';
 
 test('horas en varios formatos', () => {
   assert.equal(parseHora('8:00'), '08:00');
@@ -39,7 +39,26 @@ test('horarios', () => {
     { semestre: '1', dia: 'Martes', inicio: '13:00', fin: '10:00', materia: 'Al revés', 'correo docente': '' },
   ]);
   assert.equal(ok.length, 1);
-  assert.deepEqual(ok[0], { semestre: 1, dia: 2, inicio: '10:00', fin: '13:00', materia: 'Lenguaje', correoDocente: 'mcobo@ute.edu.ec' });
+  assert.deepEqual(ok[0], { semestre: 1, paralelo: '', dia: 2, inicio: '10:00', fin: '13:00', materia: 'Lenguaje', correoDocente: 'mcobo@ute.edu.ec', docenteNombre: '' });
+  assert.equal(errores.length, 1);
+});
+
+test('rangos de hora escritos de cualquier manera', () => {
+  assert.deepEqual(parseRangos('9:00-11:00'), [{ inicio: '09:00', fin: '11:00' }]);
+  assert.deepEqual(parseRangos('07:00 -09:00'), [{ inicio: '07:00', fin: '09:00' }]);
+  assert.deepEqual(parseRangos('9:00 10:00'), [{ inicio: '09:00', fin: '10:00' }]);
+  assert.deepEqual(parseRangos('7:00-9:00 / 10:00-11:00'), [{ inicio: '07:00', fin: '09:00' }, { inicio: '10:00', fin: '11:00' }]);
+  assert.deepEqual(parseRangos(''), []);
+});
+
+test('horario en formato ancho de la universidad', () => {
+  const { ok, errores } = parseHorarios([
+    { 'carrera programa': 'GASTRONOMIA', asignatura: 'TÉCNICAS BÁSICAS DE COCINA I', nivel: '1', paralelo: 'C1', horas: '5', nrc: '3180', docente: 'MARIN RIVADENEIRA FRANCISCO JAVIER', lunes: '', martes: '', miercoles: '', jueves: '13:30-17:30', viernes: '18:00 - 19:00' },
+    { 'carrera programa': 'GASTRONOMIA', asignatura: 'SIN HORAS', nivel: '2', paralelo: 'A', horas: '3', nrc: '1', docente: 'ALGUIEN', lunes: '', martes: '', miercoles: '', jueves: '', viernes: '' },
+  ]);
+  assert.equal(ok.length, 2);
+  assert.deepEqual(ok[0], { semestre: 1, paralelo: 'C1', dia: 4, inicio: '13:30', fin: '17:30', materia: 'TÉCNICAS BÁSICAS DE COCINA I', correoDocente: '', docenteNombre: 'MARIN RIVADENEIRA FRANCISCO JAVIER' });
+  assert.equal(ok[1].dia, 5);
   assert.equal(errores.length, 1);
 });
 

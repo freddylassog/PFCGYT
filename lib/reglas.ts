@@ -259,18 +259,35 @@ export function cruceEventos<T extends Pick<Pedido, 'id' | 'fecha' | 'inicio' | 
   return pedidos.find((e) => e.id !== excluirId && e.fecha === f.fecha && e.estado !== 'Rechazado' && overlap(f.inicio, f.fin, e.inicio, e.fin)) || null;
 }
 
+export function normalizarParalelo(p: string | null | undefined): string {
+  return (p || '').trim().toUpperCase();
+}
+
+/** ¿La clase aplica a este estudiante? Mismo semestre y, si ambos tienen
+ *  paralelo, el mismo paralelo. Sin paralelo en alguno de los dos = aplica. */
+export function claseAplica(c: { semestre: number; paralelo: string | null }, e: { semestre: number; paralelo: string | null }): boolean {
+  if (c.semestre !== e.semestre) return false;
+  const cp = normalizarParalelo(c.paralelo), ep = normalizarParalelo(e.paralelo);
+  return !cp || !ep || cp === ep;
+}
+
 /** Clases que chocan con el evento ese día de la semana, filtradas a los
- *  semestres indicados (si la lista está vacía, todos los semestres). */
+ *  estudiantes indicados (semestre y paralelo). Sin estudiantes = todas. */
 export function cruceClases(
   e: { fecha: string; inicio: string; fin: string },
   clases: Clase[],
-  semestres: number[],
+  estudiantes: { semestre: number; paralelo: string | null }[],
 ): Clase[] {
   if (!e.fecha || !e.inicio || !e.fin) return [];
   const dia = diaSemana(e.fecha);
   return clases
-    .filter((c) => c.activo && c.dia === dia && overlap(e.inicio, e.fin, c.inicio, c.fin) && (!semestres.length || semestres.includes(c.semestre)))
-    .sort((a, b) => a.semestre - b.semestre || a.inicio.localeCompare(b.inicio));
+    .filter((c) => c.activo && c.dia === dia && overlap(e.inicio, e.fin, c.inicio, c.fin) && (!estudiantes.length || estudiantes.some((st) => claseAplica(c, st))))
+    .sort((a, b) => a.semestre - b.semestre || (a.paralelo || '').localeCompare(b.paralelo || '') || a.inicio.localeCompare(b.inicio));
+}
+
+/** Nombre normalizado para comparar docentes entre archivos. */
+export function claveNombre(s: string): string {
+  return (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim();
 }
 
 // ---------------------------------------------------------------- uniforme

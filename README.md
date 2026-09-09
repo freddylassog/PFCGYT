@@ -29,7 +29,7 @@ Coordinación lo envía desde su propia cuenta y luego marca **"Marcar como envi
 4. **Alimentación** si la participación pasa de 4 h; **transporte** si termina después de las 18:00 o el lugar es lejano.
 5. **Horas por evento** = salida − inicio (1 decimal). Presupuesto del semestre = horas por semana × 16 semanas.
 6. Estudiantes de 1.º a 3.º; **mínimo 2 eventos** confirmados. La app **no pone notas**: solo muestra el texto de la regla y permite enviar la matriz de cada semestre al docente correspondiente (Lenguaje, Investigación y Cultura Gastronómica, fijas en la base de datos; el docente se toma del horario cargado).
-7. **Cruce con clases**: clases del mismo día de la semana que chocan con el horario del evento, filtradas a los semestres de los estudiantes confirmados. Al confirmar a un estudiante se prepara el correo al docente automáticamente.
+7. **Cruce con clases**: clases del mismo día de la semana que chocan con el horario del evento, filtradas al semestre y paralelo de los estudiantes confirmados (un estudiante sin paralelo cuenta para todos los paralelos de su semestre). Al confirmar a un estudiante se prepara el correo al docente automáticamente.
 8. **Clave por evento**: es el **código del evento** (`SOL-2026-003`), fácil de recordar porque aparece en todos los correos y pantallas. Se asigna al aprobar y deja de servir al terminar el evento. No es secreta: solo sirve para que el estudiante se inscriba (además debe estar en el listado activo). Si hace falta, *"Generar otra"* la reemplaza por una aleatoria `UTE-XXXX`.
 9. Las novedades solo se registran para estudiantes confirmados; una vez reportadas a decanato quedan bloqueadas.
 10. Devolución del uniforme: solo se acepta **lavado**; si no, queda como *"No recibido · sin lavar"*.
@@ -39,7 +39,7 @@ Coordinación lo envía desde su propia cuenta y luego marca **"Marcar como envi
 ### 1. Supabase (base de datos y archivos)
 
 1. Entra a [supabase.com](https://supabase.com) → **New project** → nombre `protocolo-fcgt`, región *South America (São Paulo)*. Guarda la contraseña de la base de datos: **usa solo letras y números** (sin símbolos).
-2. Cuando cargue el proyecto, abre **SQL Editor** → **New query**, pega todo el contenido de [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql) y pulsa **Run**. Esto crea las tablas, el periodo `2026-2` (16 semanas desde el lunes 5 de octubre de 2026; los eventos anteriores a esa fecha también se registran y cuentan en el total), las materias fijas y el bucket privado `evidencias`.
+2. Cuando cargue el proyecto, abre **SQL Editor** → **New query**, pega todo el contenido de [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql) y pulsa **Run**. Repite con cada archivo de `supabase/migrations/` en orden (`0002_…`, etc.); todos se pueden ejecutar más de una vez sin problema. Esto crea las tablas, el periodo `2026-2` (16 semanas desde el lunes 5 de octubre de 2026; los eventos anteriores a esa fecha también se registran y cuentan en el total), las materias fijas y el bucket privado `evidencias`.
 3. Copia estos datos:
    - Botón **Connect** (arriba) → pestaña **Transaction pooler** → la cadena `postgresql://postgres.xxxx:[YOUR-PASSWORD]@…pooler.supabase.com:6543/postgres`. Reemplaza `[YOUR-PASSWORD]` por tu contraseña. Es la variable `DATABASE_URL`.
    - **Project Settings → API**: `Project URL` (variable `SUPABASE_URL`) y `service_role` key (variable `SUPABASE_SERVICE_ROLE_KEY`). La clave `service_role` es secreta: nunca la compartas ni la pegues en el código.
@@ -78,9 +78,11 @@ La primera fila lleva los títulos; el orden de las columnas no importa y no dis
 
 | Archivo | Columnas |
 |---|---|
-| **Estudiantes** | `Nombre`, `Correo`, `Semestre` (1, 2 o 3), `Género` (F/M, Femenino/Masculino) |
-| **Docentes** | `Nombre`, `Correo` |
-| **Horarios** | `Semestre`, `Día` (Lunes…Viernes), `Inicio` (HH:MM), `Fin` (HH:MM), `Materia`, `Correo docente` |
+| **Estudiantes** | `Nombre`, `Correo`, `Semestre` (1, 2 o 3), `Género` (F/M, Femenino/Masculino) y, opcional, `Paralelo` (A, B, C1…). Con paralelo, los avisos a docentes solo salen para las clases de ese paralelo. |
+| **Docentes** | `Nombre`, `Correo`. El nombre debe coincidir con el del horario (sin importar tildes ni mayúsculas). |
+| **Horarios** | **El archivo de la universidad tal cual**: `ASIGNATURA`, `NIVEL`, `PARALELO`, `DOCENTE`, `LUNES`…`VIERNES` con los horarios escritos en cada día (`9:00-11:00`, `07:00 -09:00`, `9:00 10:00`; se entienden todos). También se acepta una fila por clase: `Semestre`, `Paralelo`, `Día`, `Inicio`, `Fin`, `Materia`, `Docente` y/o `Correo docente`. |
+
+Orden recomendado: primero **Docentes**, luego **Horarios**. Si se cargan al revés, los docentes que vienen en el horario se crean sin correo y se completan al cargar el directorio (o a mano en *Agregar docente*).
 
 Cada carga **actualiza** por correo electrónico (no duplica), agrega los nuevos y marca como inactivos a quienes ya no aparecen; nunca borra historial. También puedes agregar o editar una persona o una clase a mano desde la misma pantalla. En [`tests/fixtures/`](tests/fixtures/) hay archivos de ejemplo.
 

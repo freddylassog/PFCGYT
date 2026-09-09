@@ -9,7 +9,7 @@ import { MINIMO_EVENTOS, fechaCorta } from '@/lib/reglas';
 import type { Datos, Semestre } from '@/lib/tipos';
 import { matrizSemestres, type PedidoVista } from '@/lib/vista';
 
-const FORM_VACIO = { id: '', nombre: '', correo: '', semestre: 1, genero: 'F' as 'F' | 'M', activo: true };
+const FORM_VACIO = { id: '', nombre: '', correo: '', semestre: 1, paralelo: '', genero: 'F' as 'F' | 'M', activo: true };
 
 export function Estudiantes({ datos, pedidos }: { datos: Datos; pedidos: PedidoVista[] }) {
   const { pending, error, run } = useAccion();
@@ -32,7 +32,7 @@ export function Estudiantes({ datos, pedidos }: { datos: Datos; pedidos: PedidoV
       <div className="cols-auto mt-6">
         <Marco className="p-4 stack-2">
           <div className="card-kicker">Listado de estudiantes · 1.º a 3.º</div>
-          <div className="fs-14"><strong>{arch?.nombre ?? 'Sin archivo cargado'}</strong><div className="muted fs-12">{arch ? `${arch.info} · cargado ${fechaCorta(arch.fecha)} ${arch.fecha.slice(0, 4)}` : 'Columnas: Nombre, Correo, Semestre, Género (F/M). Formato .xlsx o .csv.'}</div></div>
+          <div className="fs-14"><strong>{arch?.nombre ?? 'Sin archivo cargado'}</strong><div className="muted fs-12">{arch ? `${arch.info} · cargado ${fechaCorta(arch.fecha)} ${arch.fecha.slice(0, 4)}` : 'Columnas: Nombre, Correo, Semestre, Paralelo, Género (F/M). Formato .xlsx o .csv.'}</div></div>
           <div className="row">
             <label className="btn btn-secondary" style={{ cursor: 'pointer' }}>{arch ? 'Reemplazar archivo' : 'Cargar archivo'}<input type="file" accept=".xlsx,.csv" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) subir(f); e.target.value = ''; }} /></label>
             <button type="button" className="btn btn-ghost" onClick={() => { setForm(FORM_VACIO); setVerForm(!verForm); }}>{verForm ? 'Cerrar' : 'Agregar o editar a mano'}</button>
@@ -54,6 +54,7 @@ export function Estudiantes({ datos, pedidos }: { datos: Datos; pedidos: PedidoV
             <div className="field"><label>Nombre</label><input className="input" value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} required /></div>
             <div className="field"><label>Correo institucional</label><input className="input" type="email" value={form.correo} onChange={(e) => setForm({ ...form, correo: e.target.value })} required /></div>
             <div className="field"><label>Semestre</label><select className="input" value={form.semestre} onChange={(e) => setForm({ ...form, semestre: Number(e.target.value) })}>{[1, 2, 3].map((n) => <option key={n} value={n}>{n}.º</option>)}</select></div>
+            <div className="field"><label>Paralelo</label><input className="input" value={form.paralelo} onChange={(e) => setForm({ ...form, paralelo: e.target.value })} placeholder="A, B, C1…" /></div>
             <div className="field"><label>Género (uniforme)</label><select className="input" value={form.genero} onChange={(e) => setForm({ ...form, genero: e.target.value as 'F' | 'M' })}><option value="F">Femenino</option><option value="M">Masculino</option></select></div>
             <label className="radio fs-13"><input type="checkbox" checked={form.activo} onChange={(e) => setForm({ ...form, activo: e.target.checked })} /><span className="dot cuadro" />Activo</label>
             <button className="btn btn-primary" type="submit">Guardar</button>
@@ -69,7 +70,7 @@ export function Estudiantes({ datos, pedidos }: { datos: Datos; pedidos: PedidoV
               <div className="between abajo" style={{ gap: 'var(--space-3)', marginBottom: 'var(--space-2)' }}>
                 <div>
                   <h3 className="m-0">{m.semLabel}</h3>
-                  <div className="muted fs-13">Matriz para el docente{m.docente ? `: ${m.docente.nombre} · ${m.docente.correo}` : ' (según el horario cargado)'}</div>
+                  <div className="muted fs-13">Matriz para el docente{m.docente ? `: ${m.docente.nombre} · ${m.docente.correo ?? 'sin correo'}` : ' (según el horario cargado)'}</div>
                 </div>
                 <div className="row">
                   <span className="muted fs-13">{m.cumplenN}/{m.n} cumplen</span>
@@ -93,14 +94,14 @@ export function Estudiantes({ datos, pedidos }: { datos: Datos; pedidos: PedidoV
                     {m.filas.length === 0 && <tr><td colSpan={8} className="muted">Sin estudiantes activos en este semestre.</td></tr>}
                     {m.filas.map((s) => (
                       <tr key={s.id}>
-                        <td>{s.nombre}</td>
+                        <td>{s.nombre}{s.paralelo && <span className="muted fs-11"> · {s.paralelo}</span>}</td>
                         <td className="muted fs-13">{s.correo}</td>
                         <td>{s.eventosN}</td>
                         <td className="nowrap">{s.horas} h</td>
                         <td className="muted fs-12">{s.detalle}</td>
                         <td className="fs-12">{s.novedadesN || '—'}</td>
                         <td><span className={`tag ${s.tagClass}`}>{s.estado}</span></td>
-                        <td><button type="button" className="btn btn-ghost btn-sm" onClick={() => { setForm({ id: s.id, nombre: s.nombre, correo: s.correo, semestre: s.semestre, genero: s.genero, activo: s.activo }); setVerForm(true); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>Editar</button></td>
+                        <td><button type="button" className="btn btn-ghost btn-sm" onClick={() => { setForm({ id: s.id, nombre: s.nombre, correo: s.correo, semestre: s.semestre, paralelo: s.paralelo ?? '', genero: s.genero, activo: s.activo }); setVerForm(true); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>Editar</button></td>
                       </tr>
                     ))}
                   </tbody>

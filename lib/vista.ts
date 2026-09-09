@@ -65,9 +65,8 @@ export function vistaPedido(d: Datos, p: Pedido): PedidoVista {
   const ins = d.inscripciones.filter((i) => i.requestId === p.id);
   const confirmados = ins.filter((i) => i.estado === 'confirmado').map((i) => est.get(i.studentId)).filter((x): x is Estudiante => !!x);
   const inscritos = ins.filter((i) => i.estado === 'inscrito').map((i) => est.get(i.studentId)).filter((x): x is Estudiante => !!x);
-  const semestres = [...new Set(confirmados.map((e) => e.semestre))];
-  const cruces: CruceVista[] = cruceClases(p, d.clases, semestres).map((c) => ({
-    ...c, docente: docenteDe(d, c.teacherId), semLabel: semLabel(c.semestre),
+  const cruces: CruceVista[] = cruceClases(p, d.clases, confirmados).map((c) => ({
+    ...c, docente: docenteDe(d, c.teacherId), semLabel: semLabel(c.semestre) + (c.paralelo ? ` · paralelo ${c.paralelo}` : ''),
     aviso: d.avisos.find((a) => a.requestId === p.id && a.classId === c.id) ?? null,
   }));
   const novedades: NovedadVista[] = d.novedades.filter((n) => n.requestId === p.id).map((n) => ({ ...n, estudiante: est.get(n.studentId) ?? null, pendiente: !n.reportadoAt }));

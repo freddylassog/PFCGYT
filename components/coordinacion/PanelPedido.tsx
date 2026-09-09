@@ -8,7 +8,7 @@ import { IconoCalendario, IconoCerrar } from '@/components/Iconos';
 import { Marco } from '@/components/Marco';
 import { useAccion } from '@/components/useAccion';
 import { correoAvisoDocente, correoConvocatoria, correoDecanato, correoEstudianteDecision, correoRecordatorio, correoSolicitante, mailtoUrl } from '@/lib/correos';
-import { TIPOS_NOVEDAD, fechaCorta, infoUniforme, semCorto } from '@/lib/reglas';
+import { TIPOS_NOVEDAD, claseAplica, fechaCorta, infoUniforme, semCorto } from '@/lib/reglas';
 import type { Datos, Estado, Estudiante } from '@/lib/tipos';
 import type { CruceVista, PedidoVista } from '@/lib/vista';
 
@@ -25,7 +25,7 @@ export function PanelPedido({ p, datos, pedidos, cruceEvento, onCerrar }: { p: P
 
   function estudiantesAviso(c: CruceVista): Estudiante[] {
     if (c.aviso) return c.aviso.studentIds.map((id) => datos.estudiantes.find((e) => e.id === id)).filter((e): e is Estudiante => !!e);
-    const delSem = p.confirmados.filter((e) => e.semestre === c.semestre);
+    const delSem = p.confirmados.filter((e) => claseAplica(c, e));
     return delSem.length ? delSem : p.confirmados;
   }
 
@@ -160,7 +160,7 @@ export function PanelPedido({ p, datos, pedidos, cruceEvento, onCerrar }: { p: P
           const correo = correoAvisoDocente(p, c, est);
           return (
             <div key={c.id} className="fs-13 between arriba">
-              <div><strong>{c.materia}</strong> · {c.semLabel} · {c.inicio}–{c.fin}<div className="muted">{c.docente ? `${c.docente.nombre} · ${c.docente.correo}` : 'Docente sin registrar'}</div></div>
+              <div><strong>{c.materia}</strong> · {c.semLabel} · {c.inicio}–{c.fin}<div className="muted">{c.docente ? `${c.docente.nombre} · ${c.docente.correo ?? 'sin correo (complétalo en Horarios)'}` : 'Docente sin registrar'}</div></div>
               {c.aviso?.sentAt ? (
                 <span className="row" style={{ gap: 4 }}><span className="tag tag-accent">Correo enviado · {fechaCorta(c.aviso.sentAt)}</span><button className="btn btn-ghost btn-sm" type="button" onClick={() => run(() => marcarAviso(c.aviso!.id, false))}>Deshacer</button></span>
               ) : c.aviso ? (

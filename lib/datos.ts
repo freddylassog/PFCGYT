@@ -24,15 +24,15 @@ export function mapPedido(r: Fila): Pedido {
 }
 
 export function mapEstudiante(r: Fila): Estudiante {
-  return { id: s(r.id), nombre: s(r.nombre), correo: s(r.correo), semestre: Number(r.semestre) as Semestre, genero: r.genero as Estudiante['genero'], activo: !!r.activo };
+  return { id: s(r.id), nombre: s(r.nombre), correo: s(r.correo), semestre: Number(r.semestre) as Semestre, paralelo: sn(r.paralelo), genero: r.genero as Estudiante['genero'], activo: !!r.activo };
 }
 
 function mapDocente(r: Fila): Docente {
-  return { id: s(r.id), nombre: s(r.nombre), correo: s(r.correo), activo: !!r.activo };
+  return { id: s(r.id), nombre: s(r.nombre), correo: sn(r.correo), activo: !!r.activo };
 }
 
 function mapClase(r: Fila): Clase {
-  return { id: s(r.id), semestre: Number(r.semestre) as Semestre, dia: Number(r.dia), inicio: hhmm(s(r.inicio)), fin: hhmm(s(r.fin)), materia: s(r.materia), teacherId: sn(r.teacher_id), activo: !!r.activo };
+  return { id: s(r.id), semestre: Number(r.semestre) as Semestre, paralelo: sn(r.paralelo), dia: Number(r.dia), inicio: hhmm(s(r.inicio)), fin: hhmm(s(r.fin)), materia: s(r.materia), teacherId: sn(r.teacher_id), activo: !!r.activo };
 }
 
 function mapAjustes(r: Fila): Ajustes {

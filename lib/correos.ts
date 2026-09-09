@@ -89,7 +89,7 @@ export function correoAvisoDocente(p: PedidoVista, c: CruceVista, estudiantes: E
     FIRMA,
   ].join('\n');
   return {
-    para: c.docente ? [c.docente.correo] : [],
+    para: c.docente?.correo ? [c.docente.correo] : [],
     asunto: `Ausencia justificada en ${c.materia} (${semLabel(c.semestre)}) · ${p.fechaLarga}`,
     cuerpo,
   };
@@ -144,7 +144,7 @@ export function correoMatriz(d: Datos, m: MatrizSemestre): Correo {
     ``,
     FIRMA,
   ].join('\n');
-  return { para: m.docente ? [m.docente.correo] : [], asunto: `Matriz de protocolo · ${m.semLabel} · ${d.ajustes.periodo}`, cuerpo };
+  return { para: m.docente?.correo ? [m.docente.correo] : [], asunto: `Matriz de protocolo · ${m.semLabel} · ${d.ajustes.periodo}`, cuerpo };
 }
 
 // ---------------------------------------------------------------- 5. reporte a decanato

@@ -5,7 +5,7 @@ import { db } from '@/lib/db';
 import { ajustesActuales, cargarDatos } from '@/lib/datos';
 import { leerTabla, parseDocentes, parseEstudiantes, parseHorarios } from '@/lib/excel';
 import {
-  UNIFORME, TIPOS_NOVEDAD, cruceClases, esFechaISO, genClave, hoyISO, normalizarCorreo,
+  UNIFORME, TIPOS_NOVEDAD, claseAplica, claveNombre, cruceClases, esFechaISO, genClave, hoyISO, normalizarCorreo, normalizarParalelo,
 } from '@/lib/reglas';
 import { iniciarSesionCoordinacion, passwordCoordinacionOk, sesionCoordinacion } from '@/lib/sesion';
 import type { Estado, Resultado, Semestre } from '@/lib/tipos';
@@ -74,16 +74,17 @@ export async function marcarConvenio(id: string, convenio: 'si' | 'no'): Promise
   } catch (e) { return fallo(e); }
 }
 
-/** Crea o actualiza los avisos pendientes a docentes para las clases del
- *  semestre indicado que chocan con el evento. */
-async function prepararAvisos(requestId: string, semestres: number[]): Promise<void> {
+/** Crea o actualiza los avisos pendientes a docentes para las clases que
+ *  chocan con el evento y aplican a los estudiantes confirmados del semestre. */
+async function prepararAvisos(requestId: string, semestre: number): Promise<void> {
   const sql = db();
   const datos = await cargarDatos();
   const p = datos.pedidos.find((x) => x.id === requestId);
   if (!p) return;
   const confirmados = datos.inscripciones.filter((i) => i.requestId === requestId && i.estado === 'confirmado').map((i) => datos.estudiantes.find((e) => e.id === i.studentId)).filter((e): e is NonNullable<typeof e> => !!e);
-  for (const c of cruceClases(p, datos.clases, semestres)) {
-    const ids = confirmados.filter((e) => e.semestre === c.semestre).map((e) => e.id);
+  const delSemestre = confirmados.filter((e) => e.semestre === semestre);
+  for (const c of cruceClases(p, datos.clases, delSemestre)) {
+    const ids = delSemestre.filter((e) => claseAplica(c, e)).map((e) => e.id);
     if (!ids.length) continue;
     await sql`insert into teacher_notices (request_id, class_id, student_ids) values (${requestId}, ${c.id}, ${ids})
       on conflict (request_id, class_id) do update set student_ids = excluded.student_ids where teacher_notices.sent_at is null`;
@@ -102,7 +103,7 @@ export async function decidirInscripcion(requestId: string, studentId: string, d
       await sql`insert into enrollments (request_id, student_id, estado) values (${requestId}, ${studentId}, 'confirmado')
         on conflict (request_id, student_id) do update set estado = 'confirmado', updated_at = now()`;
       const [st] = await sql`select semestre from students where id = ${studentId}`;
-      if (st) await prepararAvisos(requestId, [Number(st.semestre)]);
+      if (st) await prepararAvisos(requestId, Number(st.semestre));
     } else if (decision === 'rechazar') {
       await sql`update enrollments set estado = 'rechazado', updated_at = now() where request_id = ${requestId} and student_id = ${studentId}`;
     } else {
@@ -111,7 +112,7 @@ export async function decidirInscripcion(requestId: string, studentId: string, d
       if (st) {
         // Los avisos pendientes de ese semestre se recalculan; si ya no queda nadie, se eliminan.
         await sql`delete from teacher_notices t using classes c where t.class_id = c.id and t.request_id = ${requestId} and t.sent_at is null and c.semestre = ${Number(st.semestre)}`;
-        await prepararAvisos(requestId, [Number(st.semestre)]);
+        await prepararAvisos(requestId, Number(st.semestre));
       }
     }
     refrescar();
@@ -130,10 +131,11 @@ export async function crearAviso(requestId: string, classId: string): Promise<Re
   try {
     await exigir();
     const sql = db();
-    const [c] = await sql`select semestre from classes where id = ${classId}`;
+    const [c] = await sql`select semestre, paralelo from classes where id = ${classId}`;
     if (!c) throw new Error('Clase no encontrada');
-    const filas = await sql`select e.student_id from enrollments e join students s on s.id = e.student_id where e.request_id = ${requestId} and e.estado = 'confirmado' and s.semestre = ${Number(c.semestre)}`;
-    let ids = filas.map((f) => String(f.student_id));
+    const filas = await sql`select e.student_id, s.semestre, s.paralelo from enrollments e join students s on s.id = e.student_id where e.request_id = ${requestId} and e.estado = 'confirmado' and s.semestre = ${Number(c.semestre)}`;
+    const clase = { semestre: Number(c.semestre), paralelo: (c.paralelo as string | null) ?? null };
+    let ids = filas.filter((f) => claseAplica(clase, { semestre: Number(f.semestre), paralelo: (f.paralelo as string | null) ?? null })).map((f) => String(f.student_id));
     if (!ids.length) {
       const todos = await sql`select student_id from enrollments where request_id = ${requestId} and estado = 'confirmado'`;
       ids = todos.map((f) => String(f.student_id));
@@ -269,7 +271,7 @@ export async function nuevoPeriodo(periodo: string, inicioSemestre: string): Pro
 
 // ---------------------------------------------------------------- estudiantes / docentes (edición manual)
 
-export async function guardarEstudiante(e: { id?: string; nombre: string; correo: string; semestre: number; genero: 'F' | 'M'; activo: boolean }): Promise<Resultado> {
+export async function guardarEstudiante(e: { id?: string; nombre: string; correo: string; semestre: number; paralelo?: string | null; genero: 'F' | 'M'; activo: boolean }): Promise<Resultado> {
   try {
     await exigir();
     const sql = db();
@@ -277,11 +279,12 @@ export async function guardarEstudiante(e: { id?: string; nombre: string; correo
     const correo = normalizarCorreo(e.correo);
     if (!e.nombre.trim() || !correo.includes('@')) throw new Error('Nombre y correo son obligatorios');
     if (![1, 2, 3].includes(e.semestre)) throw new Error('Semestre inválido');
+    const paralelo = normalizarParalelo(e.paralelo) || null;
     if (e.id) {
-      await sql`update students set nombre = ${e.nombre.trim()}, correo = ${correo}, semestre = ${e.semestre}, genero = ${e.genero}, activo = ${e.activo} where id = ${e.id}`;
+      await sql`update students set nombre = ${e.nombre.trim()}, correo = ${correo}, semestre = ${e.semestre}, paralelo = ${paralelo}, genero = ${e.genero}, activo = ${e.activo} where id = ${e.id}`;
     } else {
-      await sql`insert into students (periodo, nombre, correo, semestre, genero, activo) values (${periodo}, ${e.nombre.trim()}, ${correo}, ${e.semestre}, ${e.genero}, ${e.activo})
-        on conflict (periodo, correo) do update set nombre = excluded.nombre, semestre = excluded.semestre, genero = excluded.genero, activo = excluded.activo`;
+      await sql`insert into students (periodo, nombre, correo, semestre, paralelo, genero, activo) values (${periodo}, ${e.nombre.trim()}, ${correo}, ${e.semestre}, ${paralelo}, ${e.genero}, ${e.activo})
+        on conflict (periodo, correo) do update set nombre = excluded.nombre, semestre = excluded.semestre, paralelo = excluded.paralelo, genero = excluded.genero, activo = excluded.activo`;
     }
     refrescar();
     return { ok: true };
@@ -293,8 +296,9 @@ export async function guardarDocente(d: { id?: string; nombre: string; correo: s
     await exigir();
     const sql = db();
     const { periodo } = await ajustesActuales();
-    const correo = normalizarCorreo(d.correo);
-    if (!d.nombre.trim() || !correo.includes('@')) throw new Error('Nombre y correo son obligatorios');
+    const correo = normalizarCorreo(d.correo) || null;
+    if (!d.nombre.trim()) throw new Error('El nombre es obligatorio');
+    if (correo && !correo.includes('@')) throw new Error('Correo inválido');
     if (d.id) await sql`update teachers set nombre = ${d.nombre.trim()}, correo = ${correo}, activo = ${d.activo} where id = ${d.id}`;
     else await sql`insert into teachers (periodo, nombre, correo, activo) values (${periodo}, ${d.nombre.trim()}, ${correo}, ${d.activo}) on conflict (periodo, correo) do update set nombre = excluded.nombre, activo = excluded.activo`;
     refrescar();
@@ -302,16 +306,17 @@ export async function guardarDocente(d: { id?: string; nombre: string; correo: s
   } catch (e) { return fallo(e); }
 }
 
-export async function guardarClase(c: { id?: string; semestre: number; dia: number; inicio: string; fin: string; materia: string; teacherId: string | null; activo: boolean }): Promise<Resultado> {
+export async function guardarClase(c: { id?: string; semestre: number; paralelo?: string | null; dia: number; inicio: string; fin: string; materia: string; teacherId: string | null; activo: boolean }): Promise<Resultado> {
   try {
     await exigir();
     const sql = db();
     const { periodo } = await ajustesActuales();
     if (!c.materia.trim()) throw new Error('Escribe la materia');
     if (c.inicio >= c.fin) throw new Error('La hora de fin debe ser mayor que la de inicio');
-    if (c.id) await sql`update classes set semestre = ${c.semestre}, dia = ${c.dia}, inicio = ${c.inicio}, fin = ${c.fin}, materia = ${c.materia.trim()}, teacher_id = ${c.teacherId || null}, activo = ${c.activo} where id = ${c.id}`;
-    else await sql`insert into classes (periodo, semestre, dia, inicio, fin, materia, teacher_id, activo) values (${periodo}, ${c.semestre}, ${c.dia}, ${c.inicio}, ${c.fin}, ${c.materia.trim()}, ${c.teacherId || null}, ${c.activo})
-      on conflict (periodo, semestre, dia, inicio, materia) do update set fin = excluded.fin, teacher_id = excluded.teacher_id, activo = excluded.activo`;
+    const paralelo = normalizarParalelo(c.paralelo) || null;
+    if (c.id) await sql`update classes set semestre = ${c.semestre}, paralelo = ${paralelo}, dia = ${c.dia}, inicio = ${c.inicio}, fin = ${c.fin}, materia = ${c.materia.trim()}, teacher_id = ${c.teacherId || null}, activo = ${c.activo} where id = ${c.id}`;
+    else await sql`insert into classes (periodo, semestre, paralelo, dia, inicio, fin, materia, teacher_id, activo) values (${periodo}, ${c.semestre}, ${paralelo}, ${c.dia}, ${c.inicio}, ${c.fin}, ${c.materia.trim()}, ${c.teacherId || null}, ${c.activo})
+      on conflict (periodo, semestre, dia, inicio, materia, coalesce(paralelo, '')) do update set fin = excluded.fin, teacher_id = excluded.teacher_id, activo = excluded.activo`;
     refrescar();
     return { ok: true };
   } catch (e) { return fallo(e); }
@@ -353,8 +358,8 @@ export async function importarEstudiantes(formData: FormData): Promise<Resultado
     const correos = [...new Set(ok.map((e) => e.correo))];
     await sql.begin(async (tx) => {
       for (const e of ok) {
-        await tx`insert into students (periodo, nombre, correo, semestre, genero, activo) values (${periodo}, ${e.nombre}, ${e.correo}, ${e.semestre}, ${e.genero}, true)
-          on conflict (periodo, correo) do update set nombre = excluded.nombre, semestre = excluded.semestre, genero = excluded.genero, activo = true`;
+        await tx`insert into students (periodo, nombre, correo, semestre, paralelo, genero, activo) values (${periodo}, ${e.nombre}, ${e.correo}, ${e.semestre}, ${e.paralelo || null}, ${e.genero}, true)
+          on conflict (periodo, correo) do update set nombre = excluded.nombre, semestre = excluded.semestre, paralelo = excluded.paralelo, genero = excluded.genero, activo = true`;
       }
       await tx`update students set activo = false where periodo = ${periodo} and correo <> all(${correos})`;
     });
@@ -376,12 +381,17 @@ export async function importarDocentes(formData: FormData): Promise<Resultado<{ 
     const sql = db();
     const { periodo } = await ajustesActuales();
     const correos = [...new Set(ok.map((d) => d.correo))];
+    const existentes = await sql`select id, nombre, correo from teachers where periodo = ${periodo}`;
     await sql.begin(async (tx) => {
       for (const d of ok) {
-        await tx`insert into teachers (periodo, nombre, correo, activo) values (${periodo}, ${d.nombre}, ${d.correo}, true)
+        // Si el docente ya existe (creado desde el horario, sin correo), se completa su correo.
+        const porNombre = existentes.find((t) => claveNombre(String(t.nombre)) === claveNombre(d.nombre) && String(t.correo ?? '') !== d.correo);
+        const porCorreo = existentes.find((t) => String(t.correo ?? '') === d.correo);
+        if (porNombre && !porCorreo) await tx`update teachers set correo = ${d.correo}, nombre = ${d.nombre}, activo = true where id = ${porNombre.id}`;
+        else await tx`insert into teachers (periodo, nombre, correo, activo) values (${periodo}, ${d.nombre}, ${d.correo}, true)
           on conflict (periodo, correo) do update set nombre = excluded.nombre, activo = true`;
       }
-      await tx`update teachers set activo = false where periodo = ${periodo} and correo <> all(${correos})`;
+      await tx`update teachers set activo = false where periodo = ${periodo} and correo is not null and correo <> all(${correos})`;
     });
     const [n] = await sql`select count(*)::int as n from teachers where periodo = ${periodo} and activo`;
     const resumen = `${n.n} docentes con correo institucional`;
@@ -397,21 +407,31 @@ export async function importarHorarios(formData: FormData): Promise<Resultado<{ 
     const { nombre, buffer } = await archivoDe(formData);
     const filas = await leerTabla(buffer, nombre);
     const { ok, errores } = parseHorarios(filas);
-    if (!ok.length) throw new Error('No se encontraron filas válidas. Columnas esperadas: Semestre, Día, Inicio, Fin, Materia, Correo docente.' + (errores.length ? ' ' + errores[0] : ''));
+    if (!ok.length) throw new Error('No se encontraron filas válidas. Se acepta el horario de la universidad (ASIGNATURA, NIVEL, PARALELO, DOCENTE, LUNES…VIERNES) o columnas Semestre, Paralelo, Día, Inicio, Fin, Materia, Docente, Correo docente.' + (errores.length ? ' ' + errores[0] : ''));
     const sql = db();
     const { periodo } = await ajustesActuales();
+    const docentes = await sql`select id, nombre, correo from teachers where periodo = ${periodo}`;
+    const idPorCorreo = new Map(docentes.filter((t) => t.correo).map((t) => [String(t.correo), String(t.id)]));
+    const idPorNombre = new Map(docentes.map((t) => [claveNombre(String(t.nombre)), String(t.id)]));
     await sql.begin(async (tx) => {
-      // Docentes nuevos que vienen solo con correo en el horario
+      // Docentes que vienen en el horario y aún no existen (por correo o por nombre).
       for (const c of ok) {
-        if (c.correoDocente) {
-          await tx`insert into teachers (periodo, nombre, correo, activo) values (${periodo}, ${c.correoDocente.split('@')[0]}, ${c.correoDocente}, true) on conflict (periodo, correo) do update set activo = true`;
+        if (c.correoDocente && !idPorCorreo.has(c.correoDocente)) {
+          const [t] = await tx`insert into teachers (periodo, nombre, correo, activo) values (${periodo}, ${c.docenteNombre || c.correoDocente.split('@')[0]}, ${c.correoDocente}, true)
+            on conflict (periodo, correo) do update set activo = true returning id`;
+          idPorCorreo.set(c.correoDocente, String(t.id));
+          if (c.docenteNombre) idPorNombre.set(claveNombre(c.docenteNombre), String(t.id));
+        } else if (!c.correoDocente && c.docenteNombre && !idPorNombre.has(claveNombre(c.docenteNombre))) {
+          const [t] = await tx`insert into teachers (periodo, nombre, correo, activo) values (${periodo}, ${c.docenteNombre}, null, true) returning id`;
+          idPorNombre.set(claveNombre(c.docenteNombre), String(t.id));
         }
       }
       await tx`update classes set activo = false where periodo = ${periodo}`;
       for (const c of ok) {
-        await tx`insert into classes (periodo, semestre, dia, inicio, fin, materia, teacher_id, activo)
-          values (${periodo}, ${c.semestre}, ${c.dia}, ${c.inicio}, ${c.fin}, ${c.materia}, ${c.correoDocente ? tx`(select id from teachers where periodo = ${periodo} and correo = ${c.correoDocente})` : null}, true)
-          on conflict (periodo, semestre, dia, inicio, materia) do update set fin = excluded.fin, teacher_id = coalesce(excluded.teacher_id, classes.teacher_id), activo = true`;
+        const teacherId = (c.correoDocente && idPorCorreo.get(c.correoDocente)) || (c.docenteNombre && idPorNombre.get(claveNombre(c.docenteNombre))) || null;
+        await tx`insert into classes (periodo, semestre, paralelo, dia, inicio, fin, materia, teacher_id, activo)
+          values (${periodo}, ${c.semestre}, ${c.paralelo || null}, ${c.dia}, ${c.inicio}, ${c.fin}, ${c.materia}, ${teacherId}, true)
+          on conflict (periodo, semestre, dia, inicio, materia, coalesce(paralelo, '')) do update set fin = excluded.fin, teacher_id = coalesce(excluded.teacher_id, classes.teacher_id), activo = true`;
       }
     });
     const [n] = await sql`select count(distinct semestre)::int as s, count(distinct materia)::int as m from classes where periodo = ${periodo} and activo`;

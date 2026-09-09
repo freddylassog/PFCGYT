@@ -9,7 +9,7 @@ import { DIAS_CLASE, SEMESTRES, fechaCorta, semLabel } from '@/lib/reglas';
 import type { Datos, Estudiante, Semestre } from '@/lib/tipos';
 import { docenteDe, vistaPedidos } from '@/lib/vista';
 
-const CLASE_VACIA = { id: '', semestre: 1, dia: 1, inicio: '08:00', fin: '10:00', materia: '', teacherId: '', activo: true };
+const CLASE_VACIA = { id: '', semestre: 1, paralelo: '', dia: 1, inicio: '08:00', fin: '10:00', materia: '', teacherId: '', activo: true };
 
 export function Horarios({ datos }: { datos: Datos }) {
   const { pending, error, run } = useAccion();
@@ -21,7 +21,7 @@ export function Horarios({ datos }: { datos: Datos }) {
   const [verDoc, setVerDoc] = useState(false);
   const pedidos = vistaPedidos(datos);
   const arch = datos.ajustes.archivos;
-  const clases = datos.clases.filter((c) => c.activo && c.semestre === sem).sort((a, b) => a.dia - b.dia || a.inicio.localeCompare(b.inicio));
+  const clases = datos.clases.filter((c) => c.activo && c.semestre === sem).sort((a, b) => a.dia - b.dia || a.inicio.localeCompare(b.inicio) || (a.paralelo || '').localeCompare(b.paralelo || ''));
 
   function subir(clave: 'horarios' | 'docentes', archivo: File) {
     const fd = new FormData(); fd.set('archivo', archivo);
@@ -52,9 +52,9 @@ export function Horarios({ datos }: { datos: Datos }) {
 
   return (
     <div className={pending ? 'pendiente' : ''}>
-      <div className="mt-8 max-760"><h1 className="m-0">Horarios y docentes</h1><p className="muted" style={{ margin: 'var(--space-1) 0 0' }}>Carga los horarios de 1.º a 3.º semestre y el directorio de docentes. El sistema detecta qué materias chocan con cada evento y prepara el correo al docente al confirmar estudiantes de ese semestre; tú lo envías desde Outlook.</p></div>
+      <div className="mt-8 max-760"><h1 className="m-0">Horarios y docentes</h1><p className="muted" style={{ margin: 'var(--space-1) 0 0' }}>Carga el horario de la universidad (1.º a 3.º) y el directorio de docentes con sus correos. El sistema detecta qué materias chocan con cada evento según el semestre y el paralelo de cada estudiante confirmado, y prepara el correo al docente; tú lo envías desde Outlook.</p></div>
       <div className="cols-auto mt-6">
-        {tarjeta('horarios', 'Horarios por semestre', 'Semestre, Día, Inicio, Fin, Materia, Correo docente')}
+        {tarjeta('horarios', 'Horarios por semestre', 'el archivo de la universidad tal cual (ASIGNATURA, NIVEL, PARALELO, DOCENTE, LUNES…VIERNES)')}
         {tarjeta('docentes', 'Directorio de docentes', 'Nombre, Correo')}
       </div>
       {error && <p className="error mt-3">{error}</p>}
@@ -72,6 +72,7 @@ export function Horarios({ datos }: { datos: Datos }) {
           <h6 className="h6-accent">{clase.id ? 'Editar clase' : 'Nueva clase'}</h6>
           <div className="cols-auto-150" style={{ alignItems: 'end' }}>
             <div className="field"><label>Semestre</label><select className="input" value={clase.semestre} onChange={(e) => setClase({ ...clase, semestre: Number(e.target.value) })}>{SEMESTRES.map((n) => <option key={n} value={n}>{n}.º</option>)}</select></div>
+            <div className="field"><label>Paralelo</label><input className="input" value={clase.paralelo} onChange={(e) => setClase({ ...clase, paralelo: e.target.value })} placeholder="A, B, C1…" /></div>
             <div className="field"><label>Día</label><select className="input" value={clase.dia} onChange={(e) => setClase({ ...clase, dia: Number(e.target.value) })}>{[1, 2, 3, 4, 5].map((d) => <option key={d} value={d}>{DIAS_CLASE[d]}</option>)}</select></div>
             <div className="field"><label>Inicio</label><input className="input" type="time" value={clase.inicio} onChange={(e) => setClase({ ...clase, inicio: e.target.value })} required /></div>
             <div className="field"><label>Fin</label><input className="input" type="time" value={clase.fin} onChange={(e) => setClase({ ...clase, fin: e.target.value })} required /></div>
@@ -86,23 +87,23 @@ export function Horarios({ datos }: { datos: Datos }) {
           <h6 className="h6-accent">{doc.id ? 'Editar docente' : 'Nuevo docente'}</h6>
           <div className="cols-auto-150" style={{ alignItems: 'end' }}>
             <div className="field"><label>Nombre</label><input className="input" value={doc.nombre} onChange={(e) => setDoc({ ...doc, nombre: e.target.value })} required /></div>
-            <div className="field"><label>Correo</label><input className="input" type="email" value={doc.correo} onChange={(e) => setDoc({ ...doc, correo: e.target.value })} required /></div>
+            <div className="field"><label>Correo</label><input className="input" type="email" value={doc.correo} onChange={(e) => setDoc({ ...doc, correo: e.target.value })} /></div>
             <button className="btn btn-primary" type="submit">Guardar</button>
           </div>
-          {datos.docentes.length > 0 && <div className="row fs-12">{datos.docentes.filter((d) => d.activo).map((d) => <button key={d.id} type="button" className="btn btn-ghost btn-sm" onClick={() => setDoc({ id: d.id, nombre: d.nombre, correo: d.correo })}>{d.nombre}</button>)}</div>}
+          {datos.docentes.length > 0 && <div className="row fs-12">{datos.docentes.filter((d) => d.activo).map((d) => <button key={d.id} type="button" className={`btn btn-sm ${d.correo ? 'btn-ghost' : 'btn-secondary'}`} title={d.correo ?? 'Sin correo: pulsa para completarlo'} onClick={() => setDoc({ id: d.id, nombre: d.nombre, correo: d.correo ?? '' })}>{d.nombre}{d.correo ? '' : ' · sin correo'}</button>)}</div>}
         </Marco>
       )}
       <Marco className="mt-3 scroll-x">
         <table className="table" style={{ minWidth: 560 }}>
-          <thead><tr><th>Día</th><th>Hora</th><th>Materia</th><th>Docente</th><th>Correo</th><th></th></tr></thead>
+          <thead><tr><th>Día</th><th>Hora</th><th>Materia</th><th>Paralelo</th><th>Docente</th><th>Correo</th><th></th></tr></thead>
           <tbody>
-            {clases.length === 0 && <tr><td colSpan={6} className="muted">Sin clases cargadas para {sem}.º semestre.</td></tr>}
+            {clases.length === 0 && <tr><td colSpan={7} className="muted">Sin clases cargadas para {sem}.º semestre.</td></tr>}
             {clases.map((c) => {
               const d = docenteDe(datos, c.teacherId);
               return (
                 <tr key={c.id}>
-                  <td>{DIAS_CLASE[c.dia]}</td><td className="nowrap">{c.inicio}–{c.fin}</td><td>{c.materia}</td><td>{d?.nombre ?? '—'}</td><td className="muted fs-13">{d?.correo ?? '—'}</td>
-                  <td className="nowrap"><button type="button" className="btn btn-ghost btn-sm" onClick={() => { setClase({ id: c.id, semestre: c.semestre, dia: c.dia, inicio: c.inicio, fin: c.fin, materia: c.materia, teacherId: c.teacherId ?? '', activo: true }); setVerClase(true); }}>Editar</button><button type="button" className="btn btn-ghost btn-sm" onClick={() => { if (confirm(`¿Eliminar ${c.materia} (${DIAS_CLASE[c.dia]} ${c.inicio})?`)) run(() => eliminarClase(c.id)); }}>Quitar</button></td>
+                  <td>{DIAS_CLASE[c.dia]}</td><td className="nowrap">{c.inicio}–{c.fin}</td><td>{c.materia}</td><td>{c.paralelo ?? '—'}</td><td>{d?.nombre ?? '—'}</td><td className="muted fs-13">{d?.correo ?? <span className="tag tag-outline">sin correo</span>}</td>
+                  <td className="nowrap"><button type="button" className="btn btn-ghost btn-sm" onClick={() => { setClase({ id: c.id, semestre: c.semestre, paralelo: c.paralelo ?? '', dia: c.dia, inicio: c.inicio, fin: c.fin, materia: c.materia, teacherId: c.teacherId ?? '', activo: true }); setVerClase(true); }}>Editar</button><button type="button" className="btn btn-ghost btn-sm" onClick={() => { if (confirm(`¿Eliminar ${c.materia} (${DIAS_CLASE[c.dia]} ${c.inicio})?`)) run(() => eliminarClase(c.id)); }}>Quitar</button></td>
                 </tr>
               );
             })}
@@ -110,6 +111,7 @@ export function Horarios({ datos }: { datos: Datos }) {
         </table>
       </Marco>
 
+      {datos.docentes.some((d) => d.activo && !d.correo) && <p className="aviso mt-3 fs-13" style={{ maxWidth: 760 }}>Hay docentes sin correo ({datos.docentes.filter((d) => d.activo && !d.correo).length}). Carga el directorio de docentes (Nombre, Correo) o pulsa &quot;Agregar docente&quot; y elige el nombre para completarlo.</p>}
       <div className="mt-8"><h3 className="m-0">Correos a docentes</h3><p className="muted fs-14" style={{ margin: 'var(--space-1) 0 0' }}>Aviso de ausencia justificada por apoyo protocolario. Se preparan al confirmar estudiantes; ábrelos en Outlook, envíalos y márcalos como enviados.</p></div>
       <div className="stack mt-4 max-760">
         {!avisos.length && <p className="muted">Aún no hay correos preparados.</p>}

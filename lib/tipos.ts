@@ -44,6 +44,7 @@ export interface Estudiante {
   nombre: string;
   correo: string;
   semestre: Semestre;
+  paralelo: string | null;
   genero: Genero;
   activo: boolean;
 }
@@ -51,13 +52,14 @@ export interface Estudiante {
 export interface Docente {
   id: string;
   nombre: string;
-  correo: string;
+  correo: string | null;
   activo: boolean;
 }
 
 export interface Clase {
   id: string;
   semestre: Semestre;
+  paralelo: string | null;
   dia: number; // 1 = lunes … 5 = viernes
   inicio: string;
   fin: string;
