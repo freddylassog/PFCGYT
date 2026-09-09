@@ -201,10 +201,10 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------------------
--- Semilla: periodo 2026-2 (16 semanas desde el lunes 7 sep 2026) y materias
+-- Semilla: periodo 2026-2 (16 semanas desde el lunes 5 oct 2026) y materias fijas
 -- ---------------------------------------------------------------------------
 insert into settings (periodo, actual, inicio_semestre, semanas, horas_semana)
-values ('2026-2', true, '2026-09-07', 16, 20)
+values ('2026-2', true, '2026-10-05', 16, 20)
 on conflict (periodo) do nothing;
 
 insert into grade_subjects (periodo, semestre, materia) values

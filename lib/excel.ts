@@ -93,12 +93,12 @@ export async function generarReporte(d: Datos): Promise<Buffer> {
 
   hoja(wb, 'Horas', [['Concepto', 'Horas'], ['Horas asignadas por semana', horas.horasSemana], [`Horas del semestre (${horas.semanas} semanas)`, horas.total], ['Horas registradas en eventos aprobados', horas.usadas], ['Horas disponibles', horas.restantes]], [40, 10]);
 
-  const est: (string | number)[][] = [['Semestre', 'Materia para nota', 'Docente', 'Estudiante', 'Correo', 'Eventos', 'Horas', 'Eventos (detalle)', 'Cumple mínimo 2', 'Novedades', 'Uniforme', 'Prendas entregadas', 'Faltan', 'Devolución']];
+  const est: (string | number)[][] = [['Semestre', 'Estudiante', 'Correo', 'Eventos', 'Horas', 'Eventos (detalle)', 'Cumple mínimo 2', 'Novedades', 'Uniforme', 'Prendas entregadas', 'Faltan', 'Devolución']];
   matriz.forEach((m) => m.filas.forEach((r) => {
     const u = infoUniforme(r.genero, d.prendas.filter((p) => p.studentId === r.id).map((p) => p.item));
-    est.push([m.semestre, m.materia, m.docente?.nombre ?? '—', r.nombre, r.correo, r.eventosN, r.horas, r.detalle, r.cumple ? 'Sí' : 'No', r.novedadesN, u.estado, u.tiene.join('; '), u.faltan.join('; '), devolucionTexto(d, r.id, u.n > 0)]);
+    est.push([m.semestre, r.nombre, r.correo, r.eventosN, r.horas, r.detalle, r.cumple ? 'Sí' : 'No', r.novedadesN, u.estado, u.tiene.join('; '), u.faltan.join('; '), devolucionTexto(d, r.id, u.n > 0)]);
   }));
-  hoja(wb, 'Estudiantes', est, [9, 22, 22, 26, 30, 8, 7, 50, 14, 10, 14, 40, 30, 22]);
+  hoja(wb, 'Estudiantes', est, [9, 26, 30, 8, 7, 50, 14, 10, 14, 40, 30, 22]);
 
   const nov: (string | number)[][] = [['Fecha', 'Evento', 'Código', 'Estudiante', 'Semestre', 'Tipo de novedad', 'Detalle', 'Reportado a decanato']];
   d.novedades.forEach((n) => {
@@ -118,7 +118,7 @@ export async function generarMatriz(d: Datos, semestre: Semestre): Promise<Buffe
   const filas: (string | number)[][] = [['Estudiante', 'Correo', 'Eventos', 'Horas', 'Eventos (detalle)', 'Cumple mínimo 2', 'Novedades', 'Estado']];
   m.filas.forEach((r) => filas.push([r.nombre, r.correo, r.eventosN, r.horas, r.detalle, r.cumple ? 'Sí' : 'No', r.novedadesN, r.estado]));
   const ws = hoja(wb, `${m.semestre}.º semestre`, filas, [26, 30, 8, 7, 50, 14, 10, 20]);
-  ws.insertRow(1, [`Matriz de protocolo · ${semLabel(m.semestre)} · nota en ${m.materia} · periodo ${d.ajustes.periodo}`]);
+  ws.insertRow(1, [`Matriz de protocolo · ${semLabel(m.semestre)} · periodo ${d.ajustes.periodo} · mínimo 2 eventos por estudiante`]);
   ws.getRow(1).font = { bold: true, size: 13 };
   ws.getRow(2).font = { bold: true };
   return Buffer.from(await wb.xlsx.writeBuffer());

@@ -10,7 +10,7 @@ Costo mensual: **$0** (Supabase + Vercel en sus planes gratuitos).
 |---|---|---|
 | **Solicitante** (interno UTE o externo) | Llena el pedido de 4 pasos y adjunta la evidencia (correo o pedido formal). | Enlace público, sin clave. |
 | **Coordinación** | Revisa, aprueba, convoca, confirma estudiantes, registra novedades y uniformes, descarga el reporte. | `/coordinacion` con usuario y contraseña. |
-| **Estudiante** | Se inscribe a convocatorias, ve sus eventos confirmados y su uniforme. | `/estudiante` con su correo institucional y la **clave provisional del evento** (`UTE-XXXX`). |
+| **Estudiante** | Se inscribe a convocatorias, ve sus eventos confirmados y su uniforme. | `/estudiante` con su correo institucional y la **clave del evento** (su código, p. ej. `SOL-2026-003`). |
 
 ### Correos: la app no los envía, los prepara
 
@@ -24,13 +24,13 @@ Coordinación lo envía desde su propia cuenta y luego marca **"Marcar como envi
 ### Reglas implementadas (en el navegador y en el servidor)
 
 1. **72 horas**: no se registra un pedido a menos de 3 días.
-2. **Cruce de horarios entre eventos**: si ya hay un evento en esa fecha y hora se muestra el aviso *"Horario ocupado. Ya hay un evento en esa hora…"*. El pedido **sí puede continuar** y coordinación ve el cruce en el panel y en la columna *Cruces*. Para que bloquee, cambia `BLOQUEAR_CRUCE_EVENTOS` a `true` en `lib/reglas.ts`.
+2. **Cruce de horarios entre eventos**: si ya hay un evento (no rechazado) en esa fecha y hora se muestra el aviso *"Horario ocupado. Ya hay un evento en esa hora…"* y **no se puede registrar el pedido**. Sí se permite otro horario el mismo día. (Para que solo avise sin bloquear, cambia `BLOQUEAR_CRUCE_EVENTOS` a `false` en `lib/reglas.ts`.)
 3. **Externo sin convenio**: se registra para revisión, pero no se puede aprobar hasta marcar el convenio como vigente.
 4. **Alimentación** si la participación pasa de 4 h; **transporte** si termina después de las 18:00 o el lugar es lejano.
 5. **Horas por evento** = salida − inicio (1 decimal). Presupuesto del semestre = horas por semana × 16 semanas.
-6. Estudiantes de 1.º a 3.º; **mínimo 2 eventos** confirmados; materia para la nota por semestre (Lenguaje, Investigación, Cultura Gastronómica; editable).
+6. Estudiantes de 1.º a 3.º; **mínimo 2 eventos** confirmados. La app **no pone notas**: solo muestra el texto de la regla y permite enviar la matriz de cada semestre al docente correspondiente (Lenguaje, Investigación y Cultura Gastronómica, fijas en la base de datos; el docente se toma del horario cargado).
 7. **Cruce con clases**: clases del mismo día de la semana que chocan con el horario del evento, filtradas a los semestres de los estudiantes confirmados. Al confirmar a un estudiante se prepara el correo al docente automáticamente.
-8. **Clave por evento**: se genera al aprobar, se puede regenerar y deja de servir al terminar el evento. La clave no es secreta: solo sirve para inscribirse.
+8. **Clave por evento**: es el **código del evento** (`SOL-2026-003`), fácil de recordar porque aparece en todos los correos y pantallas. Se asigna al aprobar y deja de servir al terminar el evento. No es secreta: solo sirve para que el estudiante se inscriba (además debe estar en el listado activo). Si hace falta, *"Generar otra"* la reemplaza por una aleatoria `UTE-XXXX`.
 9. Las novedades solo se registran para estudiantes confirmados; una vez reportadas a decanato quedan bloqueadas.
 10. Devolución del uniforme: solo se acepta **lavado**; si no, queda como *"No recibido · sin lavar"*.
 
@@ -39,7 +39,7 @@ Coordinación lo envía desde su propia cuenta y luego marca **"Marcar como envi
 ### 1. Supabase (base de datos y archivos)
 
 1. Entra a [supabase.com](https://supabase.com) → **New project** → nombre `protocolo-fcgt`, región *South America (São Paulo)*. Guarda la contraseña de la base de datos: **usa solo letras y números** (sin símbolos).
-2. Cuando cargue el proyecto, abre **SQL Editor** → **New query**, pega todo el contenido de [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql) y pulsa **Run**. Esto crea las tablas, el periodo `2026-2` (16 semanas desde el lunes 7 de septiembre de 2026), las materias de nota y el bucket privado `evidencias`.
+2. Cuando cargue el proyecto, abre **SQL Editor** → **New query**, pega todo el contenido de [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql) y pulsa **Run**. Esto crea las tablas, el periodo `2026-2` (16 semanas desde el lunes 5 de octubre de 2026; los eventos anteriores a esa fecha también se registran y cuentan en el total), las materias fijas y el bucket privado `evidencias`.
 3. Copia estos datos:
    - Botón **Connect** (arriba) → pestaña **Transaction pooler** → la cadena `postgresql://postgres.xxxx:[YOUR-PASSWORD]@…pooler.supabase.com:6543/postgres`. Reemplaza `[YOUR-PASSWORD]` por tu contraseña. Es la variable `DATABASE_URL`.
    - **Project Settings → API**: `Project URL` (variable `SUPABASE_URL`) y `service_role` key (variable `SUPABASE_SERVICE_ROLE_KEY`). La clave `service_role` es secreta: nunca la compartas ni la pegues en el código.
@@ -88,7 +88,7 @@ Cada carga **actualiza** por correo electrónico (no duplica), agrega los nuevos
 
 - **Solicitante** (`/`): 4 pasos — Solicitante (evidencia, datos, interno/externo, convenio), Evento (fecha con regla de 72 h, horario, cruces, lugar, responsable), Estudiantes (cantidad, actividades, vestimenta) y Compromisos (alimentación, transporte, actividades). Al final recibe su código `SOL-AAAA-NNN`.
 - **Coordinación → Pedidos**: vista Tabla, Tablero o Calendario (la elección se recuerda). Al abrir un pedido: datos, evidencia, cruces con otros eventos, **Aprobar y convocar** (genera la clave y el correo de convocatoria), inscritos por revisar (Aceptar/Rechazar), confirmados (Quitar, Correo), agregar estudiante directamente, novedades del evento con reporte a decanato, cruce con clases con el correo a cada docente, y el correo de respuesta al solicitante.
-- **Coordinación → Estudiantes**: carga del listado, matriz por semestre con estado (Cumple / Falta 1 evento / Sin eventos · nota 0), materia y docente para la nota (editable), **Enviar matriz al docente** (descarga el Excel del semestre para adjuntarlo y marca el envío).
+- **Coordinación → Estudiantes**: carga del listado, matriz por semestre con estado (Cumple / Falta 1 evento / Sin eventos · nota 0) y **Enviar matriz al docente** (descarga el Excel del semestre para adjuntarlo y marca el envío).
 - **Coordinación → Uniformes**: prendas entregadas por estudiante, estado (Completo / Parcial / Sin entregar) y devolución.
 - **Coordinación → Novedades**: registro por evento y estudiante confirmado; **Reportar** prepara el correo a decanato y marca las novedades como reportadas.
 - **Coordinación → Resumen**: horas por semana, total del semestre, horas registradas y disponibles, contadores por estado, eventos aprobados, **reporte .xlsx** (hojas Eventos, Horas, Estudiantes, Novedades), ajustes del periodo y creación del nuevo semestre.

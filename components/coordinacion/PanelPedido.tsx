@@ -74,8 +74,8 @@ export function PanelPedido({ p, datos, pedidos, cruceEvento, onCerrar }: { p: P
           <>
             <span className="tag tag-accent" style={{ justifySelf: 'start' }}>Convocatoria abierta · {fechaCorta(p.convocadaAt)} · {nEstudiantes} estudiantes</span>
             <div className="between fs-12" style={{ border: '1px solid var(--color-divider)', padding: '6px 8px' }}>
-              <span><span className="muted">Clave provisional del evento:</span> <strong className="heading" style={{ fontSize: 14, letterSpacing: '.08em' }}>{p.clave ?? '—'}</strong></span>
-              <button className="btn btn-ghost btn-sm" type="button" onClick={() => run(() => regenerarClave(p.id))}>Generar nueva</button>
+              <span><span className="muted">Clave del evento (para inscribirse):</span> <strong className="heading" style={{ fontSize: 14, letterSpacing: '.08em' }}>{p.clave ?? '—'}</strong></span>
+              <button className="btn btn-ghost btn-sm" type="button" title="Cambia la clave por una aleatoria (UTE-XXXX)" onClick={() => { if (confirm('¿Cambiar la clave por una aleatoria? Los estudiantes deberán usar la nueva.')) run(() => regenerarClave(p.id)); }}>Generar otra</button>
             </div>
             <CorreoBox titulo="Correo de convocatoria" correo={correoConvocatoria(datos, p)} nota={datos.ajustes.correoGrupoEstudiantes ? undefined : 'Sin grupo de Outlook configurado: los estudiantes activos van en CCO. Puedes fijar el grupo en Resumen → Ajustes.'} />
             {p.inscritosN > 0 && (

@@ -30,6 +30,11 @@ await p.fill('#responsable', 'Secretaría FCGT · ext. 2410');
 await p.waitForTimeout(700);
 const alerta = await p.locator('.alerta').allTextContents();
 if (alerta.length) console.log('ALERTA:', alerta.join(' | '));
+if (await p.locator('button:has-text("Continuar")').isDisabled()) {
+  console.log('BLOQUEADO: no se puede continuar (' + (await p.locator('text=Falta:').textContent()) + ')');
+  await b.close();
+  process.exit(0);
+}
 await p.click('button:has-text("Continuar")');
 await p.fill('#cantidad', '3');
 await p.click('label:has-text("Recepción y registro de invitados")');

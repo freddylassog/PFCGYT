@@ -184,7 +184,7 @@ export function FormularioPedido({ hoy }: { hoy: string }) {
             </div>
             <p className="muted fs-12 m-0">Duración: <strong style={{ color: 'var(--color-text)' }}>{durTexto}</strong>.</p>
             {cruceActual && (
-              <div className="alerta" role="alert"><IconoCalendario /><span><strong>Horario ocupado.</strong> Ya hay un evento en esa hora: se cruza con <em>{cruceActual.evento}</em> ({cruceActual.inicio}–{cruceActual.fin}, {cruceActual.estado}). {BLOQUEAR_CRUCE_EVENTOS ? 'Elige otra fecha u horario.' : 'Puedes continuar; la coordinación revisará el cruce antes de aprobar.'}</span></div>
+              <div className="alerta" role="alert"><IconoCalendario /><span><strong>Horario ocupado.</strong> Ya hay un evento en esa hora: se cruza con <em>{cruceActual.evento}</em> ({cruceActual.inicio}–{cruceActual.fin}, {cruceActual.estado}). {BLOQUEAR_CRUCE_EVENTOS ? 'No se puede registrar otro evento en esa hora: elige otro horario el mismo día u otra fecha.' : 'Puedes continuar; la coordinación revisará el cruce antes de aprobar.'}</span></div>
             )}
             <div className="field"><label htmlFor="lugar">Lugar y dirección</label><input id="lugar" className="input" value={f.lugar} onChange={(e) => set('lugar', e.target.value)} placeholder="Salón, edificio, calle" /></div>
             <label className="radio fs-13"><input type="checkbox" checked={f.lejos} onChange={(e) => set('lejos', e.target.checked)} /><span className="dot cuadro" />El lugar está fuera del campus / lejos</label>

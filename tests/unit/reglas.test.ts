@@ -59,6 +59,9 @@ test('cruce con clases por día de la semana y semestres', () => {
 test('clave del evento', () => {
   assert.equal(normalizarClave(' ute-4k7q '), 'UTE-4K7Q');
   assert.equal(normalizarClave('4k7q'), 'UTE-4K7Q');
+  assert.equal(normalizarClave('sol-2026-003'), 'SOL-2026-003', 'la clave normal es el código del evento');
+  assert.equal(normalizarClave('SOL 2026 3'), 'SOL-2026-003');
+  assert.equal(normalizarClave('2026-003'), 'SOL-2026-003');
   assert.match(genClave(() => 0), /^UTE-AAAA$/);
   assert.equal(claveVigente({ fecha: '2026-09-22', fin: '12:00' }, '2026-09-21', '23:00'), true);
   assert.equal(claveVigente({ fecha: '2026-09-22', fin: '12:00' }, '2026-09-22', '12:00'), true);

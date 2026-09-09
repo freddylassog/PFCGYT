@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { guardarEstudiante, guardarMateriaNota, importarEstudiantes, marcarMatriz } from '@/app/actions/coordinacion';
+import { guardarEstudiante, importarEstudiantes, marcarMatriz } from '@/app/actions/coordinacion';
 import { CorreoBox } from '@/components/CorreoBox';
 import { Marco } from '@/components/Marco';
 import { useAccion } from '@/components/useAccion';
@@ -15,8 +15,6 @@ export function Estudiantes({ datos, pedidos }: { datos: Datos; pedidos: PedidoV
   const { pending, error, run } = useAccion();
   const [resultado, setResultado] = useState<{ resumen: string; errores: string[] } | null>(null);
   const [verCorreo, setVerCorreo] = useState<Semestre | null>(null);
-  const [editMateria, setEditMateria] = useState<Semestre | null>(null);
-  const [materia, setMateria] = useState({ materia: '', teacherId: '' });
   const [form, setForm] = useState(FORM_VACIO);
   const [verForm, setVerForm] = useState(false);
   const matriz = matrizSemestres(datos, pedidos);
@@ -71,16 +69,7 @@ export function Estudiantes({ datos, pedidos }: { datos: Datos; pedidos: PedidoV
               <div className="between abajo" style={{ gap: 'var(--space-3)', marginBottom: 'var(--space-2)' }}>
                 <div>
                   <h3 className="m-0">{m.semLabel}</h3>
-                  {editMateria === m.semestre ? (
-                    <form className="row mt-2" onSubmit={(e) => { e.preventDefault(); run(() => guardarMateriaNota(m.semestre, materia.materia, materia.teacherId || null), () => setEditMateria(null)); }}>
-                      <input className="input" style={{ width: 200 }} value={materia.materia} onChange={(e) => setMateria({ ...materia, materia: e.target.value })} placeholder="Materia para la nota" />
-                      <select className="input" style={{ width: 220 }} value={materia.teacherId} onChange={(e) => setMateria({ ...materia, teacherId: e.target.value })}><option value="">Docente (según horario)</option>{datos.docentes.filter((d) => d.activo).map((d) => <option key={d.id} value={d.id}>{d.nombre}</option>)}</select>
-                      <button className="btn btn-primary btn-sm" type="submit">Guardar</button>
-                      <button className="btn btn-ghost btn-sm" type="button" onClick={() => setEditMateria(null)}>Cancelar</button>
-                    </form>
-                  ) : (
-                    <div className="muted fs-13">Nota en <strong>{m.materia}</strong> · {m.docente ? `${m.docente.nombre} · ${m.docente.correo}` : 'docente sin asignar'} <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setEditMateria(m.semestre); setMateria({ materia: m.materia, teacherId: datos.materias.find((x) => x.semestre === m.semestre)?.teacherId ?? '' }); }}>Editar</button></div>
-                  )}
+                  <div className="muted fs-13">Matriz para el docente{m.docente ? `: ${m.docente.nombre} · ${m.docente.correo}` : ' (según el horario cargado)'}</div>
                 </div>
                 <div className="row">
                   <span className="muted fs-13">{m.cumplenN}/{m.n} cumplen</span>

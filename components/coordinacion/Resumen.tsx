@@ -32,7 +32,7 @@ export function Resumen({ datos, pedidos }: { datos: Datos; pedidos: PedidoVista
           <div><div className="card-kicker">Disponibles</div><div className="num" style={{ color }}>{h.restantes} h</div></div>
         </div>
         <div className="barra"><div style={{ width: `${h.pct}%`, background: color }} /></div>
-        <p className="muted fs-12 m-0">Horas por evento = tiempo de participación solicitado (inicio a salida de los estudiantes). Semana {h.semanaN} de {h.semanas}: {h.usadasSemana} h de {h.horasSemana} h.</p>
+        <p className="muted fs-12 m-0">Horas por evento = tiempo de participación solicitado (inicio a salida de los estudiantes). {h.antesDeInicio ? `El semestre inicia el ${fechaLarga(a.inicioSemestre)} (faltan ${h.diasParaInicio} días); los eventos anteriores cuentan en el total.` : `Semana ${h.semanaN} de ${h.semanas}: ${h.usadasSemana} h de ${h.horasSemana} h.`}</p>
       </Marco>
       <div className="cols-auto-140 mt-4">
         {ESTADOS.map((est) => <Marco key={est} className="p-4"><div className="card-kicker">{est}s</div><div className="num-xl">{pedidos.filter((e) => e.estado === est).length}</div></Marco>)}

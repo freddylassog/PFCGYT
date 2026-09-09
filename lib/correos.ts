@@ -59,7 +59,7 @@ export function correoConvocatoria(d: Datos, p: PedidoVista): Correo {
     p.transporte ? `Transporte: el organizador garantiza el transporte de regreso (${p.transporteMotivo?.toLowerCase()}).` : '',
     ``,
     `Para inscribirte entra a ${link}`,
-    `con tu correo institucional y la clave provisional del evento: ${p.clave ?? '—'}`,
+    `con tu correo institucional y la clave del evento: ${p.clave ?? '—'}`,
     `La clave sirve solo para inscribirse y vence al terminar el evento. Coordinación confirma quién entra.`,
     ``,
     `Recuerda: cada estudiante debe cumplir al menos 2 eventos en el semestre para la nota de la materia asignada.`,
@@ -133,8 +133,8 @@ export function correoMatriz(d: Datos, m: MatrizSemestre): Correo {
   const cuerpo = [
     `Estimado/a docente:`,
     ``,
-    `Adjunto la matriz de participación en eventos de protocolo de ${m.semLabel} (periodo ${d.ajustes.periodo}) para la nota de ${m.materia}.`,
-    `Cada estudiante debe cumplir al menos 2 eventos; quien no cumpla puede recibir 0 en esa materia.`,
+    `Adjunto la matriz de participación en eventos de protocolo de ${m.semLabel} (periodo ${d.ajustes.periodo}).`,
+    `Cada estudiante debe cumplir al menos 2 eventos; quien no cumpla puede recibir 0 en la materia correspondiente.`,
     ``,
     `Cumplen: ${m.cumplenN} de ${m.n}.`,
     ``,
@@ -144,7 +144,7 @@ export function correoMatriz(d: Datos, m: MatrizSemestre): Correo {
     ``,
     FIRMA,
   ].join('\n');
-  return { para: m.docente ? [m.docente.correo] : [], asunto: `Matriz de protocolo · ${m.semLabel} · ${m.materia} · ${d.ajustes.periodo}`, cuerpo };
+  return { para: m.docente ? [m.docente.correo] : [], asunto: `Matriz de protocolo · ${m.semLabel} · ${d.ajustes.periodo}`, cuerpo };
 }
 
 // ---------------------------------------------------------------- 5. reporte a decanato

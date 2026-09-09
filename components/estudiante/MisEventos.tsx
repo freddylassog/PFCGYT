@@ -4,13 +4,12 @@ import { Marco } from '@/components/Marco';
 import { useAccion } from '@/components/useAccion';
 import { MINIMO_EVENTOS, infoUniforme, semLabel } from '@/lib/reglas';
 import type { Datos, Estudiante } from '@/lib/tipos';
-import { avanceEstudiante, docenteMateria, vistaPedidos } from '@/lib/vista';
+import { avanceEstudiante, vistaPedidos } from '@/lib/vista';
 
 export function MisEventos({ datos, yo }: { datos: Datos; yo: Estudiante }) {
   const { pending, error, run } = useAccion();
   const pedidos = vistaPedidos(datos);
   const avance = avanceEstudiante(datos, yo.id, pedidos);
-  const { materia } = docenteMateria(datos, yo.semestre);
   const uni = infoUniforme(yo.genero, datos.prendas.filter((p) => p.studentId === yo.id).map((p) => p.item));
   const dev = datos.devoluciones.find((d) => d.studentId === yo.id) ?? null;
   const devTexto = dev?.estado === 'lavado' ? 'Uniforme devuelto y recibido lavado.' : dev?.estado === 'rechazado' ? 'Tu uniforme no fue recibido porque llegó sin lavar. Debes volver a entregarlo lavado.' : 'Al final del semestre devuelve el uniforme lavado; si no está lavado no se recibe.';
@@ -29,7 +28,7 @@ export function MisEventos({ datos, yo }: { datos: Datos; yo: Estudiante }) {
   return (
     <div className={pending ? 'pendiente' : ''}>
       <div className="between abajo mt-8 max-720" style={{ gap: 'var(--space-3)' }}>
-        <div><h1 className="m-0">Mis eventos</h1><p className="muted" style={{ margin: 'var(--space-1) 0 0' }}>{yo.nombre} · {semLabel(yo.semestre)} · nota en {materia}</p></div>
+        <div><h1 className="m-0">Mis eventos</h1><p className="muted" style={{ margin: 'var(--space-1) 0 0' }}>{yo.nombre} · {semLabel(yo.semestre)} · mínimo {MINIMO_EVENTOS} eventos en el semestre</p></div>
         <div style={{ textAlign: 'right' }}><div className="card-kicker">Mi avance</div><div className="num">{avance.eventosN} / {MINIMO_EVENTOS} <span className="muted" style={{ fontSize: 14, fontWeight: 400 }}>eventos · {avance.horas} h</span></div></div>
       </div>
       <Marco className="mt-6 max-720 p-4 stack-2">

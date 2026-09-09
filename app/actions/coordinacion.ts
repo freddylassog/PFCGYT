@@ -46,7 +46,8 @@ export async function cambiarEstado(id: string, estado: Estado): Promise<Resulta
       const [p] = await sql`select tipo, convenio from requests where id = ${id}`;
       if (!p) throw new Error('Pedido no encontrado');
       if (p.tipo === 'externo' && p.convenio === 'no') throw new Error('No se puede aprobar: la institución no tiene convenio vigente con la UTE.');
-      await sql`update requests set estado = 'Aprobado', convocada_at = coalesce(convocada_at, ${hoyISO()}), clave = coalesce(clave, ${genClave()}) where id = ${id}`;
+      // La clave del evento es su propio código (fácil de recordar); "Generar nueva" crea una aleatoria.
+      await sql`update requests set estado = 'Aprobado', convocada_at = coalesce(convocada_at, ${hoyISO()}), clave = coalesce(clave, codigo) where id = ${id}`;
     } else {
       await sql`update requests set estado = ${estado} where id = ${id}`;
     }
@@ -241,19 +242,6 @@ export async function marcarMatriz(semestre: Semestre, enviada: boolean): Promis
     const { periodo } = await ajustesActuales();
     if (enviada) await sql`update settings set matriz_enviada = matriz_enviada || ${sql.json({ [String(semestre)]: hoyISO() })} where periodo = ${periodo}`;
     else await sql`update settings set matriz_enviada = matriz_enviada - ${String(semestre)} where periodo = ${periodo}`;
-    refrescar();
-    return { ok: true };
-  } catch (e) { return fallo(e); }
-}
-
-export async function guardarMateriaNota(semestre: Semestre, materia: string, teacherId: string | null): Promise<Resultado> {
-  try {
-    await exigir();
-    const sql = db();
-    const { periodo } = await ajustesActuales();
-    if (!materia.trim()) throw new Error('Escribe la materia');
-    await sql`insert into grade_subjects (periodo, semestre, materia, teacher_id) values (${periodo}, ${semestre}, ${materia.trim()}, ${teacherId || null})
-      on conflict (periodo, semestre) do update set materia = excluded.materia, teacher_id = excluded.teacher_id`;
     refrescar();
     return { ok: true };
   } catch (e) { return fallo(e); }

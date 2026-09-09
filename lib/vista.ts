@@ -1,7 +1,7 @@
 // Cálculos derivados que comparten el panel, el portal del estudiante, el
 // reporte Excel y los correos. Todo puro: entra `Datos`, salen vistas.
 import {
-  ACTIVIDADES, DEVOLUCION, MINIMO_EVENTOS, VESTIMENTA, convenioLabel, cruceClases, fechaCorta, fechaLarga,
+  ACTIVIDADES, DEVOLUCION, MINIMO_EVENTOS, VESTIMENTA, convenioLabel, cruceClases, diasHasta, fechaCorta, fechaLarga,
   fmtDur, horasDe, infoUniforme, pasa4h, redondear1, semCorto, semLabel, semanaDe, tagClass, tipoLabel, transporteMotivo,
 } from './reglas';
 import type { Clase, Datos, Docente, Estudiante, Novedad, Pedido, Semestre } from './tipos';
@@ -200,6 +200,8 @@ export interface ResumenHoras {
   pct: number;
   semanaN: number;
   usadasSemana: number;
+  antesDeInicio: boolean;
+  diasParaInicio: number;
 }
 
 export function resumenHoras(d: Datos, pedidos?: PedidoVista[]): ResumenHoras {
@@ -209,9 +211,11 @@ export function resumenHoras(d: Datos, pedidos?: PedidoVista[]): ResumenHoras {
   const usadas = redondear1(aprobados.reduce((a, e) => a + e.horas, 0));
   const semanaN = Math.min(Math.max(semanaDe(d.hoy, d.ajustes.inicioSemestre), 1), d.ajustes.semanas);
   const usadasSemana = redondear1(aprobados.filter((e) => semanaDe(e.fecha, d.ajustes.inicioSemestre) === semanaN).reduce((a, e) => a + e.horas, 0));
+  const diasParaInicio = diasHasta(d.ajustes.inicioSemestre, d.hoy);
   return {
     horasSemana: d.ajustes.horasSemana, semanas: d.ajustes.semanas, total, usadas, restantes: redondear1(total - usadas),
     pct: total ? Math.min(100, (usadas / total) * 100) : 0, semanaN, usadasSemana,
+    antesDeInicio: diasParaInicio > 0, diasParaInicio,
   };
 }
 

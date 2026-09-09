@@ -9,9 +9,9 @@ export const MINIMO_EVENTOS = 2;
 export const HORAS_ANTICIPACION = 72;
 export const MAX_ESTUDIANTES = 20;
 
-/** Si es true, un pedido que se cruza con otro no puede registrarse.
- *  Si es false, se muestra el aviso pero el pedido sigue (coordinación decide). */
-export const BLOQUEAR_CRUCE_EVENTOS = false;
+/** Si es true, un pedido que se cruza con otro no puede registrarse (se
+ *  permite otro horario el mismo día). Si es false, solo se muestra el aviso. */
+export const BLOQUEAR_CRUCE_EVENTOS = true;
 
 export const ACTIVIDADES = [
   'Recepción y registro de invitados',
@@ -221,12 +221,16 @@ export function normalizarCorreo(s: string): string {
   return (s || '').trim().toLowerCase();
 }
 
-/** Acepta 'ute-4k7q', '4K7Q', ' UTE-4K7Q ' → 'UTE-4K7Q'. */
+/** La clave de un evento es su código (SOL-2026-003). Acepta variantes:
+ *  'sol 2026 3', 'SOL-2026-003', '2026-003'; y también claves 'UTE-XXXX'. */
 export function normalizarClave(s: string): string {
-  let c = (s || '').trim().toUpperCase().replace(/\s+/g, '');
+  const c = (s || '').trim().toUpperCase().replace(/\s+/g, '');
   if (!c) return '';
-  if (!c.startsWith('UTE-')) c = c.startsWith('UTE') ? 'UTE-' + c.slice(3) : 'UTE-' + c;
-  return c;
+  const m = c.match(/^(?:SOL-?)?(\d{4})-?(\d{1,3})$/);
+  if (m) return `SOL-${m[1]}-${m[2].padStart(3, '0')}`;
+  if (c.startsWith('UTE-')) return c;
+  if (c.startsWith('UTE')) return 'UTE-' + c.slice(3);
+  return 'UTE-' + c;
 }
 
 const ALFABETO_CLAVE = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
