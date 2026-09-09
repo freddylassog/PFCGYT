@@ -42,3 +42,6 @@ next-env.d.ts
 .data/
 test-results/
 playwright-report/
+
+# Plantilla de variables (sí se sube)
+!.env.example
