@@ -1,0 +1,39 @@
+{
+  "name": "protocolo-fcgt",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "test": "tsx --test tests/unit/*.test.ts",
+    "test:e2e": "node tests/e2e/flujo.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.116.0",
+    "exceljs": "^4.4.0",
+    "next": "16.3.4",
+    "postgres": "^3.4.9",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.4",
+    "tsx": "^4.23.13",
+    "typescript": "^5"
+  },
+  "overrides": {
+    "uuid": "^11.1.1"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "description": "Protocolo de eventos · FCGT · Universidad UTE"
+}
