@@ -1,0 +1,15 @@
+import { chromium } from '@playwright/test';
+const base = process.env.BASE_URL || 'http://localhost:3000';
+const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
+const p = await b.newPage({ viewport: { width: 1280, height: 900 } });
+p.on('pageerror', (e) => console.log('PAGEERROR', e.message));
+await p.goto(base + '/coordinacion');
+await p.fill('#password', 'protocolo2026');
+await p.click('button:has-text("Ingresar")');
+await p.waitForSelector('h1:has-text("Coordinación")');
+await p.goto(base + '/coordinacion?tab=estudiantes');
+await p.setInputFiles('input[type=file]', process.argv[2]);
+await p.waitForSelector('text=filas procesadas', { timeout: 30000 });
+console.log('ESTUDIANTES:', (await p.locator('text=filas procesadas').textContent())?.trim());
+await p.screenshot({ path: '/tmp/claude-0/-home-user-PFCGYT/5a10c32a-d366-574f-b48c-ac6051283a90/scratchpad/shots/estudiantes-reales.png', fullPage: true });
+await b.close();
