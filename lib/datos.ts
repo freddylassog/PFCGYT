@@ -1,5 +1,6 @@
 import 'server-only';
 import { db } from './db';
+import { asegurarEsquema } from './migrar';
 import { hoyISO, hhmm } from './reglas';
 import type {
   Ajustes, Aviso, Clase, Datos, Devolucion, Docente, Estudiante, Inscripcion,
@@ -45,6 +46,7 @@ function mapAjustes(r: Fila): Ajustes {
 
 /** Periodo (semestre) actual. */
 export async function ajustesActuales(): Promise<Ajustes> {
+  await asegurarEsquema();
   const sql = db();
   const filas = await sql`select * from settings where actual limit 1`;
   if (!filas.length) throw new Error('No hay un periodo activo en la tabla settings. Ejecuta la migración inicial.');

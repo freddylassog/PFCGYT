@@ -3,6 +3,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { ajustesActuales, cargarDatos } from '@/lib/datos';
+import { asegurarEsquema } from '@/lib/migrar';
 import { leerTabla, parseDocentes, parseEstudiantes, parseHorarios } from '@/lib/excel';
 import {
   UNIFORME, TIPOS_NOVEDAD, claseAplica, claveNombre, cruceClases, esFechaISO, genClave, hoyISO, normalizarCorreo, normalizarParalelo,
@@ -12,6 +13,7 @@ import type { Estado, Resultado, Semestre } from '@/lib/tipos';
 
 async function exigir(): Promise<void> {
   if (!(await sesionCoordinacion())) throw new Error('No autorizado. Vuelve a iniciar sesión.');
+  await asegurarEsquema();
 }
 
 function refrescar() {

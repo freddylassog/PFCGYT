@@ -39,7 +39,7 @@ Coordinación lo envía desde su propia cuenta y luego marca **"Marcar como envi
 ### 1. Supabase (base de datos y archivos)
 
 1. Entra a [supabase.com](https://supabase.com) → **New project** → nombre `protocolo-fcgt`, región *South America (São Paulo)*. Guarda la contraseña de la base de datos: **usa solo letras y números** (sin símbolos).
-2. Cuando cargue el proyecto, abre **SQL Editor** → **New query**, pega todo el contenido de [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql) y pulsa **Run**. Repite con cada archivo de `supabase/migrations/` en orden (`0002_…`, etc.); todos se pueden ejecutar más de una vez sin problema. Esto crea las tablas, el periodo `2026-2` (16 semanas desde el lunes 5 de octubre de 2026; los eventos anteriores a esa fecha también se registran y cuentan en el total), las materias fijas y el bucket privado `evidencias`.
+2. No hace falta crear tablas a mano: **la app crea y actualiza su base de datos sola** la primera vez que se usa (aplica en orden los archivos de `supabase/migrations/` y anota cuáles ya corrió en la tabla `schema_migrations`). Eso crea las tablas, el periodo `2026-2` (16 semanas desde el lunes 5 de octubre de 2026; los eventos anteriores a esa fecha también se registran y cuentan en el total), las materias fijas y el bucket privado `evidencias`. Si prefieres hacerlo a mano, también puedes pegar cada archivo en **SQL Editor** → **Run**; son idempotentes.
 3. Copia estos datos:
    - Botón **Connect** (arriba) → pestaña **Transaction pooler** → la cadena `postgresql://postgres.xxxx:[YOUR-PASSWORD]@…pooler.supabase.com:6543/postgres`. Reemplaza `[YOUR-PASSWORD]` por tu contraseña. Es la variable `DATABASE_URL`.
    - **Project Settings → API**: `Project URL` (variable `SUPABASE_URL`) y `service_role` key (variable `SUPABASE_SERVICE_ROLE_KEY`). La clave `service_role` es secreta: nunca la compartas ni la pegues en el código.
@@ -136,6 +136,10 @@ lib/
 supabase/migrations/ SQL para crear la base de datos
 tests/               Pruebas unitarias, flujo e2e y archivos de ejemplo
 ```
+
+## Actualizaciones
+
+Cada vez que se publica una versión nueva (push a GitHub → Vercel la despliega), la app revisa al primer uso si hay archivos nuevos en `supabase/migrations/` y los aplica automáticamente. Coordinación no tiene que hacer nada. Para cambiar la base de datos, agrega un archivo `000N_descripcion.sql` idempotente (`if not exists`, `on conflict do nothing`) y nunca edites los ya publicados.
 
 ## Seguridad
 
