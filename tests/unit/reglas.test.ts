@@ -92,6 +92,7 @@ test('validación del formulario por pasos', () => {
   assert.deepEqual(faltasPedido(f, hoy, null), [[], [], [], []]);
   assert.deepEqual(faltasPedido({ ...f, fecha: '2026-09-09' }, hoy, null)[1], ['fecha con al menos 72 h']);
   assert.deepEqual(faltasPedido({ ...f, correoSolicitante: 'malo' }, hoy, null)[0], ['correo válido']);
+  assert.deepEqual(faltasPedido({ ...f, evidenciaPath: '' }, hoy, null)[1], ['evidencia del pedido'], 'la evidencia se pide en el paso 2');
   const conCruce = faltasPedido(f, hoy, { evento: 'Otro' })[1];
   assert.equal(conCruce.includes('horario sin cruce'), BLOQUEAR_CRUCE_EVENTOS, 'el cruce bloquea solo si está configurado');
 });

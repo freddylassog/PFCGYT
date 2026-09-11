@@ -23,7 +23,7 @@ export function Panel({ datos, tab, selInicial }: { datos: Datos; tab: string; s
       </div>
       {actual === 'pedidos' && <Pedidos datos={datos} pedidos={pedidos} selInicial={selInicial} />}
       {actual === 'estudiantes' && <Estudiantes datos={datos} pedidos={pedidos} />}
-      {actual === 'uniformes' && <Uniformes datos={datos} />}
+      {actual === 'uniformes' && <Uniformes datos={datos} pedidos={pedidos} />}
       {actual === 'novedades' && <Novedades datos={datos} pedidos={pedidos} />}
       {actual === 'resumen' && <Resumen datos={datos} pedidos={pedidos} />}
     </>

@@ -11,7 +11,7 @@ const errores = [];
 p.on('pageerror', (e) => errores.push('PAGEERROR ' + e.message));
 p.on('console', (m) => { if (m.type() === 'error') errores.push('CONSOLE ' + m.text()); });
 const paso = (t) => console.log('·', t);
-const shot = (n) => p.screenshot({ path: `${shots}/${n}.png`, fullPage: true });
+const shot = (n) => p.screenshot({ path: `${shots}/${n}.png`, fullPage: true, caret: 'initial' });
 
 // 1. Login coordinación
 await p.goto(base + '/coordinacion');
@@ -76,6 +76,13 @@ await p.waitForSelector('text=Daniela Ortiz', { timeout: 20000 });
 paso('confirmados: ' + (await p.locator('aside .linea-item').allTextContents()).filter((t) => t.includes('Quitar')).length);
 await shot('pedido-confirmados');
 
+// 6b. Editar el pedido: subir la cantidad a 5
+await p.click('aside button:has-text("Editar pedido")');
+await p.fill('aside input[type=number]', '5');
+await p.click('aside button:has-text("Guardar cambios")');
+await p.waitForSelector('aside dd:has-text("5 solicitados")', { timeout: 20000 });
+paso('pedido editado: cantidad 5');
+
 // 7. Novedad y reporte a decanato
 await p.selectOption('aside select[aria-label="Estudiante"]', { index: 1 });
 await p.selectOption('aside select[aria-label="Tipo de novedad"]', 'Llegó tarde');
@@ -96,6 +103,7 @@ paso('estudiante ve evento confirmado');
 
 // 9. Uniformes
 await p.goto(base + '/coordinacion?tab=uniformes');
+paso('uniformes visibles (solo con evento de uniforme): ' + await p.locator('.cols-auto-340 > .blueprint').count());
 const tarjeta = p.locator('.blueprint:has-text("Camila Ríos")').first();
 await tarjeta.locator('label.chip:has-text("Vestido")').click();
 await tarjeta.locator('text=Parcial 1/3').waitFor({ timeout: 20000 });

@@ -124,17 +124,6 @@ export function FormularioPedido({ hoy }: { hoy: string }) {
         {paso === 1 && (
           <Marco as="section" className="p-6 stack">
             <h6 className="h6-accent">01 · Solicitante</h6>
-            <div className="field">
-              <label>Evidencia del pedido (correo o pedido formal · imagen o PDF)</label>
-              <div className="row">
-                <label className={`btn btn-secondary ${subiendo ? 'pendiente' : ''}`} style={{ cursor: 'pointer' }}>
-                  {subiendo ? 'Subiendo…' : 'Adjuntar archivo'}
-                  <input ref={archivoRef} type="file" accept="image/*,.pdf,application/pdf" style={{ display: 'none' }} onChange={(e) => { const a = e.target.files?.[0]; if (a) subirEvidencia(a); }} />
-                </label>
-                {f.evidenciaNombre ? <span className="tag tag-accent tag-ellipsis">{f.evidenciaNombre}</span> : !subiendo && <span className="muted fs-12">Ningún archivo adjunto</span>}
-              </div>
-              {errorArchivo && <p className="error mt-2">{errorArchivo}</p>}
-            </div>
             <div className="field"><label htmlFor="nombre">Nombre completo</label><input id="nombre" className="input" value={f.nombre} onChange={(e) => set('nombre', e.target.value)} placeholder="Nombre y apellido" autoComplete="name" /></div>
             <div className="cols-2">
               <div className="field"><label htmlFor="cargo">Cargo</label><input id="cargo" className="input" value={f.cargo} onChange={(e) => set('cargo', e.target.value)} /></div>
@@ -171,6 +160,17 @@ export function FormularioPedido({ hoy }: { hoy: string }) {
           <Marco as="section" className="p-6 stack">
             <h6 className="h6-accent">02 · Evento</h6>
             <div className="field"><label htmlFor="evento">Nombre del evento</label><input id="evento" className="input" value={f.evento} onChange={(e) => set('evento', e.target.value)} /></div>
+            <div className="field">
+              <label>Evidencia del pedido (correo o pedido formal · imagen o PDF)</label>
+              <div className="row">
+                <label className={`btn btn-secondary ${subiendo ? 'pendiente' : ''}`} style={{ cursor: 'pointer' }}>
+                  {subiendo ? 'Subiendo…' : 'Adjuntar archivo'}
+                  <input ref={archivoRef} type="file" accept="image/*,.pdf,application/pdf" style={{ display: 'none' }} onChange={(e) => { const a = e.target.files?.[0]; if (a) subirEvidencia(a); }} />
+                </label>
+                {f.evidenciaNombre ? <span className="tag tag-accent tag-ellipsis">{f.evidenciaNombre}</span> : !subiendo && <span className="muted fs-12">Ningún archivo adjunto</span>}
+              </div>
+              {errorArchivo && <p className="error mt-2">{errorArchivo}</p>}
+            </div>
             <div className="cols-2">
               <div className="field"><label htmlFor="fecha">Fecha del evento</label><input id="fecha" className="input" type="date" value={f.fecha} min={hoy} onChange={(e) => set('fecha', e.target.value)} /></div>
               <div className="field"><label>Plazo</label><div className="muted fs-14" style={{ minHeight: 36, display: 'flex', alignItems: 'center' }}>{plazoTexto(f.fecha, hoy)}</div></div>

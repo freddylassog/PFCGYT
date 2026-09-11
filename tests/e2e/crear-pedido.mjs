@@ -13,8 +13,6 @@ p.on('pageerror', (e) => console.log('PAGEERROR', e.message));
 await p.goto(base + '/');
 const tmp = '/tmp/evidencia-prueba.pdf';
 writeFileSync(tmp, '%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF');
-await p.setInputFiles('input[type=file]', tmp);
-await p.waitForSelector('.tag-accent', { timeout: 15000 });
 await p.fill('#nombre', 'Carla Espinosa');
 await p.fill('#cargo', 'Directora de eventos');
 await p.fill('#institucion', tipo === 'interno' ? 'Universidad UTE' : 'Cámara de Comercio de Quito');
@@ -22,6 +20,8 @@ await p.fill('#correo', 'carla@ejemplo.com');
 if (tipo !== 'interno') { await p.click('button:has-text("Externo")'); if (tipo === 'externo-sin') await p.click('label:has-text("No / no sé")'); }
 await p.click('button:has-text("Continuar")');
 await p.fill('#evento', evento);
+await p.setInputFiles('input[type=file]', tmp);
+await p.waitForSelector('.tag-accent', { timeout: 15000 });
 await p.fill('#fecha', fecha);
 await p.fill('#inicio', inicio);
 await p.fill('#fin', fin);

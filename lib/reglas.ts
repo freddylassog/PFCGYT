@@ -357,7 +357,6 @@ export function correoValido(s: string): boolean {
 /** Devuelve, por paso, la lista de lo que falta (vacía = paso completo). */
 export function faltasPedido(f: FormPedido, hoy: string, cruce: { evento: string } | null): string[][] {
   const f1: string[] = [];
-  if (!f.evidenciaPath) f1.push('evidencia del pedido');
   if (!f.nombre.trim()) f1.push('nombre');
   if (!f.cargo.trim()) f1.push('cargo');
   if (!f.institucion.trim()) f1.push('institución');
@@ -366,6 +365,7 @@ export function faltasPedido(f: FormPedido, hoy: string, cruce: { evento: string
 
   const f2: string[] = [];
   if (!f.evento.trim()) f2.push('nombre del evento');
+  if (!f.evidenciaPath) f2.push('evidencia del pedido');
   if (!f.fecha) f2.push('fecha');
   else if (!esFechaISO(f.fecha)) f2.push('fecha válida');
   else if (!cumple72h(f.fecha, hoy)) f2.push('fecha con al menos 72 h');

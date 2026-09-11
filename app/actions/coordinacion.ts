@@ -6,7 +6,7 @@ import { ajustesActuales, cargarDatos } from '@/lib/datos';
 import { asegurarEsquema } from '@/lib/migrar';
 import { leerTabla, parseDocentes, parseEstudiantes, parseHorarios } from '@/lib/excel';
 import {
-  UNIFORME, TIPOS_NOVEDAD, claseAplica, claveNombre, cruceClases, esFechaISO, genClave, hoyISO, normalizarCorreo, normalizarParalelo,
+  ACTIVIDADES, MAX_ESTUDIANTES, UNIFORME, TIPOS_NOVEDAD, VESTIMENTA, claseAplica, claveNombre, cruceClases, duracionMin, esFechaISO, esHora, genClave, hoyISO, normalizarCorreo, normalizarParalelo,
 } from '@/lib/reglas';
 import { iniciarSesionCoordinacion, passwordCoordinacionOk, sesionCoordinacion } from '@/lib/sesion';
 import type { Estado, Resultado, Semestre } from '@/lib/tipos';
@@ -52,6 +52,47 @@ export async function cambiarEstado(id: string, estado: Estado): Promise<Resulta
       await sql`update requests set estado = 'Aprobado', convocada_at = coalesce(convocada_at, ${hoyISO()}), clave = coalesce(clave, codigo) where id = ${id}`;
     } else {
       await sql`update requests set estado = ${estado} where id = ${id}`;
+    }
+    refrescar();
+    return { ok: true };
+  } catch (e) { return fallo(e); }
+}
+
+export interface CambiosPedido {
+  nombre: string; cargo: string; institucion: string; correoSolicitante: string;
+  evento: string; fecha: string; inicio: string; fin: string; lugar: string; lejos: boolean; responsable: string;
+  cantidad: number; vestimenta: string; actividades: string[];
+}
+
+/** Coordinación corrige los datos de un pedido (por ejemplo, la cantidad de estudiantes). */
+export async function editarPedido(id: string, c: CambiosPedido): Promise<Resultado> {
+  try {
+    await exigir();
+    const sql = db();
+    const [actual] = await sql`select fecha, inicio, fin from requests where id = ${id}`;
+    if (!actual) throw new Error('Pedido no encontrado');
+    if (!c.evento.trim()) throw new Error('Escribe el nombre del evento');
+    if (!c.nombre.trim() || !c.cargo.trim() || !c.institucion.trim()) throw new Error('Nombre, cargo e institución son obligatorios');
+    if (!esFechaISO(c.fecha)) throw new Error('Fecha inválida');
+    if (!esHora(c.inicio) || !esHora(c.fin) || duracionMin(c.inicio, c.fin) <= 0) throw new Error('La hora de salida debe ser mayor que la de inicio');
+    if (!c.lugar.trim() || !c.responsable.trim()) throw new Error('Lugar y responsable son obligatorios');
+    const cantidad = Math.round(Number(c.cantidad));
+    if (!(cantidad >= 1 && cantidad <= MAX_ESTUDIANTES)) throw new Error(`La cantidad debe estar entre 1 y ${MAX_ESTUDIANTES}`);
+    const [conf] = await sql`select count(*)::int as n from enrollments where request_id = ${id} and estado = 'confirmado'`;
+    if (cantidad < Number(conf.n)) throw new Error(`Ya hay ${conf.n} estudiantes confirmados; quita alguno antes de bajar la cantidad.`);
+    if (!(c.vestimenta in VESTIMENTA)) throw new Error('Vestimenta inválida');
+    const actividades = c.actividades.filter((a) => ACTIVIDADES.includes(a));
+    if (!actividades.length) throw new Error('Elige al menos una actividad');
+    const correo = normalizarCorreo(c.correoSolicitante) || null;
+    await sql`update requests set nombre = ${c.nombre.trim()}, cargo = ${c.cargo.trim()}, institucion = ${c.institucion.trim()}, correo_solicitante = ${correo},
+      evento = ${c.evento.trim()}, fecha = ${c.fecha}, inicio = ${c.inicio}, fin = ${c.fin}, lugar = ${c.lugar.trim()}, lejos = ${!!c.lejos}, responsable = ${c.responsable.trim()},
+      cantidad = ${cantidad}, vestimenta = ${c.vestimenta}, actividades = ${actividades} where id = ${id}`;
+    // Si cambió la fecha u horario, los avisos a docentes pendientes se recalculan.
+    const cambioHorario = String(actual.fecha) !== c.fecha || String(actual.inicio).slice(0, 5) !== c.inicio || String(actual.fin).slice(0, 5) !== c.fin;
+    if (cambioHorario) {
+      await sql`delete from teacher_notices where request_id = ${id} and sent_at is null`;
+      const sems = await sql`select distinct s.semestre from enrollments e join students s on s.id = e.student_id where e.request_id = ${id} and e.estado = 'confirmado'`;
+      for (const r of sems) await prepararAvisos(id, Number(r.semestre));
     }
     refrescar();
     return { ok: true };

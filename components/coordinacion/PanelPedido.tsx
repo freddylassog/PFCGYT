@@ -7,6 +7,7 @@ import { CorreoBox } from '@/components/CorreoBox';
 import { IconoCalendario, IconoCerrar } from '@/components/Iconos';
 import { Marco } from '@/components/Marco';
 import { useAccion } from '@/components/useAccion';
+import { EditarPedido } from './EditarPedido';
 import { correoAvisoDocente, correoConvocatoria, correoDecanato, correoEstudianteDecision, correoRecordatorio, correoSolicitante, mailtoUrl } from '@/lib/correos';
 import { TIPOS_NOVEDAD, claseAplica, fechaCorta, infoUniforme, semCorto } from '@/lib/reglas';
 import type { Datos, Estado, Estudiante } from '@/lib/tipos';
@@ -17,6 +18,7 @@ export function PanelPedido({ p, datos, pedidos, cruceEvento, onCerrar }: { p: P
   const [nv, setNv] = useState({ stId: '', tipo: TIPOS_NOVEDAD[0], nota: '' });
   const [verDecanato, setVerDecanato] = useState(false);
   const [agregarId, setAgregarId] = useState('');
+  const [editando, setEditando] = useState(false);
   const nEstudiantes = datos.estudiantes.filter((e) => e.activo).length;
   const eventosPor = (id: string) => pedidos.filter((x) => x.estado === 'Aprobado' && x.confirmados.some((e) => e.id === id)).length;
   const uniformeIncompleto = (e: Estudiante) => p.vestimenta === 'uniforme' && !infoUniforme(e.genero, datos.prendas.filter((x) => x.studentId === e.id).map((x) => x.item)).completo;
@@ -43,7 +45,9 @@ export function PanelPedido({ p, datos, pedidos, cruceEvento, onCerrar }: { p: P
         {p.tipo === 'externo' && (
           <button type="button" className="btn btn-ghost btn-sm" onClick={() => run(() => marcarConvenio(p.id, p.convenio === 'no' ? 'si' : 'no'))}>{p.convenio === 'no' ? 'Marcar convenio vigente' : 'Marcar sin convenio'}</button>
         )}
+        <button type="button" className="btn btn-secondary btn-sm" onClick={() => setEditando(!editando)}>{editando ? 'Cerrar edición' : 'Editar pedido'}</button>
       </div>
+      {editando && <EditarPedido p={p} onCerrar={() => setEditando(false)} />}
       <dl className="dl">
         <dt className="muted">Solicita</dt><dd>{p.nombre}, {p.cargo} · {p.institucion}</dd>
         <dt className="muted">Correo</dt><dd>{p.correoSolicitante ? <a href={`mailto:${p.correoSolicitante}`}>{p.correoSolicitante}</a> : '—'}</dd>

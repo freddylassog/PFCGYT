@@ -168,6 +168,8 @@ export function matrizSemestres(d: Datos, pedidos?: PedidoVista[]): MatrizSemest
 
 export interface UniformeVista extends Estudiante {
   info: ReturnType<typeof infoUniforme>;
+  eventosUniforme: PedidoVista[];
+  requiere: boolean;
   semLabel: string;
   generoLabel: string;
   detalle: string;
@@ -176,12 +178,16 @@ export interface UniformeVista extends Estudiante {
   devTag: string;
 }
 
-export function vistaUniformes(d: Datos): UniformeVista[] {
+export function vistaUniformes(d: Datos, pedidos?: PedidoVista[]): UniformeVista[] {
+  const todos = pedidos ?? vistaPedidos(d);
+  const conUniforme = todos.filter((p) => p.estado === 'Aprobado' && p.vestimenta === 'uniforme');
   return d.estudiantes.filter((e) => e.activo).map((e) => {
     const info = infoUniforme(e.genero, d.prendas.filter((p) => p.studentId === e.id).map((p) => p.item));
     const dev = d.devoluciones.find((x) => x.studentId === e.id) ?? null;
+    const eventosUniforme = conUniforme.filter((p) => p.confirmados.some((c) => c.id === e.id));
     return {
-      ...e, info, semLabel: semLabel(e.semestre), generoLabel: e.genero === 'F' ? 'femenino' : 'masculino',
+      ...e, info, eventosUniforme, requiere: eventosUniforme.length > 0 || info.n > 0,
+      semLabel: semLabel(e.semestre), generoLabel: e.genero === 'F' ? 'femenino' : 'masculino',
       detalle: info.completo ? 'Uniforme completo entregado.' : info.n ? 'Falta: ' + info.faltan.join(', ') : 'Ninguna prenda entregada.',
       devolucion: dev, devLabel: dev ? DEVOLUCION[dev.estado].label : info.n ? 'En uso' : '—', devTag: dev ? DEVOLUCION[dev.estado].tag : 'tag-neutral',
     };
