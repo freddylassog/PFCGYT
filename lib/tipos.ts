@@ -10,6 +10,13 @@ export type Semestre = 1 | 2 | 3;
 export type EstadoInscripcion = 'inscrito' | 'confirmado' | 'rechazado';
 export type EstadoDevolucion = 'lavado' | 'rechazado';
 
+/** Un día de participación de un evento. */
+export interface DiaEvento {
+  fecha: string;
+  inicio: string;
+  fin: string;
+}
+
 export interface Pedido {
   id: string;
   periodo: string;
@@ -22,9 +29,11 @@ export interface Pedido {
   tipo: Tipo;
   convenio: Convenio;
   evento: string;
+  /** Primer día (para ordenar). La lista completa está en `dias`. */
   fecha: string;
   inicio: string;
   fin: string;
+  dias: DiaEvento[];
   lugar: string;
   lejos: boolean;
   responsable: string;

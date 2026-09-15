@@ -3,9 +3,17 @@ import { db } from './db';
 import { asegurarEsquema } from './migrar';
 import { hoyISO, hhmm } from './reglas';
 import type {
-  Ajustes, Aviso, Clase, Datos, Devolucion, Docente, Estudiante, Inscripcion,
+  Ajustes, Aviso, Clase, Datos, Devolucion, DiaEvento, Docente, Estudiante, Inscripcion,
   MateriaNota, Novedad, Pedido, PrendaEntregada, Semestre,
 } from './tipos';
+
+function mapDias(r: Fila): DiaEvento[] {
+  let valor: unknown = r.dias;
+  if (typeof valor === 'string') { try { valor = JSON.parse(valor); } catch { valor = []; } }
+  const crudo = Array.isArray(valor) ? (valor as { fecha?: unknown; inicio?: unknown; fin?: unknown }[]) : [];
+  const dias = crudo.map((d) => ({ fecha: s(d.fecha).slice(0, 10), inicio: hhmm(s(d.inicio)), fin: hhmm(s(d.fin)) })).filter((d) => d.fecha).sort((a, b) => a.fecha.localeCompare(b.fecha));
+  return dias.length ? dias : [{ fecha: s(r.fecha), inicio: hhmm(s(r.inicio)), fin: hhmm(s(r.fin)) }];
+}
 
 type Fila = Record<string, unknown>;
 const s = (v: unknown) => (v == null ? '' : String(v));
@@ -17,7 +25,7 @@ export function mapPedido(r: Fila): Pedido {
     id: s(r.id), periodo: s(r.periodo), numero: Number(r.numero), codigo: s(r.codigo),
     nombre: s(r.nombre), cargo: s(r.cargo), institucion: s(r.institucion), correoSolicitante: sn(r.correo_solicitante),
     tipo: r.tipo as Pedido['tipo'], convenio: r.convenio as Pedido['convenio'], evento: s(r.evento),
-    fecha: s(r.fecha), inicio: hhmm(s(r.inicio)), fin: hhmm(s(r.fin)), lugar: s(r.lugar), lejos: !!r.lejos,
+    fecha: s(r.fecha), inicio: hhmm(s(r.inicio)), fin: hhmm(s(r.fin)), dias: mapDias(r), lugar: s(r.lugar), lejos: !!r.lejos,
     responsable: s(r.responsable), cantidad: Number(r.cantidad), actividades: (r.actividades as string[]) ?? [],
     vestimenta: r.vestimenta as Pedido['vestimenta'], evidenciaPath: sn(r.evidencia_path), evidenciaNombre: sn(r.evidencia_nombre),
     estado: r.estado as Pedido['estado'], convocadaAt: sn(r.convocada_at), clave: sn(r.clave), createdAt: iso(r.created_at),

@@ -24,15 +24,16 @@ Coordinación lo envía desde su propia cuenta y luego marca **"Marcar como envi
 ### Reglas implementadas (en el navegador y en el servidor)
 
 1. **72 horas**: no se registra un pedido a menos de 3 días.
-2. **Cruce de horarios entre eventos**: si ya hay un evento (no rechazado) en esa fecha y hora se muestra el aviso *"Horario ocupado. Ya hay un evento en esa hora…"* y **no se puede registrar el pedido**. Sí se permite otro horario el mismo día. (Para que solo avise sin bloquear, cambia `BLOQUEAR_CRUCE_EVENTOS` a `false` en `lib/reglas.ts`.)
-3. **Externo sin convenio**: se registra para revisión, pero no se puede aprobar hasta marcar el convenio como vigente.
-4. **Alimentación** si la participación pasa de 4 h; **transporte** si termina después de las 18:00 o el lugar es lejano.
-5. **Horas por evento** = salida − inicio (1 decimal). Presupuesto del semestre = horas por semana × 16 semanas.
-6. Estudiantes de 1.º a 3.º; **mínimo 2 eventos** confirmados. La app **no pone notas**: solo muestra el texto de la regla y permite enviar la matriz de cada semestre al docente correspondiente (Lenguaje, Investigación y Cultura Gastronómica, fijas en la base de datos; el docente se toma del horario cargado).
-7. **Cruce con clases**: clases del mismo día de la semana que chocan con el horario del evento, filtradas al semestre y paralelo de los estudiantes confirmados (un estudiante sin paralelo cuenta para todos los paralelos de su semestre). Al confirmar a un estudiante se prepara el correo al docente automáticamente.
-8. **Clave por evento**: es el **código del evento** (`SOL-2026-003`), fácil de recordar porque aparece en todos los correos y pantallas. Se asigna al aprobar y deja de servir al terminar el evento. No es secreta: solo sirve para que el estudiante se inscriba (además debe estar en el listado activo). Si hace falta, *"Generar otra"* la reemplaza por una aleatoria `UTE-XXXX`.
-9. Las novedades solo se registran para estudiantes confirmados; una vez reportadas a decanato quedan bloqueadas.
-10. Devolución del uniforme: solo se acepta **lavado**; si no, queda como *"No recibido · sin lavar"*.
+2. **Cruce de horarios entre eventos**: si ya hay un evento (no rechazado) en esa fecha y hora se muestra el aviso *"Horario ocupado. Ya hay un evento en esa hora…"* y **no se puede registrar el pedido**. Sí se permiten eventos distintos el mismo día en horas distintas. (Para que solo avise sin bloquear, cambia `BLOQUEAR_CRUCE_EVENTOS` a `false` en `lib/reglas.ts`.)
+3. **Eventos de varios días**: el pedido puede tener varios días, cada uno con su propio horario ("+ Agregar otro día"). Cuenta como **un solo evento** por estudiante; las horas de protocolo son la suma de todos los días; la regla de 72 h se aplica al primer día; el cruce se revisa día por día; la clave vence al terminar el último día. Coordinación puede cambiar los días desde *Editar pedido*.
+4. **Externo sin convenio**: se registra para revisión, pero no se puede aprobar hasta marcar el convenio como vigente.
+5. **Alimentación** si algún día de participación pasa de 4 h; **transporte** si termina después de las 18:00 o el lugar es lejano.
+6. **Horas por evento** = suma de (salida − inicio) de cada día (1 decimal). Presupuesto del semestre = horas por semana × 16 semanas.
+7. Estudiantes de 1.º a 3.º; **mínimo 2 eventos** confirmados. La app **no pone notas**: solo muestra el texto de la regla y permite enviar la matriz de cada semestre al docente correspondiente (Lenguaje, Investigación y Cultura Gastronómica, fijas en la base de datos; el docente se toma del horario cargado).
+8. **Cruce con clases**: clases del mismo día de la semana que chocan con el horario del evento, filtradas al semestre y paralelo de los estudiantes confirmados (un estudiante sin paralelo cuenta para todos los paralelos de su semestre). Al confirmar a un estudiante se prepara el correo al docente automáticamente.
+9. **Clave por evento**: es el **código del evento** (`SOL-2026-003`), fácil de recordar porque aparece en todos los correos y pantallas. Se asigna al aprobar y deja de servir al terminar el evento. No es secreta: solo sirve para que el estudiante se inscriba (además debe estar en el listado activo). Si hace falta, *"Generar otra"* la reemplaza por una aleatoria `UTE-XXXX`.
+10. Las novedades solo se registran para estudiantes confirmados; una vez reportadas a decanato quedan bloqueadas.
+11. Devolución del uniforme: solo se acepta **lavado**; si no, queda como *"No recibido · sin lavar"*.
 
 ## Puesta en marcha (una sola vez, ~40 minutos)
 
@@ -88,8 +89,8 @@ Cada carga **actualiza** por correo electrónico (no duplica), agrega los nuevos
 
 ## Manual breve por pantalla
 
-- **Solicitante** (`/`): 4 pasos — Solicitante (datos, interno/externo, convenio), Evento (nombre, evidencia adjunta, fecha con regla de 72 h, horario, cruces, lugar, responsable), Estudiantes (cantidad, actividades, vestimenta) y Compromisos (alimentación, transporte, actividades). Al final recibe su código `SOL-AAAA-NNN`.
-- **Coordinación → Pedidos**: vista Tabla, Tablero o Calendario (la elección se recuerda). Al abrir un pedido: datos, evidencia, **Editar pedido** (cantidad de estudiantes, fecha, horario, lugar, actividades, vestimenta y datos del solicitante), cruces con otros eventos, **Aprobar y convocar** (genera la clave y el correo de convocatoria), inscritos por revisar (Aceptar/Rechazar), confirmados (Quitar, Correo), agregar estudiante directamente, novedades del evento con reporte a decanato, cruce con clases con el correo a cada docente, y el correo de respuesta al solicitante.
+- **Solicitante** (`/`): 4 pasos — Solicitante (datos, interno/externo, convenio), Evento (nombre, evidencia adjunta, uno o varios días con su horario, regla de 72 h, cruces, lugar, responsable), Estudiantes (cantidad, actividades, vestimenta) y Compromisos (alimentación, transporte, actividades). Al final recibe su código `SOL-AAAA-NNN`.
+- **Coordinación → Pedidos**: vista Tabla, Tablero o Calendario (la elección se recuerda). Al abrir un pedido: datos, evidencia, **Editar pedido** (cantidad de estudiantes, días y horarios, lugar, actividades, vestimenta y datos del solicitante), cruces con otros eventos, **Aprobar y convocar** (genera la clave y el correo de convocatoria), inscritos por revisar (Aceptar/Rechazar), confirmados (Quitar, Correo), agregar estudiante directamente, novedades del evento con reporte a decanato, cruce con clases con el correo a cada docente, y el correo de respuesta al solicitante.
 - **Coordinación → Estudiantes**: carga del listado, matriz por semestre con estado (Cumple / Falta 1 evento / Sin eventos · nota 0) y **Enviar matriz al docente** (descarga el Excel del semestre para adjuntarlo y marca el envío).
 - **Coordinación → Uniformes**: solo los estudiantes confirmados en eventos con uniforme institucional (o con prendas entregadas), con sus eventos; interruptor para ver a todos. Prendas entregadas, estado (Completo / Parcial / Sin entregar) y devolución.
 - **Coordinación → Novedades**: registro por evento y estudiante confirmado; **Reportar** prepara el correo a decanato y marca las novedades como reportadas.

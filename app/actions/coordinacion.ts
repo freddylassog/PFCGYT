@@ -1,15 +1,16 @@
 'use server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import type { JSONValue } from 'postgres';
 import { db } from '@/lib/db';
 import { ajustesActuales, cargarDatos } from '@/lib/datos';
 import { asegurarEsquema } from '@/lib/migrar';
 import { leerTabla, parseDocentes, parseEstudiantes, parseHorarios } from '@/lib/excel';
 import {
-  ACTIVIDADES, MAX_ESTUDIANTES, UNIFORME, TIPOS_NOVEDAD, VESTIMENTA, claseAplica, claveNombre, cruceClases, duracionMin, esFechaISO, esHora, genClave, hoyISO, normalizarCorreo, normalizarParalelo,
+  ACTIVIDADES, MAX_ESTUDIANTES, UNIFORME, TIPOS_NOVEDAD, VESTIMENTA, claseAplica, claveNombre, cruceClases, esFechaISO, faltasDias, genClave, hoyISO, normalizarCorreo, normalizarParalelo, ordenarDias,
 } from '@/lib/reglas';
 import { iniciarSesionCoordinacion, passwordCoordinacionOk, sesionCoordinacion } from '@/lib/sesion';
-import type { Estado, Resultado, Semestre } from '@/lib/tipos';
+import type { DiaEvento, Estado, Resultado, Semestre } from '@/lib/tipos';
 
 async function exigir(): Promise<void> {
   if (!(await sesionCoordinacion())) throw new Error('No autorizado. Vuelve a iniciar sesión.');
@@ -60,7 +61,7 @@ export async function cambiarEstado(id: string, estado: Estado): Promise<Resulta
 
 export interface CambiosPedido {
   nombre: string; cargo: string; institucion: string; correoSolicitante: string;
-  evento: string; fecha: string; inicio: string; fin: string; lugar: string; lejos: boolean; responsable: string;
+  evento: string; dias: DiaEvento[]; lugar: string; lejos: boolean; responsable: string;
   cantidad: number; vestimenta: string; actividades: string[];
 }
 
@@ -69,12 +70,13 @@ export async function editarPedido(id: string, c: CambiosPedido): Promise<Result
   try {
     await exigir();
     const sql = db();
-    const [actual] = await sql`select fecha, inicio, fin from requests where id = ${id}`;
+    const [actual] = await sql`select dias from requests where id = ${id}`;
     if (!actual) throw new Error('Pedido no encontrado');
     if (!c.evento.trim()) throw new Error('Escribe el nombre del evento');
     if (!c.nombre.trim() || !c.cargo.trim() || !c.institucion.trim()) throw new Error('Nombre, cargo e institución son obligatorios');
-    if (!esFechaISO(c.fecha)) throw new Error('Fecha inválida');
-    if (!esHora(c.inicio) || !esHora(c.fin) || duracionMin(c.inicio, c.fin) <= 0) throw new Error('La hora de salida debe ser mayor que la de inicio');
+    const dias = ordenarDias(c.dias || []);
+    const malDias = faltasDias(dias, hoyISO(), false);
+    if (malDias.length) throw new Error('Revisa los días: ' + malDias.join(', '));
     if (!c.lugar.trim() || !c.responsable.trim()) throw new Error('Lugar y responsable son obligatorios');
     const cantidad = Math.round(Number(c.cantidad));
     if (!(cantidad >= 1 && cantidad <= MAX_ESTUDIANTES)) throw new Error(`La cantidad debe estar entre 1 y ${MAX_ESTUDIANTES}`);
@@ -85,10 +87,12 @@ export async function editarPedido(id: string, c: CambiosPedido): Promise<Result
     if (!actividades.length) throw new Error('Elige al menos una actividad');
     const correo = normalizarCorreo(c.correoSolicitante) || null;
     await sql`update requests set nombre = ${c.nombre.trim()}, cargo = ${c.cargo.trim()}, institucion = ${c.institucion.trim()}, correo_solicitante = ${correo},
-      evento = ${c.evento.trim()}, fecha = ${c.fecha}, inicio = ${c.inicio}, fin = ${c.fin}, lugar = ${c.lugar.trim()}, lejos = ${!!c.lejos}, responsable = ${c.responsable.trim()},
+      evento = ${c.evento.trim()}, fecha = ${dias[0].fecha}, inicio = ${dias[0].inicio}, fin = ${dias[0].fin}, dias = ${sql.json(dias as unknown as JSONValue)},
+      lugar = ${c.lugar.trim()}, lejos = ${!!c.lejos}, responsable = ${c.responsable.trim()},
       cantidad = ${cantidad}, vestimenta = ${c.vestimenta}, actividades = ${actividades} where id = ${id}`;
-    // Si cambió la fecha u horario, los avisos a docentes pendientes se recalculan.
-    const cambioHorario = String(actual.fecha) !== c.fecha || String(actual.inicio).slice(0, 5) !== c.inicio || String(actual.fin).slice(0, 5) !== c.fin;
+    // Si cambiaron los días u horarios, los avisos a docentes pendientes se recalculan.
+    const antes = JSON.stringify(ordenarDias((Array.isArray(actual.dias) ? actual.dias : []) as DiaEvento[]).map((d) => [d.fecha, String(d.inicio).slice(0, 5), String(d.fin).slice(0, 5)]));
+    const cambioHorario = antes !== JSON.stringify(dias.map((d) => [d.fecha, d.inicio, d.fin]));
     if (cambioHorario) {
       await sql`delete from teacher_notices where request_id = ${id} and sent_at is null`;
       const sems = await sql`select distinct s.semestre from enrollments e join students s on s.id = e.student_id where e.request_id = ${id} and e.estado = 'confirmado'`;

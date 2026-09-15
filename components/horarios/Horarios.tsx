@@ -122,7 +122,7 @@ export function Horarios({ datos }: { datos: Datos }) {
               {a.sentAt ? <span className="tag tag-accent">Enviado</span> : <span className="tag tag-outline">Pendiente</span>}
             </div>
             <h4 className="m-0">Ausencia justificada en {c.materia} ({c.semLabel}) · {p.fechaLarga}</h4>
-            <p className="m-0">Estimado/a docente: los siguientes estudiantes participarán en el evento <strong>{p.evento}</strong> ({p.inicio}–{p.fin}) como apoyo protocolario de la facultad, por lo que no asistirán a su clase de {c.inicio}–{c.fin}.</p>
+            <p className="m-0">Estimado/a docente: los siguientes estudiantes participarán en el evento <strong>{p.evento}</strong> ({p.horarioTexto}) como apoyo protocolario de la facultad, por lo que no asistirán a su clase de {c.inicio}–{c.fin}.</p>
             <div className="row" style={{ gap: 4 }}>{est.map((s) => <span key={s.id} className="tag tag-neutral">{s.nombre}</span>)}</div>
             <p className="muted fs-13 m-0">Coordinación de Protocolo · FCGT · Universidad UTE</p>
             <CorreoBox titulo="Correo listo para enviar" correo={correo} extra={a.sentAt

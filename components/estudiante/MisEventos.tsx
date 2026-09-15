@@ -14,7 +14,7 @@ export function MisEventos({ datos, yo }: { datos: Datos; yo: Estudiante }) {
   const dev = datos.devoluciones.find((d) => d.studentId === yo.id) ?? null;
   const devTexto = dev?.estado === 'lavado' ? 'Uniforme devuelto y recibido lavado.' : dev?.estado === 'rechazado' ? 'Tu uniforme no fue recibido porque llegó sin lavar. Debes volver a entregarlo lavado.' : 'Al final del semestre devuelve el uniforme lavado; si no está lavado no se recibe.';
   const misEventos = avance.eventos;
-  const convocatorias = pedidos.filter((e) => e.estado === 'Aprobado' && e.convocadaAt && e.fecha >= datos.hoy && !e.confirmados.some((c) => c.id === yo.id)).map((e) => {
+  const convocatorias = pedidos.filter((e) => e.estado === 'Aprobado' && e.convocadaAt && e.ultimaFecha >= datos.hoy && !e.confirmados.some((c) => c.id === yo.id)).map((e) => {
     const insc = datos.inscripciones.find((i) => i.requestId === e.id && i.studentId === yo.id);
     const inscrito = insc?.estado === 'inscrito', rechazado = insc?.estado === 'rechazado';
     const fem = yo.genero === 'F';
@@ -44,7 +44,7 @@ export function MisEventos({ datos, yo }: { datos: Datos; yo: Estudiante }) {
             {convocatorias.map((e) => (
               <Marco key={e.id} className="p-4 stack-2">
                 <div className="between arriba"><div><div className="card-kicker">{e.tipoLabel} · {e.institucion}</div><h4 style={{ margin: '2px 0 0' }}>{e.evento}</h4></div><span className={`tag ${e.miTag}`}>{e.miEstado}</span></div>
-                <div className="muted fs-13">{e.fechaLarga} · {e.inicio}–{e.fin} · {e.horas} h · {e.vestLabel} · {e.confirmadosN}/{e.cantidad} cupos confirmados</div>
+                <div className="muted fs-13">{e.fechaLarga} · {e.horarioTexto} · {e.horas} h · {e.vestLabel} · {e.confirmadosN}/{e.cantidad} cupos confirmados</div>
                 <div className="row" style={{ gap: 4 }}>{e.actividades.map((a) => <span key={a} className="tag tag-neutral">{a}</span>)}</div>
                 {e.puedo && <button className="btn btn-primary btn-40" type="button" style={{ justifySelf: 'start' }} onClick={() => run(() => inscribirme(e.id))}>Inscribirme</button>}
                 {e.inscrito && <button className="btn btn-ghost" type="button" style={{ justifySelf: 'start' }} onClick={() => run(() => retirarme(e.id))}>Retirar inscripción</button>}
@@ -61,7 +61,7 @@ export function MisEventos({ datos, yo }: { datos: Datos; yo: Estudiante }) {
             <div className="between arriba"><div><div className="card-kicker">{e.tipoLabel} · {e.institucion}</div><h3 style={{ margin: '2px 0 0' }}>{e.evento}</h3></div><span className="tag tag-accent">Confirmado · {e.horas} h</span></div>
             <div className="fs-14" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 'var(--space-3)' }}>
               <div><div className="etiqueta">Fecha</div>{e.fechaLarga}</div>
-              <div><div className="etiqueta">Tu horario</div>{e.inicio}–{e.fin} · {e.duracion}</div>
+              <div><div className="etiqueta">Tu horario</div>{e.horarioTexto} · {e.duracion}</div>
               <div><div className="etiqueta">Lugar</div>{e.lugar}</div>
               <div><div className="etiqueta">Responsable en sitio</div>{e.responsable}</div>
               <div><div className="etiqueta">Vestimenta</div>{e.vestLabel}<div className="muted fs-12">{e.vestNotaEst}</div></div>

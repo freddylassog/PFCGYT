@@ -48,7 +48,7 @@ export function correoConvocatoria(d: Datos, p: PedidoVista): Correo {
     `Evento: ${p.evento}`,
     `Organiza: ${p.institucion} (${p.tipoLabel.toLowerCase()})`,
     `Fecha: ${p.fechaLarga}`,
-    `Horario de participación: ${p.inicio}–${p.fin} (${p.duracion})`,
+    `Horario de participación: ${p.horarioTexto} (${p.duracion})`,
     `Horas de protocolo: ${p.horas} h`,
     `Lugar: ${p.lugar}`,
     `Cupos: ${p.cantidad} estudiantes`,
@@ -80,7 +80,7 @@ export function correoAvisoDocente(p: PedidoVista, c: CruceVista, estudiantes: E
   const cuerpo = [
     `Estimado/a docente:`,
     ``,
-    `Los siguientes estudiantes participarán en el evento ${p.evento} (${p.inicio}–${p.fin}) el ${p.fechaLarga} como apoyo protocolario de la facultad, por lo que no asistirán a su clase de ${c.materia} de ${c.inicio}–${c.fin}.`,
+    `Los siguientes estudiantes participarán en el evento ${p.evento} (${p.horarioTexto}) el ${p.fechaLarga} como apoyo protocolario de la facultad, por lo que no asistirán a su clase de ${c.materia} de ${c.inicio}–${c.fin}.`,
     ``,
     lista(estudiantes.map((e) => `${e.nombre} · ${e.correo}`)),
     ``,
@@ -105,7 +105,7 @@ export function correoEstudianteDecision(p: PedidoVista, e: Estudiante, aceptado
         `Tu inscripción al evento ${p.evento} fue confirmada.`,
         ``,
         `Fecha: ${p.fechaLarga}`,
-        `Tu horario: ${p.inicio}–${p.fin} (${p.duracion})`,
+        `Tu horario: ${p.horarioTexto} (${p.duracion})`,
         `Lugar: ${p.lugar}`,
         `Responsable en sitio: ${p.responsable}`,
         `Vestimenta: ${p.vestLabel}. ${p.vestNotaEst}`,
@@ -176,7 +176,7 @@ export function correoRecordatorio(p: PedidoVista): Correo {
     `Recordatorio: mañana participas en el evento ${p.evento}.`,
     ``,
     `Fecha: ${p.fechaLarga}`,
-    `Tu horario: ${p.inicio}–${p.fin}`,
+    `Tu horario: ${p.horarioTexto}`,
     `Lugar: ${p.lugar}`,
     `Responsable en sitio: ${p.responsable}`,
     `Vestimenta: ${p.vestLabel}. ${p.vestNotaEst}`,
@@ -192,7 +192,7 @@ export function correoRecordatorio(p: PedidoVista): Correo {
 
 export function correoSolicitante(p: PedidoVista): Correo {
   const estado: Record<string, string> = {
-    Aprobado: `Su pedido ${p.codigo} fue APROBADO. La facultad convocará a ${p.cantidad} estudiante(s) para el evento ${p.evento} el ${p.fechaLarga}, de ${p.inicio} a ${p.fin}.`,
+    Aprobado: `Su pedido ${p.codigo} fue APROBADO. La facultad convocará a ${p.cantidad} estudiante(s) para el evento ${p.evento} el ${p.fechaLarga} (${p.horarioTexto}).`,
     Ajustes: `Su pedido ${p.codigo} para el evento ${p.evento} (${p.fechaLarga}) requiere AJUSTES antes de aprobarse. Por favor responda a este correo para coordinar los cambios.`,
     Rechazado: `Lamentamos informar que su pedido ${p.codigo} para el evento ${p.evento} (${p.fechaLarga}) NO fue aprobado.`,
     Pendiente: `Su pedido ${p.codigo} para el evento ${p.evento} (${p.fechaLarga}) fue recibido y está en revisión.`,

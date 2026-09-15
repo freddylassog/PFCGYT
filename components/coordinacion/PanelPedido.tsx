@@ -12,8 +12,9 @@ import { correoAvisoDocente, correoConvocatoria, correoDecanato, correoEstudiant
 import { TIPOS_NOVEDAD, claseAplica, fechaCorta, infoUniforme, semCorto } from '@/lib/reglas';
 import type { Datos, Estado, Estudiante } from '@/lib/tipos';
 import type { CruceVista, PedidoVista } from '@/lib/vista';
+import type { CruceEvento } from '@/lib/reglas';
 
-export function PanelPedido({ p, datos, pedidos, cruceEvento, onCerrar }: { p: PedidoVista; datos: Datos; pedidos: PedidoVista[]; cruceEvento: PedidoVista | null; onCerrar: () => void }) {
+export function PanelPedido({ p, datos, pedidos, cruceEvento, onCerrar }: { p: PedidoVista; datos: Datos; pedidos: PedidoVista[]; cruceEvento: CruceEvento<PedidoVista> | null; onCerrar: () => void }) {
   const { pending, error, run } = useAccion();
   const [nv, setNv] = useState({ stId: '', tipo: TIPOS_NOVEDAD[0], nota: '' });
   const [verDecanato, setVerDecanato] = useState(false);
@@ -52,7 +53,7 @@ export function PanelPedido({ p, datos, pedidos, cruceEvento, onCerrar }: { p: P
         <dt className="muted">Solicita</dt><dd>{p.nombre}, {p.cargo} · {p.institucion}</dd>
         <dt className="muted">Correo</dt><dd>{p.correoSolicitante ? <a href={`mailto:${p.correoSolicitante}`}>{p.correoSolicitante}</a> : '—'}</dd>
         <dt className="muted">Fecha</dt><dd>{p.fechaLarga}</dd>
-        <dt className="muted">Horario</dt><dd>{p.inicio}–{p.fin} · <strong>{p.horas} h</strong> de protocolo</dd>
+        <dt className="muted">Horario</dt><dd>{p.multidia ? p.dias.map((d) => <div key={d.fecha}>{fechaCorta(d.fecha)} · {d.inicio}–{d.fin}</div>) : `${p.inicio}–${p.fin}`}<div><strong>{p.horas} h</strong> de protocolo{p.multidia ? ` en ${p.dias.length} días` : ''}</div></dd>
         <dt className="muted">Estudiantes</dt><dd>{p.cantidad} solicitados</dd>
         <dt className="muted">Vestimenta</dt><dd>{p.vestLabel}</dd>
         <dt className="muted">Lugar</dt><dd>{p.lugar}{p.lejos ? ' · lejos' : ''}</dd>
@@ -67,7 +68,7 @@ export function PanelPedido({ p, datos, pedidos, cruceEvento, onCerrar }: { p: P
         </div>
       )}
       {cruceEvento && (
-        <div className="alerta" role="status"><IconoCalendario /><span><strong>Hay otro evento en esa hora.</strong> Se cruza con <em>{cruceEvento.codigo} · {cruceEvento.evento}</em> ({cruceEvento.inicio}–{cruceEvento.fin}, {cruceEvento.estado}). Revisa los cupos antes de aprobar.</span></div>
+        <div className="alerta" role="status"><IconoCalendario /><span><strong>Hay otro evento en esa hora.</strong> El {fechaCorta(cruceEvento.dia.fecha)} se cruza con <em>{cruceEvento.pedido.codigo} · {cruceEvento.pedido.evento}</em> ({cruceEvento.dia.inicio}–{cruceEvento.dia.fin}, {cruceEvento.pedido.estado}). Revisa los cupos antes de aprobar.</span></div>
       )}
 
       {/* Convocatoria e inscripciones */}

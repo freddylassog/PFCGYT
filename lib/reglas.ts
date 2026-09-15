@@ -1,13 +1,14 @@
 // Reglas de negocio y formato. Solo funciones puras: se usan igual en el
 // navegador y en el servidor (validaciones, reporte, correos).
 import type {
-  Clase, Estado, Genero, Pedido, Semestre, Vestimenta,
+  Clase, DiaEvento, Estado, Genero, Semestre, Vestimenta,
 } from './tipos';
 
 export const ZONA_HORARIA = 'America/Guayaquil';
 export const MINIMO_EVENTOS = 2;
 export const HORAS_ANTICIPACION = 72;
 export const MAX_ESTUDIANTES = 20;
+export const MAX_DIAS_EVENTO = 10;
 
 /** Si es true, un pedido que se cruza con otro no puede registrarse (se
  *  permite otro horario el mismo día). Si es false, solo se muestra el aviso. */
@@ -109,6 +110,83 @@ export function transporteMotivo(e: { fin: string; lejos: boolean }): string | n
   if (tarde) return 'Termina después de las 18:00';
   if (e.lejos) return 'Lugar lejano';
   return null;
+}
+
+// ---------------------------------------------------------------- días del evento
+
+/** Ordena por fecha y elimina fechas repetidas (se queda con la primera). */
+export function ordenarDias(dias: DiaEvento[]): DiaEvento[] {
+  const vistos = new Set<string>();
+  return [...dias].filter((d) => d.fecha && !vistos.has(d.fecha) && vistos.add(d.fecha)).sort((a, b) => a.fecha.localeCompare(b.fecha));
+}
+
+/** Horas de protocolo del evento = suma de todos los días (1 decimal). */
+export function horasDias(dias: DiaEvento[]): number {
+  return redondear1(dias.reduce((a, d) => a + horasDe(d.inicio, d.fin), 0));
+}
+
+/** Alimentación: algún día con más de 4 horas de participación. */
+export function pasa4hDias(dias: DiaEvento[]): boolean {
+  return dias.some((d) => pasa4h(d.inicio, d.fin));
+}
+
+/** Transporte: algún día termina después de las 18:00, o el lugar es lejano. */
+export function transporteMotivoDias(e: { dias: DiaEvento[]; lejos: boolean }): string | null {
+  const tarde = e.dias.some((d) => !!d.fin && min(d.fin) > 18 * 60);
+  if (tarde && e.lejos) return 'Termina después de las 18:00 y el lugar es lejano';
+  if (tarde) return 'Termina después de las 18:00';
+  if (e.lejos) return 'Lugar lejano';
+  return null;
+}
+
+export function primerDia(dias: DiaEvento[]): DiaEvento | null {
+  return ordenarDias(dias)[0] ?? null;
+}
+
+export function ultimoDia(dias: DiaEvento[]): DiaEvento | null {
+  const o = ordenarDias(dias);
+  return o[o.length - 1] ?? null;
+}
+
+/** '22, 23 y 24 sep 2026' · un solo día: 'martes 22 sep 2026'. */
+export function fechaLargaDias(dias: DiaEvento[]): string {
+  const o = ordenarDias(dias);
+  if (!o.length) return '—';
+  if (o.length === 1) return fechaLarga(o[0].fecha);
+  const partes = o.map((d) => toDate(d.fecha));
+  const mismoMes = partes.every((d) => d.getMonth() === partes[0].getMonth() && d.getFullYear() === partes[0].getFullYear());
+  if (mismoMes) {
+    const nums = partes.map((d) => String(d.getDate()));
+    return `${nums.slice(0, -1).join(', ')} y ${nums[nums.length - 1]} ${MESES[partes[0].getMonth()]} ${partes[0].getFullYear()}`;
+  }
+  return o.map((d) => fechaCorta(d.fecha)).join(', ') + ' ' + partes[partes.length - 1].getFullYear();
+}
+
+/** '22 sep' · varios: '22–24 sep' (o '30 sep–2 oct'). */
+export function fechaCortaDias(dias: DiaEvento[]): string {
+  const o = ordenarDias(dias);
+  if (!o.length) return '—';
+  if (o.length === 1) return fechaCorta(o[0].fecha);
+  const a = toDate(o[0].fecha), b = toDate(o[o.length - 1].fecha);
+  if (a.getMonth() === b.getMonth()) return `${a.getDate()}–${b.getDate()} ${MESES[a.getMonth()]}`;
+  return `${fechaCorta(o[0].fecha)}–${fechaCorta(o[o.length - 1].fecha)}`;
+}
+
+/** '08:00–12:00' si todos los días tienen el mismo horario; si no, uno por día. */
+export function horarioTextoDias(dias: DiaEvento[]): string {
+  const o = ordenarDias(dias);
+  if (!o.length) return '—';
+  const mismo = o.every((d) => d.inicio === o[0].inicio && d.fin === o[0].fin);
+  if (mismo) return `${o[0].inicio}–${o[0].fin}`;
+  return o.map((d) => `${fechaCorta(d.fecha)} ${d.inicio}–${d.fin}`).join(' · ');
+}
+
+/** 'Duración: 4 h' o '3 días · 11 h en total'. */
+export function duracionTextoDias(dias: DiaEvento[]): string {
+  const o = ordenarDias(dias);
+  if (!o.length) return '—';
+  if (o.length === 1) return fmtDur(o[0].inicio, o[0].fin);
+  return `${o.length} días · ${horasDias(o)} h en total`;
 }
 
 // ---------------------------------------------------------------- fechas
@@ -240,23 +318,36 @@ export function genClave(random: () => number = Math.random): string {
   return s;
 }
 
-/** La clave sirve hasta la hora de salida del evento. */
-export function claveVigente(p: { fecha: string; fin: string }, hoy: string, hora: string): boolean {
-  if (p.fecha > hoy) return true;
-  if (p.fecha < hoy) return false;
-  return min(hora) <= min(p.fin);
+/** La clave sirve hasta la hora de salida del último día del evento. */
+export function claveVigente(p: { dias: DiaEvento[] }, hoy: string, hora: string): boolean {
+  const u = ultimoDia(p.dias);
+  if (!u) return false;
+  if (u.fecha > hoy) return true;
+  if (u.fecha < hoy) return false;
+  return min(hora) <= min(u.fin);
 }
 
 // ---------------------------------------------------------------- cruces
 
-/** Otro pedido (no rechazado) el mismo día con horario que se cruza. */
-export function cruceEventos<T extends Pick<Pedido, 'id' | 'fecha' | 'inicio' | 'fin' | 'estado' | 'evento'>>(
-  f: { fecha: string; inicio: string; fin: string },
+export interface CruceEvento<T> { pedido: T; dia: DiaEvento; diaPropio: DiaEvento }
+
+/** Otro pedido (no rechazado) con un día y horario que se cruzan con alguno
+ *  de los días indicados. Eventos distintos el mismo día en horas distintas
+ *  no se cruzan. */
+export function cruceEventos<T extends { id: string; estado: string; dias: DiaEvento[] }>(
+  f: { dias: DiaEvento[] },
   pedidos: T[],
   excluirId?: string,
-): T | null {
-  if (!f.fecha || !f.inicio || !f.fin) return null;
-  return pedidos.find((e) => e.id !== excluirId && e.fecha === f.fecha && e.estado !== 'Rechazado' && overlap(f.inicio, f.fin, e.inicio, e.fin)) || null;
+): CruceEvento<T> | null {
+  for (const propio of f.dias) {
+    if (!propio.fecha || !propio.inicio || !propio.fin) continue;
+    for (const e of pedidos) {
+      if (e.id === excluirId || e.estado === 'Rechazado') continue;
+      const dia = e.dias.find((d) => d.fecha === propio.fecha && overlap(propio.inicio, propio.fin, d.inicio, d.fin));
+      if (dia) return { pedido: e, dia, diaPropio: propio };
+    }
+  }
+  return null;
 }
 
 export function normalizarParalelo(p: string | null | undefined): string {
@@ -274,15 +365,23 @@ export function claseAplica(c: { semestre: number; paralelo: string | null }, e:
 /** Clases que chocan con el evento ese día de la semana, filtradas a los
  *  estudiantes indicados (semestre y paralelo). Sin estudiantes = todas. */
 export function cruceClases(
-  e: { fecha: string; inicio: string; fin: string },
+  e: { dias: DiaEvento[] },
   clases: Clase[],
   estudiantes: { semestre: number; paralelo: string | null }[],
 ): Clase[] {
-  if (!e.fecha || !e.inicio || !e.fin) return [];
-  const dia = diaSemana(e.fecha);
-  return clases
-    .filter((c) => c.activo && c.dia === dia && overlap(e.inicio, e.fin, c.inicio, c.fin) && (!estudiantes.length || estudiantes.some((st) => claseAplica(c, st))))
-    .sort((a, b) => a.semestre - b.semestre || (a.paralelo || '').localeCompare(b.paralelo || '') || a.inicio.localeCompare(b.inicio));
+  const vistas = new Set<string>();
+  const resultado: Clase[] = [];
+  for (const d of ordenarDias(e.dias)) {
+    if (!d.fecha || !d.inicio || !d.fin) continue;
+    const dow = diaSemana(d.fecha);
+    for (const c of clases) {
+      if (vistas.has(c.id)) continue;
+      if (c.activo && c.dia === dow && overlap(d.inicio, d.fin, c.inicio, c.fin) && (!estudiantes.length || estudiantes.some((st) => claseAplica(c, st)))) {
+        vistas.add(c.id); resultado.push(c);
+      }
+    }
+  }
+  return resultado.sort((a, b) => a.semestre - b.semestre || (a.paralelo || '').localeCompare(b.paralelo || '') || a.dia - b.dia || a.inicio.localeCompare(b.inicio));
 }
 
 /** Nombre normalizado para comparar docentes entre archivos. */
@@ -330,9 +429,7 @@ export interface FormPedido {
   tipo: 'interno' | 'externo';
   convenio: 'si' | 'no';
   evento: string;
-  fecha: string;
-  inicio: string;
-  fin: string;
+  dias: DiaEvento[];
   lugar: string;
   lejos: boolean;
   responsable: string;
@@ -344,14 +441,33 @@ export interface FormPedido {
   evidenciaPath: string;
 }
 
+export const DIA_INICIAL: DiaEvento = { fecha: '', inicio: '09:00', fin: '13:00' };
+
 export const FORM_INICIAL: FormPedido = {
   nombre: '', cargo: '', institucion: '', correoSolicitante: '', tipo: 'interno', convenio: 'si',
-  evento: '', fecha: '', inicio: '09:00', fin: '13:00', lugar: '', lejos: false, responsable: '',
+  evento: '', dias: [{ ...DIA_INICIAL }], lugar: '', lejos: false, responsable: '',
   cantidad: 4, actividades: [], vestimenta: 'uniforme', acepta: false, evidenciaNombre: '', evidenciaPath: '',
 };
 
 export function correoValido(s: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.trim());
+}
+
+/** Problemas de la lista de días (vacío = correcta). `soloFuturo` exige la regla de 72 h. */
+export function faltasDias(dias: DiaEvento[], hoy: string, soloFuturo = true): string[] {
+  const f: string[] = [];
+  if (!dias.length) f.push('al menos un día');
+  if (dias.length > MAX_DIAS_EVENTO) f.push(`máximo ${MAX_DIAS_EVENTO} días`);
+  if (dias.some((d) => !d.fecha)) f.push('fecha de cada día');
+  else if (dias.some((d) => !esFechaISO(d.fecha))) f.push('fecha válida');
+  else {
+    const fechas = dias.map((d) => d.fecha);
+    if (new Set(fechas).size !== fechas.length) f.push('fechas sin repetir');
+    const primera = [...fechas].sort()[0];
+    if (soloFuturo && !cumple72h(primera, hoy)) f.push('fecha con al menos 72 h');
+  }
+  if (dias.some((d) => !(duracionMin(d.inicio, d.fin) > 0))) f.push('horario válido en cada día');
+  return f;
 }
 
 /** Devuelve, por paso, la lista de lo que falta (vacía = paso completo). */
@@ -366,10 +482,7 @@ export function faltasPedido(f: FormPedido, hoy: string, cruce: { evento: string
   const f2: string[] = [];
   if (!f.evento.trim()) f2.push('nombre del evento');
   if (!f.evidenciaPath) f2.push('evidencia del pedido');
-  if (!f.fecha) f2.push('fecha');
-  else if (!esFechaISO(f.fecha)) f2.push('fecha válida');
-  else if (!cumple72h(f.fecha, hoy)) f2.push('fecha con al menos 72 h');
-  if (!(duracionMin(f.inicio, f.fin) > 0)) f2.push('horario válido');
+  f2.push(...faltasDias(f.dias, hoy));
   if (cruce && BLOQUEAR_CRUCE_EVENTOS) f2.push('horario sin cruce');
   if (!f.lugar.trim()) f2.push('lugar');
   if (!f.responsable.trim()) f2.push('responsable');

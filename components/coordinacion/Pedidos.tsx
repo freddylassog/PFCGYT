@@ -28,7 +28,7 @@ export function Pedidos({ datos, pedidos, selInicial }: { datos: Datos; pedidos:
     const inicio = sumarDias(primero, -dowPrimero);
     const dias: { iso: string; num: number; enMes: boolean; items: PedidoVista[] }[] = [];
     for (let iso = inicio; dias.length < 42 && (iso <= ultimo || dias.length % 7 !== 0); iso = sumarDias(iso, 1)) {
-      dias.push({ iso, num: toDate(iso).getDate(), enMes: iso.slice(0, 7) === mes, items: pedidos.filter((p) => p.fecha === iso && p.estado !== 'Rechazado') });
+      dias.push({ iso, num: toDate(iso).getDate(), enMes: iso.slice(0, 7) === mes, items: pedidos.filter((p) => p.estado !== 'Rechazado' && p.dias.some((d) => d.fecha === iso)) });
     }
     return { dias, titulo: `${MESES_LARGO[m - 1]} ${y}` };
   }, [mes, pedidos]);
@@ -67,7 +67,7 @@ export function Pedidos({ datos, pedidos, selInicial }: { datos: Datos; pedidos:
                       <td>{e.evento}<div className="muted fs-12">{e.institucion}</div></td>
                       <td>{e.tipoLabel}</td>
                       <td className="nowrap">{e.fechaCorta}</td>
-                      <td className="nowrap">{e.inicio}–{e.fin}</td>
+                      <td className="nowrap" title={e.horarioTexto}>{e.multidia ? `${e.dias.length} días` : e.horarioTexto}</td>
                       <td className="nowrap">{e.horas} h</td>
                       <td className="nowrap">{e.confirmadosN}/{e.cantidad}{e.inscritosN > 0 && <> <span className="muted fs-12">+{e.inscritosN} por revisar</span></>}</td>
                       <td>{cruceTexto(e)}</td>
@@ -89,7 +89,7 @@ export function Pedidos({ datos, pedidos, selInicial }: { datos: Datos; pedidos:
                       <Marco key={e.id} className={`card clic p-3 ${selId === e.id ? 'seleccionada' : ''}`} role="button" tabIndex={0} onClick={() => setSelId(e.id)} onKeyDown={(ev: React.KeyboardEvent) => { if (ev.key === 'Enter') setSelId(e.id); }}>
                         <div className="card-kicker">{e.codigo} · {e.tipoLabel}</div>
                         <div className="card-title" style={{ fontSize: 16 }}>{e.evento}</div>
-                        <div className="card-meta">{e.fechaCorta} · {e.inicio}–{e.fin} · {e.horas} h</div>
+                        <div className="card-meta">{e.fechaCorta} · {e.multidia ? `${e.dias.length} días` : e.horarioTexto} · {e.horas} h</div>
                         <div className="card-meta">{e.confirmadosN}/{e.cantidad} confirmados</div>
                       </Marco>
                     ))}
@@ -111,7 +111,7 @@ export function Pedidos({ datos, pedidos, selInicial }: { datos: Datos; pedidos:
                   <div key={d.iso} className={`dia ${d.iso === datos.hoy ? 'hoy' : ''} ${d.enMes ? '' : 'otro-mes'}`}>
                     <div className="muted fs-12" style={{ display: 'flex', justifyContent: 'space-between' }}><span>{d.num}</span><span>{d.iso === datos.hoy ? 'hoy' : ''}</span></div>
                     {d.items.map((e) => (
-                      <button key={e.id} type="button" className={`tag ${e.tagClass} evento`} title={`${e.codigo} · ${e.evento}`} onClick={() => setSelId(e.id)}><strong>{e.inicio}</strong> {e.evento}</button>
+                      <button key={e.id} type="button" className={`tag ${e.tagClass} evento`} title={`${e.codigo} · ${e.evento}`} onClick={() => setSelId(e.id)}><strong>{e.dias.find((x) => x.fecha === d.iso)?.inicio ?? e.inicio}</strong> {e.evento}</button>
                     ))}
                   </div>
                 ))}

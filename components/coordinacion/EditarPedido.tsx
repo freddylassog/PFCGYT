@@ -2,7 +2,8 @@
 import { useState } from 'react';
 import { editarPedido, type CambiosPedido } from '@/app/actions/coordinacion';
 import { useAccion } from '@/components/useAccion';
-import { ACTIVIDADES, MAX_ESTUDIANTES, VESTIMENTA, fmtDur } from '@/lib/reglas';
+import { EditorDias } from '@/components/EditorDias';
+import { ACTIVIDADES, MAX_ESTUDIANTES, VESTIMENTA, duracionTextoDias } from '@/lib/reglas';
 import type { Vestimenta } from '@/lib/tipos';
 import type { PedidoVista } from '@/lib/vista';
 
@@ -10,7 +11,7 @@ export function EditarPedido({ p, onCerrar }: { p: PedidoVista; onCerrar: () => 
   const { pending, error, run } = useAccion();
   const [c, setC] = useState<CambiosPedido>({
     nombre: p.nombre, cargo: p.cargo, institucion: p.institucion, correoSolicitante: p.correoSolicitante ?? '',
-    evento: p.evento, fecha: p.fecha, inicio: p.inicio, fin: p.fin, lugar: p.lugar, lejos: p.lejos, responsable: p.responsable,
+    evento: p.evento, dias: p.dias.map((d) => ({ ...d })), lugar: p.lugar, lejos: p.lejos, responsable: p.responsable,
     cantidad: p.cantidad, vestimenta: p.vestimenta, actividades: p.actividades,
   });
   const set = <K extends keyof CambiosPedido>(k: K, v: CambiosPedido[K]) => setC((s) => ({ ...s, [k]: v }));
@@ -18,13 +19,9 @@ export function EditarPedido({ p, onCerrar }: { p: PedidoVista; onCerrar: () => 
     <form className={`punteado ${pending ? 'pendiente' : ''}`} onSubmit={(e) => { e.preventDefault(); run(() => editarPedido(p.id, c), onCerrar); }}>
       <h6 className="h6-accent">Editar pedido</h6>
       <div className="field"><label>Nombre del evento</label><input className="input" value={c.evento} onChange={(e) => set('evento', e.target.value)} required /></div>
-      <div className="cols-2" style={{ gap: 'var(--space-2)' }}>
-        <div className="field"><label>Fecha</label><input className="input" type="date" value={c.fecha} onChange={(e) => set('fecha', e.target.value)} required /></div>
-        <div className="field"><label>Número de estudiantes</label><input className="input" type="number" min={1} max={MAX_ESTUDIANTES} value={c.cantidad} onChange={(e) => set('cantidad', Number(e.target.value))} required /></div>
-        <div className="field"><label>Hora de inicio</label><input className="input" type="time" value={c.inicio} onChange={(e) => set('inicio', e.target.value)} required /></div>
-        <div className="field"><label>Hora de salida</label><input className="input" type="time" value={c.fin} onChange={(e) => set('fin', e.target.value)} required /></div>
-      </div>
-      <p className="muted fs-12 m-0">Duración: {fmtDur(c.inicio, c.fin)}. Confirmados actuales: {p.confirmadosN} (la cantidad no puede ser menor).</p>
+      <div className="field"><label>Días y horarios de participación</label><EditorDias dias={c.dias} onChange={(d) => set('dias', d)} idPrefijo="edit-dia" /></div>
+      <div className="field" style={{ maxWidth: 200 }}><label>Número de estudiantes</label><input className="input" type="number" min={1} max={MAX_ESTUDIANTES} value={c.cantidad} onChange={(e) => set('cantidad', Number(e.target.value))} required /></div>
+      <p className="muted fs-12 m-0">Duración: {duracionTextoDias(c.dias)}. Confirmados actuales: {p.confirmadosN} (la cantidad no puede ser menor).</p>
       <div className="field"><label>Lugar y dirección</label><input className="input" value={c.lugar} onChange={(e) => set('lugar', e.target.value)} required /></div>
       <label className="radio fs-13"><input type="checkbox" checked={c.lejos} onChange={(e) => set('lejos', e.target.checked)} /><span className="dot cuadro" />El lugar está fuera del campus / lejos</label>
       <div className="field"><label>Responsable en sitio</label><input className="input" value={c.responsable} onChange={(e) => set('responsable', e.target.value)} required /></div>

@@ -7,6 +7,7 @@ const fecha = process.argv[2] || hoy.toISOString().slice(0, 10);
 const inicio = process.argv[3] || '09:00', fin = process.argv[4] || '14:30';
 const evento = process.argv[5] || 'Evento de prueba ' + Date.now();
 const tipo = process.argv[6] || 'interno';
+const segundoDia = process.argv[7] || ''; // fecha opcional de un segundo día (mismo horario)
 const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
 const p = await b.newPage({ viewport: { width: 1280, height: 900 } });
 p.on('pageerror', (e) => console.log('PAGEERROR', e.message));
@@ -22,9 +23,13 @@ await p.click('button:has-text("Continuar")');
 await p.fill('#evento', evento);
 await p.setInputFiles('input[type=file]', tmp);
 await p.waitForSelector('.tag-accent', { timeout: 15000 });
-await p.fill('#fecha', fecha);
-await p.fill('#inicio', inicio);
-await p.fill('#fin', fin);
+await p.fill('#dia-fecha-0', fecha);
+await p.fill('#dia-inicio-0', inicio);
+await p.fill('#dia-fin-0', fin);
+if (segundoDia) {
+  await p.click('button:has-text("Agregar otro día")');
+  await p.fill('#dia-fecha-1', segundoDia);
+}
 await p.fill('#lugar', 'Auditorio Principal, Campus Occidental');
 await p.fill('#responsable', 'Secretaría FCGT · ext. 2410');
 await p.waitForTimeout(700);

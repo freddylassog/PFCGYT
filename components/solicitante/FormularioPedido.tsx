@@ -4,9 +4,10 @@ import { useEffect, useRef, useState, useTransition } from 'react';
 import { crearPedido, prepararEvidencia, verificarCruce, type CruceInfo, type PedidoCreado } from '@/app/actions/pedidos';
 import { Marco } from '@/components/Marco';
 import { IconoAlerta, IconoCalendario, IconoInfo } from '@/components/Iconos';
+import { EditorDias } from '@/components/EditorDias';
 import {
-  ACTIVIDADES, BLOQUEAR_CRUCE_EVENTOS, FORM_INICIAL, MAX_ESTUDIANTES, VESTIMENTA, cumple72h, faltasPedido, fechaLarga, fmtDur,
-  pasa4h, plazoTexto, transporteMotivo, type FormPedido,
+  ACTIVIDADES, BLOQUEAR_CRUCE_EVENTOS, FORM_INICIAL, MAX_ESTUDIANTES, VESTIMENTA, cumple72h, duracionTextoDias, esFechaISO, esHora, faltasPedido, fechaCorta, fechaLarga,
+  fechaLargaDias, horarioTextoDias, ordenarDias, pasa4hDias, plazoTexto, primerDia, transporteMotivoDias, type FormPedido,
 } from '@/lib/reglas';
 
 const PASOS = ['Solicitante', 'Evento', 'Estudiantes', 'Compromisos'];
@@ -24,22 +25,25 @@ export function FormularioPedido({ hoy }: { hoy: string }) {
 
   const set = <K extends keyof FormPedido>(k: K, v: FormPedido[K]) => setF((s) => ({ ...s, [k]: v }));
 
-  // Verifica cruces con otros pedidos cuando cambian fecha u horario.
-  const horarioCompleto = !!(f.fecha && f.inicio && f.fin);
+  // Verifica cruces con otros pedidos cuando cambian los días u horarios.
+  const diasClave = JSON.stringify(f.dias);
+  const horarioCompleto = f.dias.length > 0 && f.dias.every((d) => esFechaISO(d.fecha) && esHora(d.inicio) && esHora(d.fin));
   useEffect(() => {
     if (!horarioCompleto) return;
     let vivo = true;
-    const t = setTimeout(() => { verificarCruce(f.fecha, f.inicio, f.fin).then((c) => { if (vivo) setCruce(c); }).catch(() => {}); }, 300);
+    const dias = JSON.parse(diasClave) as FormPedido['dias'];
+    const t = setTimeout(() => { verificarCruce(dias).then((c) => { if (vivo) setCruce(c); }).catch(() => {}); }, 300);
     return () => { vivo = false; clearTimeout(t); };
-  }, [horarioCompleto, f.fecha, f.inicio, f.fin]);
+  }, [horarioCompleto, diasClave]);
 
   const cruceActual = horarioCompleto ? cruce : null;
   const faltas = faltasPedido(f, hoy, cruceActual);
   const noPuedeEnviar = faltas.some((x) => x.length);
-  const durTexto = fmtDur(f.inicio, f.fin);
-  const p4 = pasa4h(f.inicio, f.fin);
-  const tm = transporteMotivo(f);
-  const error72 = !!f.fecha && !cumple72h(f.fecha, hoy);
+  const durTexto = duracionTextoDias(f.dias);
+  const p4 = pasa4hDias(f.dias);
+  const tm = transporteMotivoDias(f);
+  const primero = primerDia(f.dias);
+  const error72 = !!primero?.fecha && esFechaISO(primero.fecha) && !cumple72h(primero.fecha, hoy);
 
   async function subirEvidencia(archivo: File) {
     setErrorArchivo(null);
@@ -78,7 +82,7 @@ export function FormularioPedido({ hoy }: { hoy: string }) {
   }
 
   function nuevoPedido() {
-    setF({ ...FORM_INICIAL, nombre: f.nombre, cargo: f.cargo, institucion: f.institucion, correoSolicitante: f.correoSolicitante, tipo: f.tipo, convenio: f.convenio });
+    setF({ ...FORM_INICIAL, dias: FORM_INICIAL.dias.map((d) => ({ ...d })), nombre: f.nombre, cargo: f.cargo, institucion: f.institucion, correoSolicitante: f.correoSolicitante, tipo: f.tipo, convenio: f.convenio });
     setEnviado(null); setCruce(null); setPaso(1);
   }
 
@@ -87,7 +91,7 @@ export function FormularioPedido({ hoy }: { hoy: string }) {
       <Marco as="section" className="mt-8 p-8 max-640" style={{ marginInline: 'auto' }}>
         <div className="card-kicker">Pedido registrado</div>
         <h2 className="mt-2">{enviado.codigo}</h2>
-        <p>{enviado.evento} · {enviado.fechaLarga} · {enviado.inicio}–{enviado.fin}</p>
+        <p>{enviado.evento} · {enviado.fechaLarga} · {enviado.horario}</p>
         <p className="muted fs-14">Anota este código. La coordinación de protocolo revisará el pedido y te responderá al correo indicado. El pedido queda <strong>pendiente</strong> hasta la revisión de la facultad.</p>
         <div className="row mt-4">
           <button className="btn btn-primary" type="button" onClick={nuevoPedido}>Nuevo pedido</button>
@@ -171,20 +175,16 @@ export function FormularioPedido({ hoy }: { hoy: string }) {
               </div>
               {errorArchivo && <p className="error mt-2">{errorArchivo}</p>}
             </div>
-            <div className="cols-2">
-              <div className="field"><label htmlFor="fecha">Fecha del evento</label><input id="fecha" className="input" type="date" value={f.fecha} min={hoy} onChange={(e) => set('fecha', e.target.value)} /></div>
-              <div className="field"><label>Plazo</label><div className="muted fs-14" style={{ minHeight: 36, display: 'flex', alignItems: 'center' }}>{plazoTexto(f.fecha, hoy)}</div></div>
+            <div className="field">
+              <label>Días y horarios de participación de los estudiantes</label>
+              <EditorDias dias={f.dias} onChange={(d) => set('dias', d)} min={hoy} idPrefijo="dia" />
             </div>
+            <p className="muted fs-12 m-0">Plazo: <strong style={{ color: 'var(--color-text)' }}>{primero?.fecha ? plazoTexto(primero.fecha, hoy) : 'Elige la fecha'}</strong> · Duración: <strong style={{ color: 'var(--color-text)' }}>{durTexto}</strong>.</p>
             {error72 && (
               <div className="alerta" role="alert"><IconoAlerta /><span><strong>No se puede registrar el pedido.</strong> El evento está a menos de 72 horas. Los pedidos deben ingresar con al menos 3 días de anticipación.</span></div>
             )}
-            <div className="cols-2">
-              <div className="field"><label htmlFor="inicio">Hora de inicio (estudiantes)</label><input id="inicio" className="input" type="time" value={f.inicio} onChange={(e) => set('inicio', e.target.value)} /></div>
-              <div className="field"><label htmlFor="fin">Hora de salida (estudiantes)</label><input id="fin" className="input" type="time" value={f.fin} onChange={(e) => set('fin', e.target.value)} /></div>
-            </div>
-            <p className="muted fs-12 m-0">Duración: <strong style={{ color: 'var(--color-text)' }}>{durTexto}</strong>.</p>
             {cruceActual && (
-              <div className="alerta" role="alert"><IconoCalendario /><span><strong>Horario ocupado.</strong> Ya hay un evento en esa hora: se cruza con <em>{cruceActual.evento}</em> ({cruceActual.inicio}–{cruceActual.fin}, {cruceActual.estado}). {BLOQUEAR_CRUCE_EVENTOS ? 'No se puede registrar otro evento en esa hora: elige otro horario el mismo día u otra fecha.' : 'Puedes continuar; la coordinación revisará el cruce antes de aprobar.'}</span></div>
+              <div className="alerta" role="alert"><IconoCalendario /><span><strong>Horario ocupado.</strong> Ya hay un evento en esa hora el {fechaCorta(cruceActual.fecha)}: se cruza con <em>{cruceActual.evento}</em> ({cruceActual.inicio}–{cruceActual.fin}, {cruceActual.estado}). {BLOQUEAR_CRUCE_EVENTOS ? 'No se puede registrar otro evento en esa hora: elige otro horario el mismo día u otra fecha.' : 'Puedes continuar; la coordinación revisará el cruce antes de aprobar.'}</span></div>
             )}
             <div className="field"><label htmlFor="lugar">Lugar y dirección</label><input id="lugar" className="input" value={f.lugar} onChange={(e) => set('lugar', e.target.value)} placeholder="Salón, edificio, calle" /></div>
             <label className="radio fs-13"><input type="checkbox" checked={f.lejos} onChange={(e) => set('lejos', e.target.checked)} /><span className="dot cuadro" />El lugar está fuera del campus / lejos</label>
@@ -225,7 +225,7 @@ export function FormularioPedido({ hoy }: { hoy: string }) {
             <h6 className="h6-accent">04 · Compromisos del organizador</h6>
             <dl className="dl" style={{ paddingBottom: 'var(--space-3)', borderBottom: '1px solid var(--color-divider)' }}>
               <dt className="muted">Evento</dt><dd>{f.evento} · {resumenTipo}</dd>
-              <dt className="muted">Fecha</dt><dd>{fechaLarga(f.fecha)} · {f.inicio}–{f.fin} ({durTexto})</dd>
+              <dt className="muted">Fecha</dt><dd>{fechaLargaDias(f.dias)} · {horarioTextoDias(ordenarDias(f.dias))} ({durTexto})</dd>
               <dt className="muted">Estudiantes</dt><dd>{f.cantidad} · {f.actividades.join(', ')}</dd>
               <dt className="muted">Vestimenta</dt><dd>{VESTIMENTA[f.vestimenta].label}</dd>
               <dt className="muted">Lugar</dt><dd>{f.lugar}</dd>

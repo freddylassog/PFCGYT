@@ -87,9 +87,9 @@ export async function generarReporte(d: Datos): Promise<Buffer> {
   const wb = new ExcelJS.Workbook();
   wb.creator = 'Protocolo FCGT';
 
-  const ev: (string | number)[][] = [['Código', 'Evento', 'Institución', 'Tipo', 'Convenio', 'Estado', 'Fecha', 'Inicio', 'Fin', 'Horas', 'Estudiantes solicitados', 'Confirmados', 'Vestimenta', 'Alimentación', 'Transporte', 'Lugar', 'Responsable', 'Fecha pedido', 'Evidencia', 'Estudiantes confirmados', 'Novedades']];
-  pedidos.forEach((e) => ev.push([e.codigo, e.evento, e.institucion, e.tipoLabel, e.tipo === 'externo' ? (e.convenio === 'si' ? 'Vigente' : 'Sin convenio') : 'UTE', e.estado, e.fecha, e.inicio, e.fin, e.horas, e.cantidad, e.confirmadosN, e.vestLabel, e.pasa4h ? 'Sí' : 'No', e.transporte ? 'Sí' : 'No', e.lugar, e.responsable, e.createdAt.slice(0, 10), e.evidenciaTexto, e.confirmados.map((s) => s.nombre).join('; '), e.novedadesTexto]));
-  hoja(wb, 'Eventos', ev, [14, 34, 28, 9, 13, 10, 11, 7, 7, 7, 10, 11, 24, 12, 11, 32, 26, 11, 28, 40, 40]);
+  const ev: (string | number)[][] = [['Código', 'Evento', 'Institución', 'Tipo', 'Convenio', 'Estado', 'Fecha', 'Fechas y horarios', 'Horas', 'Estudiantes solicitados', 'Confirmados', 'Vestimenta', 'Alimentación', 'Transporte', 'Lugar', 'Responsable', 'Fecha pedido', 'Evidencia', 'Estudiantes confirmados', 'Novedades']];
+  pedidos.forEach((e) => ev.push([e.codigo, e.evento, e.institucion, e.tipoLabel, e.tipo === 'externo' ? (e.convenio === 'si' ? 'Vigente' : 'Sin convenio') : 'UTE', e.estado, e.fecha, `${e.fechaLarga} · ${e.horarioTexto}`, e.horas, e.cantidad, e.confirmadosN, e.vestLabel, e.pasa4h ? 'Sí' : 'No', e.transporte ? 'Sí' : 'No', e.lugar, e.responsable, e.createdAt.slice(0, 10), e.evidenciaTexto, e.confirmados.map((s) => s.nombre).join('; '), e.novedadesTexto]));
+  hoja(wb, 'Eventos', ev, [14, 34, 28, 9, 13, 10, 11, 40, 7, 10, 11, 24, 12, 11, 32, 26, 11, 28, 40, 40]);
 
   hoja(wb, 'Horas', [['Concepto', 'Horas'], ['Horas asignadas por semana', horas.horasSemana], [`Horas del semestre (${horas.semanas} semanas)`, horas.total], ['Horas registradas en eventos aprobados', horas.usadas], ['Horas disponibles', horas.restantes]], [40, 10]);
 

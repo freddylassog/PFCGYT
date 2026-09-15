@@ -1,14 +1,17 @@
 // Cálculos derivados que comparten el panel, el portal del estudiante, el
 // reporte Excel y los correos. Todo puro: entra `Datos`, salen vistas.
 import {
-  ACTIVIDADES, DEVOLUCION, MINIMO_EVENTOS, VESTIMENTA, convenioLabel, cruceClases, diasHasta, fechaCorta, fechaLarga,
-  fmtDur, horasDe, infoUniforme, pasa4h, redondear1, semCorto, semLabel, semanaDe, tagClass, tipoLabel, transporteMotivo,
+  ACTIVIDADES, DEVOLUCION, MINIMO_EVENTOS, VESTIMENTA, convenioLabel, cruceClases, diasHasta, duracionTextoDias, fechaCorta, fechaCortaDias, fechaLargaDias,
+  horarioTextoDias, horasDias, infoUniforme, pasa4hDias, redondear1, semCorto, semLabel, semanaDe, tagClass, tipoLabel, transporteMotivoDias, ultimoDia,
 } from './reglas';
 import type { Clase, Datos, Docente, Estudiante, Novedad, Pedido, Semestre } from './tipos';
 
 export interface PedidoVista extends Pedido {
   horas: number;
   duracion: string;
+  horarioTexto: string;
+  multidia: boolean;
+  ultimaFecha: string;
   fechaCorta: string;
   fechaLarga: string;
   fechaPedido: string;
@@ -71,12 +74,13 @@ export function vistaPedido(d: Datos, p: Pedido): PedidoVista {
   }));
   const novedades: NovedadVista[] = d.novedades.filter((n) => n.requestId === p.id).map((n) => ({ ...n, estudiante: est.get(n.studentId) ?? null, pendiente: !n.reportadoAt }));
   const v = VESTIMENTA[p.vestimenta] ?? VESTIMENTA.uniforme;
-  const tm = transporteMotivo(p);
-  const p4 = pasa4h(p.inicio, p.fin);
+  const tm = transporteMotivoDias(p);
+  const p4 = pasa4hDias(p.dias);
   return {
     ...p,
-    horas: horasDe(p.inicio, p.fin), duracion: fmtDur(p.inicio, p.fin),
-    fechaCorta: fechaCorta(p.fecha), fechaLarga: fechaLarga(p.fecha), fechaPedido: fechaCorta(p.createdAt.slice(0, 10)),
+    horas: horasDias(p.dias), duracion: duracionTextoDias(p.dias), horarioTexto: horarioTextoDias(p.dias), multidia: p.dias.length > 1,
+    ultimaFecha: ultimoDia(p.dias)?.fecha ?? p.fecha,
+    fechaCorta: fechaCortaDias(p.dias), fechaLarga: fechaLargaDias(p.dias), fechaPedido: fechaCorta(p.createdAt.slice(0, 10)),
     tipoLabel: tipoLabel(p.tipo), vestLabel: v.label, vestCorta: v.corta, vestNotaEst: v.est,
     pasa4h: p4, transporteMotivo: tm, transporte: !!tm,
     compromisos: [p4 ? 'Alimentación' : null, tm ? 'Transporte' : null].filter(Boolean).join(' · ') || '—',

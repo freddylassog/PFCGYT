@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  BLOQUEAR_CRUCE_EVENTOS, FORM_INICIAL, claveVigente, codigoPedido, cruceClases, cruceEventos, cumple72h, faltasPedido, fechaLarga,
-  fmtDur, genClave, horasDe, infoUniforme, normalizarClave, overlap, pasa4h, plazoTexto, semanaDe, transporteMotivo,
+  BLOQUEAR_CRUCE_EVENTOS, FORM_INICIAL, claveVigente, codigoPedido, cruceClases, cruceEventos, cumple72h, faltasDias, faltasPedido, fechaCortaDias, fechaLarga,
+  fechaLargaDias, fmtDur, genClave, horarioTextoDias, horasDe, horasDias, infoUniforme, normalizarClave, overlap, pasa4h, pasa4hDias, plazoTexto, semanaDe, transporteMotivo, transporteMotivoDias,
 } from '../../lib/reglas';
 import type { Clase } from '../../lib/tipos';
 
@@ -31,16 +31,34 @@ test('alimentación y transporte', () => {
   assert.equal(transporteMotivo({ fin: '22:00', lejos: true }), 'Termina después de las 18:00 y el lugar es lejano');
 });
 
-test('cruce de eventos', () => {
+test('cruce de eventos (por día y hora)', () => {
   const pedidos = [
-    { id: 'a', fecha: '2026-09-22', inicio: '08:00', fin: '12:00', estado: 'Pendiente' as const, evento: 'A' },
-    { id: 'b', fecha: '2026-09-22', inicio: '13:00', fin: '15:00', estado: 'Rechazado' as const, evento: 'B' },
+    { id: 'a', estado: 'Pendiente' as const, evento: 'A', dias: [{ fecha: '2026-09-22', inicio: '08:00', fin: '12:00' }, { fecha: '2026-09-23', inicio: '08:00', fin: '12:00' }] },
+    { id: 'b', estado: 'Rechazado' as const, evento: 'B', dias: [{ fecha: '2026-09-22', inicio: '13:00', fin: '15:00' }] },
   ];
   assert.equal(overlap('10:00', '13:00', '08:00', '12:00'), true);
   assert.equal(overlap('12:00', '13:00', '08:00', '12:00'), false);
-  assert.equal(cruceEventos({ fecha: '2026-09-22', inicio: '10:00', fin: '13:00' }, pedidos)?.id, 'a');
-  assert.equal(cruceEventos({ fecha: '2026-09-22', inicio: '13:00', fin: '14:00' }, pedidos), null, 'los rechazados no cuentan');
-  assert.equal(cruceEventos({ fecha: '2026-09-22', inicio: '10:00', fin: '13:00' }, pedidos, 'a'), null, 'se excluye a sí mismo');
+  const c = cruceEventos({ dias: [{ fecha: '2026-09-23', inicio: '10:00', fin: '13:00' }] }, pedidos);
+  assert.equal(c?.pedido.id, 'a');
+  assert.equal(c?.dia.fecha, '2026-09-23', 'indica el día que se cruza');
+  assert.equal(cruceEventos({ dias: [{ fecha: '2026-09-22', inicio: '13:00', fin: '14:00' }] }, pedidos), null, 'mismo día, otra hora: permitido; los rechazados no cuentan');
+  assert.equal(cruceEventos({ dias: [{ fecha: '2026-09-22', inicio: '10:00', fin: '13:00' }] }, pedidos, 'a'), null, 'se excluye a sí mismo');
+});
+
+test('eventos de varios días: horas, textos, reglas', () => {
+  const dias = [{ fecha: '2026-09-23', inicio: '09:00', fin: '13:00' }, { fecha: '2026-09-22', inicio: '08:00', fin: '12:30' }, { fecha: '2026-09-24', inicio: '14:00', fin: '19:00' }];
+  assert.equal(horasDias(dias), 13.5, 'suma de los tres días');
+  assert.equal(fechaLargaDias(dias), '22, 23 y 24 sep 2026');
+  assert.equal(fechaCortaDias(dias), '22–24 sep');
+  assert.equal(horarioTextoDias(dias), '22 sep 08:00–12:30 · 23 sep 09:00–13:00 · 24 sep 14:00–19:00');
+  assert.equal(horarioTextoDias([{ fecha: '2026-09-22', inicio: '08:00', fin: '12:00' }, { fecha: '2026-09-23', inicio: '08:00', fin: '12:00' }]), '08:00–12:00', 'mismo horario todos los días');
+  assert.equal(pasa4hDias(dias), true, 'un día pasa de 4 h');
+  assert.equal(pasa4hDias([{ fecha: '2026-09-22', inicio: '08:00', fin: '11:00' }, { fecha: '2026-09-23', inicio: '08:00', fin: '11:00' }]), false, '6 h en dos días de 3 h no exige alimentación');
+  assert.equal(transporteMotivoDias({ dias, lejos: false }), 'Termina después de las 18:00');
+  assert.deepEqual(faltasDias(dias, '2026-09-08'), []);
+  assert.deepEqual(faltasDias([dias[0], dias[0]], '2026-09-08'), ['fechas sin repetir']);
+  assert.deepEqual(faltasDias([{ fecha: '2026-09-09', inicio: '08:00', fin: '12:00' }], '2026-09-08'), ['fecha con al menos 72 h']);
+  assert.deepEqual(faltasDias([{ fecha: '2026-09-09', inicio: '08:00', fin: '12:00' }], '2026-09-08', false), [], 'coordinación puede editar fechas cercanas');
 });
 
 test('cruce con clases por día de la semana y semestres', () => {
@@ -51,12 +69,13 @@ test('cruce con clases por día de la semana y semestres', () => {
     { id: 'c12', semestre: 3, paralelo: 'A', dia: 2, inicio: '14:00', fin: '17:00', materia: 'Cultura', teacherId: null, activo: true },
     { id: 'c1', semestre: 1, paralelo: 'A', dia: 1, inicio: '07:00', fin: '09:00', materia: 'Turismo', teacherId: null, activo: true },
   ];
-  const ev = { fecha: '2026-09-22', inicio: '08:00', fin: '12:00' }; // martes
+  const ev = { dias: [{ fecha: '2026-09-22', inicio: '08:00', fin: '12:00' }] }; // martes
   assert.deepEqual(cruceClases(ev, clases, []).map((c) => c.id), ['c2', 'c2c', 'c7'], 'sin confirmados: todas');
   assert.deepEqual(cruceClases(ev, clases, [{ semestre: 2, paralelo: null }]).map((c) => c.id), ['c7']);
   assert.deepEqual(cruceClases(ev, clases, [{ semestre: 1, paralelo: 'A' }]).map((c) => c.id), ['c2'], 'solo el paralelo A');
   assert.deepEqual(cruceClases(ev, clases, [{ semestre: 1, paralelo: null }]).map((c) => c.id), ['c2', 'c2c'], 'estudiante sin paralelo: ambos');
-  assert.deepEqual(cruceClases({ ...ev, fecha: '2026-09-26' }, clases, []), [], 'sábado sin clases');
+  assert.deepEqual(cruceClases({ dias: [{ fecha: '2026-09-26', inicio: '08:00', fin: '12:00' }] }, clases, []), [], 'sábado sin clases');
+  assert.deepEqual(cruceClases({ dias: [{ fecha: '2026-09-21', inicio: '07:00', fin: '08:00' }, { fecha: '2026-09-22', inicio: '08:00', fin: '09:00' }] }, clases, [{ semestre: 1, paralelo: 'A' }]).map((c) => c.id), ['c1', 'c2c'].filter((x) => x === 'c1'), 'evento de dos días: lunes 07–08 choca con c1');
 });
 
 test('clave del evento', () => {
@@ -66,10 +85,12 @@ test('clave del evento', () => {
   assert.equal(normalizarClave('SOL 2026 3'), 'SOL-2026-003');
   assert.equal(normalizarClave('2026-003'), 'SOL-2026-003');
   assert.match(genClave(() => 0), /^UTE-AAAA$/);
-  assert.equal(claveVigente({ fecha: '2026-09-22', fin: '12:00' }, '2026-09-21', '23:00'), true);
-  assert.equal(claveVigente({ fecha: '2026-09-22', fin: '12:00' }, '2026-09-22', '12:00'), true);
-  assert.equal(claveVigente({ fecha: '2026-09-22', fin: '12:00' }, '2026-09-22', '12:01'), false);
-  assert.equal(claveVigente({ fecha: '2026-09-22', fin: '12:00' }, '2026-09-23', '08:00'), false);
+  const ev = { dias: [{ fecha: '2026-09-22', inicio: '08:00', fin: '12:00' }] };
+  assert.equal(claveVigente(ev, '2026-09-21', '23:00'), true);
+  assert.equal(claveVigente(ev, '2026-09-22', '12:00'), true);
+  assert.equal(claveVigente(ev, '2026-09-22', '12:01'), false);
+  assert.equal(claveVigente(ev, '2026-09-23', '08:00'), false);
+  assert.equal(claveVigente({ dias: [...ev.dias, { fecha: '2026-09-24', inicio: '08:00', fin: '12:00' }] }, '2026-09-23', '08:00'), true, 'vale hasta el último día');
 });
 
 test('código, semana y fechas', () => {
@@ -88,9 +109,9 @@ test('uniforme', () => {
 
 test('validación del formulario por pasos', () => {
   const hoy = '2026-09-08';
-  const f = { ...FORM_INICIAL, evidenciaPath: 'x', evidenciaNombre: 'x.pdf', nombre: 'A', cargo: 'B', institucion: 'C', correoSolicitante: 'a@b.co', evento: 'E', fecha: '2026-09-22', lugar: 'L', responsable: 'R', actividades: ['Guía de invitados'], acepta: true };
+  const f = { ...FORM_INICIAL, evidenciaPath: 'x', evidenciaNombre: 'x.pdf', nombre: 'A', cargo: 'B', institucion: 'C', correoSolicitante: 'a@b.co', evento: 'E', dias: [{ fecha: '2026-09-22', inicio: '09:00', fin: '13:00' }], lugar: 'L', responsable: 'R', actividades: ['Guía de invitados'], acepta: true };
   assert.deepEqual(faltasPedido(f, hoy, null), [[], [], [], []]);
-  assert.deepEqual(faltasPedido({ ...f, fecha: '2026-09-09' }, hoy, null)[1], ['fecha con al menos 72 h']);
+  assert.deepEqual(faltasPedido({ ...f, dias: [{ fecha: '2026-09-09', inicio: '09:00', fin: '13:00' }] }, hoy, null)[1], ['fecha con al menos 72 h']);
   assert.deepEqual(faltasPedido({ ...f, correoSolicitante: 'malo' }, hoy, null)[0], ['correo válido']);
   assert.deepEqual(faltasPedido({ ...f, evidenciaPath: '' }, hoy, null)[1], ['evidencia del pedido'], 'la evidencia se pide en el paso 2');
   const conCruce = faltasPedido(f, hoy, { evento: 'Otro' })[1];
