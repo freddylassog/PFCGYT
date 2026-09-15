@@ -37,6 +37,7 @@ export interface Pedido {
   lugar: string;
   lejos: boolean;
   responsable: string;
+  responsableTelefono: string;
   cantidad: number;
   actividades: string[];
   vestimenta: Vestimenta;

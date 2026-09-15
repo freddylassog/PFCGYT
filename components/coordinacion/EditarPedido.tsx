@@ -11,7 +11,7 @@ export function EditarPedido({ p, onCerrar }: { p: PedidoVista; onCerrar: () => 
   const { pending, error, run } = useAccion();
   const [c, setC] = useState<CambiosPedido>({
     nombre: p.nombre, cargo: p.cargo, institucion: p.institucion, correoSolicitante: p.correoSolicitante ?? '',
-    evento: p.evento, dias: p.dias.map((d) => ({ ...d })), lugar: p.lugar, lejos: p.lejos, responsable: p.responsable,
+    evento: p.evento, dias: p.dias.map((d) => ({ ...d })), lugar: p.lugar, lejos: p.lejos, responsable: p.responsable, responsableTelefono: p.responsableTelefono,
     cantidad: p.cantidad, vestimenta: p.vestimenta, actividades: p.actividades,
   });
   const set = <K extends keyof CambiosPedido>(k: K, v: CambiosPedido[K]) => setC((s) => ({ ...s, [k]: v }));
@@ -24,7 +24,10 @@ export function EditarPedido({ p, onCerrar }: { p: PedidoVista; onCerrar: () => 
       <p className="muted fs-12 m-0">Duración: {duracionTextoDias(c.dias)}. Confirmados actuales: {p.confirmadosN} (la cantidad no puede ser menor).</p>
       <div className="field"><label>Lugar y dirección</label><input className="input" value={c.lugar} onChange={(e) => set('lugar', e.target.value)} required /></div>
       <label className="radio fs-13"><input type="checkbox" checked={c.lejos} onChange={(e) => set('lejos', e.target.checked)} /><span className="dot cuadro" />El lugar está fuera del campus / lejos</label>
-      <div className="field"><label>Responsable en sitio</label><input className="input" value={c.responsable} onChange={(e) => set('responsable', e.target.value)} required /></div>
+      <div className="cols-2" style={{ gap: 'var(--space-2)' }}>
+        <div className="field"><label>Responsable en sitio</label><input className="input" value={c.responsable} onChange={(e) => set('responsable', e.target.value)} required /></div>
+        <div className="field"><label>Teléfono</label><input className="input" type="tel" value={c.responsableTelefono} onChange={(e) => set('responsableTelefono', e.target.value)} required /></div>
+      </div>
       <div className="field"><label>Vestimenta</label><select className="input" value={c.vestimenta} onChange={(e) => set('vestimenta', e.target.value)}>{(Object.keys(VESTIMENTA) as Vestimenta[]).map((k) => <option key={k} value={k}>{VESTIMENTA[k].label}</option>)}</select></div>
       <div className="field"><label>Actividades</label>
         <div className="stack-2" style={{ gap: 2 }}>{ACTIVIDADES.map((a) => <label key={a} className="radio fs-13"><input type="checkbox" checked={c.actividades.includes(a)} onChange={() => set('actividades', c.actividades.includes(a) ? c.actividades.filter((x) => x !== a) : [...c.actividades, a])} /><span className="dot cuadro" />{a}</label>)}</div>

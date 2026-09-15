@@ -433,6 +433,7 @@ export interface FormPedido {
   lugar: string;
   lejos: boolean;
   responsable: string;
+  responsableTelefono: string;
   cantidad: number;
   actividades: string[];
   vestimenta: Vestimenta;
@@ -445,9 +446,14 @@ export const DIA_INICIAL: DiaEvento = { fecha: '', inicio: '09:00', fin: '13:00'
 
 export const FORM_INICIAL: FormPedido = {
   nombre: '', cargo: '', institucion: '', correoSolicitante: '', tipo: 'interno', convenio: 'si',
-  evento: '', dias: [{ ...DIA_INICIAL }], lugar: '', lejos: false, responsable: '',
+  evento: '', dias: [{ ...DIA_INICIAL }], lugar: '', lejos: false, responsable: '', responsableTelefono: '',
   cantidad: 4, actividades: [], vestimenta: 'uniforme', acepta: false, evidenciaNombre: '', evidenciaPath: '',
 };
+
+/** Al menos 7 dígitos (acepta espacios, guiones, paréntesis y +). */
+export function telefonoValido(s: string): boolean {
+  return (s || '').replace(/\D/g, '').length >= 7 && /^[\d\s()+\-./ext]+$/i.test(s.trim());
+}
 
 export function correoValido(s: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.trim());
@@ -485,7 +491,8 @@ export function faltasPedido(f: FormPedido, hoy: string, cruce: { evento: string
   f2.push(...faltasDias(f.dias, hoy));
   if (cruce && BLOQUEAR_CRUCE_EVENTOS) f2.push('horario sin cruce');
   if (!f.lugar.trim()) f2.push('lugar');
-  if (!f.responsable.trim()) f2.push('responsable');
+  if (!f.responsable.trim()) f2.push('nombre del responsable');
+  if (!telefonoValido(f.responsableTelefono)) f2.push('teléfono del responsable');
 
   const f3: string[] = [];
   if (!(f.cantidad >= 1 && f.cantidad <= MAX_ESTUDIANTES)) f3.push('número de estudiantes (1–20)');

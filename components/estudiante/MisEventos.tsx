@@ -63,7 +63,7 @@ export function MisEventos({ datos, yo }: { datos: Datos; yo: Estudiante }) {
               <div><div className="etiqueta">Fecha</div>{e.fechaLarga}</div>
               <div><div className="etiqueta">Tu horario</div>{e.horarioTexto} · {e.duracion}</div>
               <div><div className="etiqueta">Lugar</div>{e.lugar}</div>
-              <div><div className="etiqueta">Responsable en sitio</div>{e.responsable}</div>
+              <div><div className="etiqueta">Responsable en sitio</div>{e.responsable}{e.responsableTelefono && <div className="muted fs-12">{e.responsableTelefono}</div>}</div>
               <div><div className="etiqueta">Vestimenta</div>{e.vestLabel}<div className="muted fs-12">{e.vestNotaEst}</div></div>
             </div>
             <div><div className="etiqueta" style={{ marginBottom: 4 }}>Tus actividades</div><div className="row" style={{ gap: 4 }}>{e.actividades.map((a) => <span key={a} className="tag tag-neutral">{a}</span>)}</div></div>

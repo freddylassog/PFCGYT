@@ -109,11 +109,12 @@ test('uniforme', () => {
 
 test('validación del formulario por pasos', () => {
   const hoy = '2026-09-08';
-  const f = { ...FORM_INICIAL, evidenciaPath: 'x', evidenciaNombre: 'x.pdf', nombre: 'A', cargo: 'B', institucion: 'C', correoSolicitante: 'a@b.co', evento: 'E', dias: [{ fecha: '2026-09-22', inicio: '09:00', fin: '13:00' }], lugar: 'L', responsable: 'R', actividades: ['Guía de invitados'], acepta: true };
+  const f = { ...FORM_INICIAL, evidenciaPath: 'x', evidenciaNombre: 'x.pdf', nombre: 'A', cargo: 'B', institucion: 'C', correoSolicitante: 'a@b.co', evento: 'E', dias: [{ fecha: '2026-09-22', inicio: '09:00', fin: '13:00' }], lugar: 'L', responsable: 'R', responsableTelefono: '099 123 4567', actividades: ['Guía de invitados'], acepta: true };
   assert.deepEqual(faltasPedido(f, hoy, null), [[], [], [], []]);
   assert.deepEqual(faltasPedido({ ...f, dias: [{ fecha: '2026-09-09', inicio: '09:00', fin: '13:00' }] }, hoy, null)[1], ['fecha con al menos 72 h']);
   assert.deepEqual(faltasPedido({ ...f, correoSolicitante: 'malo' }, hoy, null)[0], ['correo válido']);
   assert.deepEqual(faltasPedido({ ...f, evidenciaPath: '' }, hoy, null)[1], ['evidencia del pedido'], 'la evidencia se pide en el paso 2');
+  assert.deepEqual(faltasPedido({ ...f, responsableTelefono: '12' }, hoy, null)[1], ['teléfono del responsable']);
   const conCruce = faltasPedido(f, hoy, { evento: 'Otro' })[1];
   assert.equal(conCruce.includes('horario sin cruce'), BLOQUEAR_CRUCE_EVENTOS, 'el cruce bloquea solo si está configurado');
 });

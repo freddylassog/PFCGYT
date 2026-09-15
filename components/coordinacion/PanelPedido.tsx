@@ -57,7 +57,7 @@ export function PanelPedido({ p, datos, pedidos, cruceEvento, onCerrar }: { p: P
         <dt className="muted">Estudiantes</dt><dd>{p.cantidad} solicitados</dd>
         <dt className="muted">Vestimenta</dt><dd>{p.vestLabel}</dd>
         <dt className="muted">Lugar</dt><dd>{p.lugar}{p.lejos ? ' · lejos' : ''}</dd>
-        <dt className="muted">Responsable</dt><dd>{p.responsable}</dd>
+        <dt className="muted">Responsable</dt><dd>{p.responsable}{p.responsableTelefono && <> · <a href={`tel:${p.responsableTelefono.replace(/[^\d+]/g, '')}`}>{p.responsableTelefono}</a></>}</dd>
         <dt className="muted">Pedido</dt><dd>{p.fechaPedido} · {p.evidenciaPath ? <a href={`/api/evidencia/${p.id}`} target="_blank" rel="noopener">{p.evidenciaTexto}</a> : p.evidenciaTexto}</dd>
       </dl>
       <div><h6 style={{ margin: '0 0 4px' }}>Actividades</h6><div className="row" style={{ gap: 4 }}>{p.actividades.map((a) => <span key={a} className="tag tag-neutral">{a}</span>)}</div></div>

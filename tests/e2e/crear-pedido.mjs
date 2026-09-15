@@ -31,7 +31,8 @@ if (segundoDia) {
   await p.fill('#dia-fecha-1', segundoDia);
 }
 await p.fill('#lugar', 'Auditorio Principal, Campus Occidental');
-await p.fill('#responsable', 'Secretaría FCGT · ext. 2410');
+await p.fill('#responsable', 'Secretaría FCGT');
+await p.fill('#telefono', '02 299 0800 ext. 2410');
 await p.waitForTimeout(700);
 const alerta = await p.locator('.alerta').allTextContents();
 if (alerta.length) console.log('ALERTA:', alerta.join(' | '));

@@ -188,7 +188,13 @@ export function FormularioPedido({ hoy }: { hoy: string }) {
             )}
             <div className="field"><label htmlFor="lugar">Lugar y dirección</label><input id="lugar" className="input" value={f.lugar} onChange={(e) => set('lugar', e.target.value)} placeholder="Salón, edificio, calle" /></div>
             <label className="radio fs-13"><input type="checkbox" checked={f.lejos} onChange={(e) => set('lejos', e.target.checked)} /><span className="dot cuadro" />El lugar está fuera del campus / lejos</label>
-            <div className="field"><label htmlFor="responsable">Responsable en sitio durante el evento</label><input id="responsable" className="input" value={f.responsable} onChange={(e) => set('responsable', e.target.value)} placeholder="Nombre y teléfono" /></div>
+            <div className="field">
+              <label>Responsable en sitio durante el evento (contacto para coordinar)</label>
+              <div className="cols-2">
+                <input id="responsable" className="input" value={f.responsable} onChange={(e) => set('responsable', e.target.value)} placeholder="Nombre" aria-label="Nombre del responsable" autoComplete="off" />
+                <input id="telefono" className="input" type="tel" value={f.responsableTelefono} onChange={(e) => set('responsableTelefono', e.target.value)} placeholder="Teléfono (ej. 099 123 4567)" aria-label="Teléfono del responsable" autoComplete="off" />
+              </div>
+            </div>
             {faltas[1].length > 0 && <p className="muted fs-12 m-0">Falta: {faltas[1].join(', ')}</p>}
             <div className="between"><button className="btn btn-secondary" type="button" onClick={anterior}>Atrás</button><button className="btn btn-primary btn-40" type="button" onClick={siguiente} disabled={faltas[1].length > 0}>Continuar</button></div>
           </Marco>
@@ -229,6 +235,7 @@ export function FormularioPedido({ hoy }: { hoy: string }) {
               <dt className="muted">Estudiantes</dt><dd>{f.cantidad} · {f.actividades.join(', ')}</dd>
               <dt className="muted">Vestimenta</dt><dd>{VESTIMENTA[f.vestimenta].label}</dd>
               <dt className="muted">Lugar</dt><dd>{f.lugar}</dd>
+              <dt className="muted">Responsable</dt><dd>{f.responsable} · {f.responsableTelefono}</dd>
               <dt className="muted">Evidencia</dt><dd>{f.evidenciaNombre}</dd>
             </dl>
             <div className="stack-3 fs-14">

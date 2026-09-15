@@ -59,11 +59,11 @@ export async function crearPedido(f: FormPedido): Promise<Resultado<PedidoCreado
     try {
       const [fila] = await sql`
         insert into requests (periodo, numero, codigo, nombre, cargo, institucion, correo_solicitante, tipo, convenio,
-          evento, fecha, inicio, fin, dias, lugar, lejos, responsable, cantidad, actividades, vestimenta, evidencia_path, evidencia_nombre)
+          evento, fecha, inicio, fin, dias, lugar, lejos, responsable, responsable_telefono, cantidad, actividades, vestimenta, evidencia_path, evidencia_nombre)
         select ${periodo}, n, ${'SOL-' + periodo.slice(0, 4) + '-'} || lpad(n::text, 3, '0'),
           ${f.nombre.trim()}, ${f.cargo.trim()}, ${f.institucion.trim()}, ${normalizarCorreo(f.correoSolicitante)},
           ${f.tipo}, ${f.tipo === 'externo' ? f.convenio : 'si'}, ${f.evento.trim()}, ${primero.fecha}, ${primero.inicio}, ${primero.fin}, ${sql.json(dias as unknown as JSONValue)},
-          ${f.lugar.trim()}, ${!!f.lejos}, ${f.responsable.trim()}, ${Math.round(f.cantidad)}, ${actividades}, ${f.vestimenta},
+          ${f.lugar.trim()}, ${!!f.lejos}, ${f.responsable.trim()}, ${f.responsableTelefono.trim()}, ${Math.round(f.cantidad)}, ${actividades}, ${f.vestimenta},
           ${f.evidenciaPath}, ${f.evidenciaNombre.slice(0, 200)}
         from (select coalesce(max(numero), 0) + 1 as n from requests where periodo = ${periodo}) s
         returning *`;
