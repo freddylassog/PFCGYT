@@ -6,7 +6,7 @@ import { avanceEstudiante, matrizSemestres, resumenHoras, vistaPedidos } from '.
 
 function datosDemo(): Datos {
   return {
-    hoy: '2026-09-08', appUrl: 'https://protocolo.test',
+    hoy: '2026-09-08', appUrl: 'https://protocolo.test', notificaciones: [],
     ajustes: { periodo: '2026-2', inicioSemestre: '2026-09-07', semanas: 16, horasSemana: 20, correoDecanato: '', correoGrupoEstudiantes: '', correoCoordinacion: '', matrizEnviada: {}, archivos: {} },
     pedidos: [
       { id: 'p1', periodo: '2026-2', numero: 1, codigo: 'SOL-2026-001', nombre: 'Ana', cargo: 'Dir.', institucion: 'UTE', correoSolicitante: 'a@ute.edu.ec', tipo: 'interno', convenio: 'si', evento: 'Incorporación', fecha: '2026-09-11', inicio: '15:00', fin: '18:00', dias: [{ fecha: '2026-09-11', inicio: '15:00', fin: '18:00' }], lugar: 'Auditorio', lejos: false, responsable: 'Sec.', responsableTelefono: '02 299 0800', cantidad: 2, actividades: ['Guía de invitados'], vestimenta: 'uniforme', evidenciaPath: null, evidenciaNombre: null, estado: 'Aprobado', convocadaAt: '2026-09-02', clave: 'UTE-4K7Q', createdAt: '2026-09-01T10:00:00Z' },

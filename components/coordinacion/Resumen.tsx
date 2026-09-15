@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { guardarAjustes, nuevoPeriodo } from '@/app/actions/coordinacion';
+import { guardarAjustes, nuevoPeriodo, probarNotificacion } from '@/app/actions/coordinacion';
 import { IconoDescargar } from '@/components/Iconos';
 import { Marco } from '@/components/Marco';
 import { useAccion } from '@/components/useAccion';
@@ -15,6 +15,7 @@ export function Resumen({ datos, pedidos }: { datos: Datos; pedidos: PedidoVista
   const a = datos.ajustes;
   const [aj, setAj] = useState({ correoDecanato: a.correoDecanato, correoGrupoEstudiantes: a.correoGrupoEstudiantes, correoCoordinacion: a.correoCoordinacion, inicioSemestre: a.inicioSemestre });
   const [np, setNp] = useState({ periodo: '', inicio: '' });
+  const [prueba, setPrueba] = useState<string | null>(null);
   const aprobados = pedidos.filter((e) => e.estado === 'Aprobado');
   const color = h.restantes < 0 ? 'var(--color-accent-900)' : 'var(--color-accent)';
 
@@ -47,7 +48,19 @@ export function Resumen({ datos, pedidos }: { datos: Datos; pedidos: PedidoVista
         </table>
       </Marco>
 
-      <div className="cols-auto mt-8">
+      <Marco className="mt-8 p-4 stack-3">
+        <h6 className="h6-accent">Avisos de pedidos nuevos</h6>
+        {datos.notificaciones.length ? (
+          <p className="m-0 fs-14">Cada pedido nuevo te avisa por: {datos.notificaciones.map((n) => n.canal === 'correo' ? `correo a ${n.destino}` : 'Telegram').join(' y ')}.</p>
+        ) : (
+          <p className="m-0 fs-14 muted">Sin avisos configurados. Para recibir un correo o un mensaje de Telegram cuando entre un pedido, agrega las variables en Vercel (ver README, sección Avisos).</p>
+        )}
+        <div className="row">
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => { setPrueba(null); run(() => probarNotificacion(), () => setPrueba('Prueba enviada. Revisa tu bandeja (y la carpeta de spam la primera vez).')); }}>Enviar prueba</button>
+          {prueba && <span className="fs-13" style={{ color: 'var(--color-accent-800)' }}>{prueba}</span>}
+        </div>
+      </Marco>
+      <div className="cols-auto mt-4">
         <Marco as="form" className="p-4 stack-3" onSubmit={(e: React.FormEvent) => { e.preventDefault(); run(() => guardarAjustes(aj)); }}>
           <h6 className="h6-accent">Ajustes del periodo {a.periodo}</h6>
           <div className="field"><label>Inicio del semestre (lunes de la semana 1)</label><input className="input" type="date" value={aj.inicioSemestre} onChange={(e) => setAj({ ...aj, inicioSemestre: e.target.value })} /><div className="muted fs-12 mt-2">{fechaLarga(aj.inicioSemestre)}</div></div>

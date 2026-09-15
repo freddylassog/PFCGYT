@@ -145,6 +145,8 @@ export interface Ajustes {
 export interface Datos {
   hoy: string;
   appUrl: string;
+  /** Canales de aviso de pedidos nuevos configurados (correo / Telegram). */
+  notificaciones: { canal: string; destino: string }[];
   ajustes: Ajustes;
   pedidos: Pedido[];
   estudiantes: Estudiante[];

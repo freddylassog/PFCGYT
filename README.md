@@ -98,6 +98,15 @@ Cada carga **actualiza** por correo electrónico (no duplica), agrega los nuevos
 - **Horarios**: carga de horarios y docentes, tabla semanal por semestre (editable) y lista de correos a docentes preparados con su estado (pendiente / enviado).
 - **Estudiante**: avance (N / 2 eventos y horas), uniforme, convocatorias abiertas (Inscribirme / Retirar inscripción) y eventos confirmados con horario, lugar, responsable, vestimenta y actividades.
 
+## Avisos de pedidos nuevos
+
+La app puede avisar a coordinación cada vez que entra un pedido, por dos canales gratuitos que no dependen de TI. Se activan con variables en Vercel (Settings → Environment Variables → luego *Redeploy*); en **Resumen → Avisos de pedidos nuevos** hay un botón **Enviar prueba**.
+
+- **Correo con Resend** (recomendado): entra a [resend.com](https://resend.com) y crea la cuenta **con la dirección donde quieres recibir los avisos** (sin dominio propio, Resend solo permite enviar a esa misma dirección). En *API Keys → Create API Key* copia la clave. Variables: `RESEND_API_KEY` (la clave) y `NOTIFICACION_CORREO` (esa misma dirección). Los avisos llegan desde `onboarding@resend.dev`; la primera vez revisa la carpeta de spam.
+- **Telegram** (mensaje al celular): en Telegram habla con **@BotFather**, envía `/newbot`, sigue los pasos y copia el token. Luego escribe cualquier mensaje a tu bot nuevo y abre en el navegador `https://api.telegram.org/bot<TOKEN>/getUpdates`: el número en `"chat":{"id":…}` es tu chat id. Variables: `TELEGRAM_BOT_TOKEN` y `TELEGRAM_CHAT_ID`.
+
+El aviso incluye código, evento, fechas y horario, solicitante, cantidad de estudiantes, lugar, responsable y el enlace directo al pedido. Si un canal falla, el pedido se registra igual y el error queda en los registros de Vercel.
+
 ## Cada semestre
 
 En **Resumen → Nuevo semestre** escribe el periodo (`2027-1`) y el lunes de inicio. El periodo anterior queda guardado con sus pedidos y reportes; el nuevo empieza vacío y se vuelven a cargar estudiantes, docentes y horarios. Antes de cerrar, descarga el reporte del semestre.

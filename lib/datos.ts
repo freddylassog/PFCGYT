@@ -1,6 +1,7 @@
 import 'server-only';
 import { db } from './db';
 import { asegurarEsquema } from './migrar';
+import { canalesConfigurados } from './notificar';
 import { hoyISO, hhmm } from './reglas';
 import type {
   Ajustes, Aviso, Clase, Datos, Devolucion, DiaEvento, Docente, Estudiante, Inscripcion,
@@ -89,6 +90,7 @@ export async function cargarDatos(): Promise<Datos> {
   return {
     hoy: hoyISO(),
     appUrl: appUrl(),
+    notificaciones: canalesConfigurados(),
     ajustes,
     pedidos: pedidos.map(mapPedido),
     estudiantes: estudiantes.map(mapEstudiante),

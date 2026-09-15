@@ -5,6 +5,7 @@ import type { JSONValue } from 'postgres';
 import { db } from '@/lib/db';
 import { ajustesActuales, cargarDatos } from '@/lib/datos';
 import { asegurarEsquema } from '@/lib/migrar';
+import { canalesConfigurados, enviarPrueba } from '@/lib/notificar';
 import { leerTabla, parseDocentes, parseEstudiantes, parseHorarios } from '@/lib/excel';
 import {
   ACTIVIDADES, MAX_ESTUDIANTES, UNIFORME, TIPOS_NOVEDAD, VESTIMENTA, claseAplica, claveNombre, cruceClases, esFechaISO, faltasDias, genClave, hoyISO, normalizarCorreo, normalizarParalelo, ordenarDias, telefonoValido,
@@ -293,6 +294,22 @@ export async function marcarMatriz(semestre: Semestre, enviada: boolean): Promis
     if (enviada) await sql`update settings set matriz_enviada = matriz_enviada || ${sql.json({ [String(semestre)]: hoyISO() })} where periodo = ${periodo}`;
     else await sql`update settings set matriz_enviada = matriz_enviada - ${String(semestre)} where periodo = ${periodo}`;
     refrescar();
+    return { ok: true };
+  } catch (e) { return fallo(e); }
+}
+
+// ---------------------------------------------------------------- notificaciones
+
+export async function estadoNotificaciones(): Promise<{ canal: string; destino: string }[]> {
+  await exigir();
+  return canalesConfigurados();
+}
+
+export async function probarNotificacion(): Promise<Resultado> {
+  try {
+    await exigir();
+    const errores = await enviarPrueba();
+    if (errores.length) return { ok: false, error: errores.join(' · ') };
     return { ok: true };
   } catch (e) { return fallo(e); }
 }

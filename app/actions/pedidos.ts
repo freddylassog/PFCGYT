@@ -3,6 +3,7 @@ import type { JSONValue } from 'postgres';
 import { db } from '@/lib/db';
 import { ajustesActuales, mapPedido, pedidosDelPeriodo } from '@/lib/datos';
 import { evidenciaExiste, prepararSubida } from '@/lib/storage';
+import { notificarNuevoPedido } from '@/lib/notificar';
 import {
   ACTIVIDADES, codigoPedido, cruceEventos, esFechaISO, esHora, faltasPedido, fechaLargaDias, hoyISO, normalizarCorreo, ordenarDias, type FormPedido,
 } from '@/lib/reglas';
@@ -68,6 +69,7 @@ export async function crearPedido(f: FormPedido): Promise<Resultado<PedidoCreado
         from (select coalesce(max(numero), 0) + 1 as n from requests where periodo = ${periodo}) s
         returning *`;
       const p = mapPedido(fila);
+      await notificarNuevoPedido(p);
       return { ok: true, datos: { id: p.id, codigo: p.codigo, evento: p.evento, fechaLarga: fechaLargaDias(p.dias), horario: p.dias.length > 1 ? `${p.dias.length} días` : `${p.inicio}–${p.fin}` } };
     } catch (e) {
       const msg = (e as Error).message || '';
