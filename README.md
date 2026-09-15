@@ -103,7 +103,7 @@ Cada carga **actualiza** por correo electrónico (no duplica), agrega los nuevos
 La app puede avisar a coordinación cada vez que entra un pedido, por dos canales gratuitos que no dependen de TI. Se activan con variables en Vercel (Settings → Environment Variables → luego *Redeploy*); en **Resumen → Avisos de pedidos nuevos** hay un botón **Enviar prueba**.
 
 - **Correo con Resend** (recomendado): entra a [resend.com](https://resend.com) y crea la cuenta **con la dirección donde quieres recibir los avisos** (sin dominio propio, Resend solo permite enviar a esa misma dirección). En *API Keys → Create API Key* copia la clave. Variables: `RESEND_API_KEY` (la clave) y `NOTIFICACION_CORREO` (esa misma dirección). Los avisos llegan desde `onboarding@resend.dev`; la primera vez revisa la carpeta de spam.
-- **Telegram** (mensaje al celular): en Telegram habla con **@BotFather**, envía `/newbot`, sigue los pasos y copia el token. Luego escribe cualquier mensaje a tu bot nuevo y abre en el navegador `https://api.telegram.org/bot<TOKEN>/getUpdates`: el número en `"chat":{"id":…}` es tu chat id. Variables: `TELEGRAM_BOT_TOKEN` y `TELEGRAM_CHAT_ID`.
+- **Telegram** (mensaje al celular): en Telegram habla con **@BotFather**, envía `/newbot`, sigue los pasos y copia el token. Variable: `TELEGRAM_BOT_TOKEN`. Tras el *Redeploy*, abre tu bot en Telegram, pulsa **Iniciar**, escríbele "hola" y en la app pulsa **Detectar mi chat de Telegram** (Resumen → Avisos): la app guarda tu chat. (`TELEGRAM_CHAT_ID` es opcional para fijarlo a mano.)
 
 El aviso incluye código, evento, fechas y horario, solicitante, cantidad de estudiantes, lugar, responsable y el enlace directo al pedido. Si un canal falla, el pedido se registra igual y el error queda en los registros de Vercel.
 

@@ -69,7 +69,7 @@ export async function crearPedido(f: FormPedido): Promise<Resultado<PedidoCreado
         from (select coalesce(max(numero), 0) + 1 as n from requests where periodo = ${periodo}) s
         returning *`;
       const p = mapPedido(fila);
-      await notificarNuevoPedido(p);
+      await notificarNuevoPedido(p, await ajustesActuales());
       return { ok: true, datos: { id: p.id, codigo: p.codigo, evento: p.evento, fechaLarga: fechaLargaDias(p.dias), horario: p.dias.length > 1 ? `${p.dias.length} días` : `${p.inicio}–${p.fin}` } };
     } catch (e) {
       const msg = (e as Error).message || '';

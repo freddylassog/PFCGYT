@@ -5,7 +5,7 @@ import type { JSONValue } from 'postgres';
 import { db } from '@/lib/db';
 import { ajustesActuales, cargarDatos } from '@/lib/datos';
 import { asegurarEsquema } from '@/lib/migrar';
-import { canalesConfigurados, enviarPrueba } from '@/lib/notificar';
+import { detectarChatTelegram, enviarPrueba } from '@/lib/notificar';
 import { leerTabla, parseDocentes, parseEstudiantes, parseHorarios } from '@/lib/excel';
 import {
   ACTIVIDADES, MAX_ESTUDIANTES, UNIFORME, TIPOS_NOVEDAD, VESTIMENTA, claseAplica, claveNombre, cruceClases, esFechaISO, faltasDias, genClave, hoyISO, normalizarCorreo, normalizarParalelo, ordenarDias, telefonoValido,
@@ -24,7 +24,7 @@ function refrescar() {
   revalidatePath('/estudiante');
 }
 
-function fallo(e: unknown): Resultado {
+function fallo<T = undefined>(e: unknown): Resultado<T> {
   return { ok: false, error: (e as Error).message || 'Error inesperado' };
 }
 
@@ -300,17 +300,24 @@ export async function marcarMatriz(semestre: Semestre, enviada: boolean): Promis
 
 // ---------------------------------------------------------------- notificaciones
 
-export async function estadoNotificaciones(): Promise<{ canal: string; destino: string }[]> {
-  await exigir();
-  return canalesConfigurados();
-}
-
 export async function probarNotificacion(): Promise<Resultado> {
   try {
     await exigir();
-    const errores = await enviarPrueba();
+    const errores = await enviarPrueba(await ajustesActuales());
     if (errores.length) return { ok: false, error: errores.join(' · ') };
     return { ok: true };
+  } catch (e) { return fallo(e); }
+}
+
+/** Detecta el chat de Telegram de coordinación y lo guarda. */
+export async function detectarTelegram(): Promise<Resultado<{ nombre: string }>> {
+  try {
+    await exigir();
+    const chat = await detectarChatTelegram();
+    const { periodo } = await ajustesActuales();
+    await db()`update settings set telegram_chat_id = ${chat.id}, telegram_chat_nombre = ${chat.nombre} where periodo = ${periodo}`;
+    refrescar();
+    return { ok: true, datos: { nombre: chat.nombre } };
   } catch (e) { return fallo(e); }
 }
 
@@ -324,8 +331,8 @@ export async function nuevoPeriodo(periodo: string, inicioSemestre: string): Pro
     const actual = await ajustesActuales();
     await sql.begin(async (tx) => {
       await tx`update settings set actual = false where actual`;
-      await tx`insert into settings (periodo, actual, inicio_semestre, semanas, horas_semana, correo_decanato, correo_grupo_estudiantes, correo_coordinacion)
-        values (${p}, true, ${inicioSemestre}, ${actual.semanas}, ${actual.horasSemana}, ${actual.correoDecanato}, ${actual.correoGrupoEstudiantes}, ${actual.correoCoordinacion})
+      await tx`insert into settings (periodo, actual, inicio_semestre, semanas, horas_semana, correo_decanato, correo_grupo_estudiantes, correo_coordinacion, telegram_chat_id, telegram_chat_nombre)
+        values (${p}, true, ${inicioSemestre}, ${actual.semanas}, ${actual.horasSemana}, ${actual.correoDecanato}, ${actual.correoGrupoEstudiantes}, ${actual.correoCoordinacion}, ${actual.telegramChatId || null}, ${actual.telegramChatNombre || null})
         on conflict (periodo) do update set actual = true, inicio_semestre = excluded.inicio_semestre`;
       await tx`insert into grade_subjects (periodo, semestre, materia) select ${p}, semestre, materia from grade_subjects where periodo = ${actual.periodo} on conflict do nothing`;
     });

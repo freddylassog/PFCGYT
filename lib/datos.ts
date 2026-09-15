@@ -1,7 +1,9 @@
 import 'server-only';
 import { db } from './db';
 import { asegurarEsquema } from './migrar';
-import { canalesConfigurados } from './notificar';
+import { appUrl } from './app-url';
+import { estadoCanales } from './notificar';
+export { appUrl };
 import { hoyISO, hhmm } from './reglas';
 import type {
   Ajustes, Aviso, Clase, Datos, Devolucion, DiaEvento, Docente, Estudiante, Inscripcion,
@@ -50,6 +52,7 @@ function mapAjustes(r: Fila): Ajustes {
     periodo: s(r.periodo), inicioSemestre: s(r.inicio_semestre), semanas: Number(r.semanas), horasSemana: Number(r.horas_semana),
     correoDecanato: s(r.correo_decanato), correoGrupoEstudiantes: s(r.correo_grupo_estudiantes), correoCoordinacion: s(r.correo_coordinacion),
     matrizEnviada: (r.matriz_enviada as Record<string, string>) ?? {}, archivos: (r.archivos as Ajustes['archivos']) ?? {},
+    telegramChatId: s(r.telegram_chat_id), telegramChatNombre: s(r.telegram_chat_nombre),
   };
 }
 
@@ -60,14 +63,6 @@ export async function ajustesActuales(): Promise<Ajustes> {
   const filas = await sql`select * from settings where actual limit 1`;
   if (!filas.length) throw new Error('No hay un periodo activo en la tabla settings. Ejecuta la migración inicial.');
   return mapAjustes(filas[0]);
-}
-
-export function appUrl(): string {
-  const env = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL;
-  if (env) return env.replace(/\/$/, '');
-  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
-  return 'http://localhost:3000';
 }
 
 /** Carga todo el estado del periodo actual en una pasada. */
@@ -90,7 +85,7 @@ export async function cargarDatos(): Promise<Datos> {
   return {
     hoy: hoyISO(),
     appUrl: appUrl(),
-    notificaciones: canalesConfigurados(),
+    notificaciones: estadoCanales(ajustes),
     ajustes,
     pedidos: pedidos.map(mapPedido),
     estudiantes: estudiantes.map(mapEstudiante),

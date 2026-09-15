@@ -139,14 +139,16 @@ export interface Ajustes {
   correoCoordinacion: string;
   matrizEnviada: Record<string, string>;
   archivos: Record<string, ArchivoInfo>;
+  telegramChatId: string;
+  telegramChatNombre: string;
 }
 
 /** Todo lo que necesita el panel de coordinación, cargado en una sola pasada. */
 export interface Datos {
   hoy: string;
   appUrl: string;
-  /** Canales de aviso de pedidos nuevos configurados (correo / Telegram). */
-  notificaciones: { canal: string; destino: string }[];
+  /** Canales de aviso de pedidos nuevos (correo / Telegram). */
+  notificaciones: EstadoNotificaciones;
   ajustes: Ajustes;
   pedidos: Pedido[];
   estudiantes: Estudiante[];
@@ -158,6 +160,12 @@ export interface Datos {
   prendas: PrendaEntregada[];
   devoluciones: Devolucion[];
   novedades: Novedad[];
+}
+
+export interface EstadoNotificaciones {
+  canales: { canal: 'correo' | 'telegram'; destino: string }[];
+  /** Hay token de bot de Telegram pero aún no se detectó el chat. */
+  telegramSinChat: boolean;
 }
 
 export interface Resultado<T = undefined> {

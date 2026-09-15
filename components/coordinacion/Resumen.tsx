@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { guardarAjustes, nuevoPeriodo, probarNotificacion } from '@/app/actions/coordinacion';
+import { detectarTelegram, guardarAjustes, nuevoPeriodo, probarNotificacion } from '@/app/actions/coordinacion';
 import { IconoDescargar } from '@/components/Iconos';
 import { Marco } from '@/components/Marco';
 import { useAccion } from '@/components/useAccion';
@@ -50,13 +50,19 @@ export function Resumen({ datos, pedidos }: { datos: Datos; pedidos: PedidoVista
 
       <Marco className="mt-8 p-4 stack-3">
         <h6 className="h6-accent">Avisos de pedidos nuevos</h6>
-        {datos.notificaciones.length ? (
-          <p className="m-0 fs-14">Cada pedido nuevo te avisa por: {datos.notificaciones.map((n) => n.canal === 'correo' ? `correo a ${n.destino}` : 'Telegram').join(' y ')}.</p>
+        {datos.notificaciones.canales.length ? (
+          <p className="m-0 fs-14">Cada pedido nuevo te avisa por: {datos.notificaciones.canales.map((n) => n.canal === 'correo' ? `correo a ${n.destino}` : n.destino).join(' y ')}.</p>
         ) : (
           <p className="m-0 fs-14 muted">Sin avisos configurados. Para recibir un correo o un mensaje de Telegram cuando entre un pedido, agrega las variables en Vercel (ver README, sección Avisos).</p>
         )}
+        {datos.notificaciones.telegramSinChat && (
+          <p className="aviso m-0 fs-13">Telegram casi listo: abre tu bot en Telegram, pulsa <strong>Iniciar</strong>, escríbele &quot;hola&quot; y luego pulsa <strong>Detectar mi chat de Telegram</strong>.</p>
+        )}
         <div className="row">
-          <button type="button" className="btn btn-secondary btn-sm" onClick={() => { setPrueba(null); run(() => probarNotificacion(), () => setPrueba('Prueba enviada. Revisa tu bandeja (y la carpeta de spam la primera vez).')); }}>Enviar prueba</button>
+          {(datos.notificaciones.telegramSinChat || datos.notificaciones.canales.some((n) => n.canal === 'telegram')) && (
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => { setPrueba(null); run(() => detectarTelegram(), (d) => setPrueba(`Chat de Telegram detectado: ${d?.nombre}. Ahora pulsa "Enviar prueba".`)); }}>Detectar mi chat de Telegram</button>
+          )}
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => { setPrueba(null); run(() => probarNotificacion(), () => setPrueba('Prueba enviada. Revisa tu bandeja o Telegram (en el correo, la carpeta de spam la primera vez).')); }}>Enviar prueba</button>
           {prueba && <span className="fs-13" style={{ color: 'var(--color-accent-800)' }}>{prueba}</span>}
         </div>
       </Marco>
