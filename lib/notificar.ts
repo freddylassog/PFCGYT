@@ -9,7 +9,7 @@ import type { Ajustes, EstadoNotificaciones, Pedido } from './tipos';
 //  - Telegram: TELEGRAM_BOT_TOKEN en Vercel; el chat se detecta desde Resumen → Avisos
 //    (o se fija con TELEGRAM_CHAT_ID).
 
-type AjustesTelegram = Pick<Ajustes, 'telegramChatId' | 'telegramChatNombre'>;
+type AjustesTelegram = Pick<Ajustes, 'telegramChatId' | 'telegramChatNombre'> & Partial<Pick<Ajustes, 'telegramCanalId' | 'telegramCanalNombre'>>;
 
 function chatTelegram(a?: AjustesTelegram | null): string {
   return process.env.TELEGRAM_CHAT_ID || a?.telegramChatId || '';
@@ -18,9 +18,40 @@ function chatTelegram(a?: AjustesTelegram | null): string {
 export function estadoCanales(a?: AjustesTelegram | null): EstadoNotificaciones {
   const canales: EstadoNotificaciones['canales'] = [];
   if (process.env.RESEND_API_KEY && process.env.NOTIFICACION_CORREO) canales.push({ canal: 'correo', destino: process.env.NOTIFICACION_CORREO });
-  const token = !!process.env.TELEGRAM_BOT_TOKEN, chat = chatTelegram(a);
+  const token = !!process.env.TELEGRAM_BOT_TOKEN, chat = chatTelegram(a), canal = canalTelegram(a);
   if (token && chat) canales.push({ canal: 'telegram', destino: a?.telegramChatNombre ? `Telegram (${a.telegramChatNombre})` : 'Telegram' });
-  return { canales, telegramSinChat: token && !chat };
+  return { canales, telegramSinChat: token && !chat, telegramSinCanal: token && !canal, canalEstudiantes: token && canal ? (a?.telegramCanalNombre || 'canal de Telegram') : null };
+}
+
+function canalTelegram(a?: AjustesTelegram | null): string {
+  return process.env.TELEGRAM_CANAL_ID || a?.telegramCanalId || '';
+}
+
+async function telegramSendMessage(chatId: string, texto: string): Promise<void> {
+  const r = await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chat_id: chatId, text: texto.slice(0, 4000), disable_web_page_preview: true }),
+    signal: AbortSignal.timeout(10000),
+  });
+  if (!r.ok) {
+    const detalle = await r.text().catch(() => '');
+    throw new Error(`Telegram respondió ${r.status}: ${detalle.slice(0, 300)}`);
+  }
+}
+
+/** Publica un texto en el canal de estudiantes. Lanza error si no hay canal o falla. */
+export async function publicarEnCanal(texto: string, a?: AjustesTelegram | null): Promise<void> {
+  const canal = canalTelegram(a);
+  if (!process.env.TELEGRAM_BOT_TOKEN || !canal) throw new Error('No hay canal de Telegram configurado. Ve a Resumen → Avisos y pulsa "Detectar canal de estudiantes".');
+  await telegramSendMessage(canal, texto);
+}
+
+/** Mensaje al chat privado de coordinación (si está configurado). Nunca lanza. */
+export async function avisarCoordinacion(texto: string, a?: AjustesTelegram | null): Promise<void> {
+  const chat = chatTelegram(a);
+  if (!process.env.TELEGRAM_BOT_TOKEN || !chat) return;
+  try { await telegramSendMessage(chat, texto); } catch (e) { console.error('[notificaciones]', (e as Error).message); }
 }
 
 async function enviarCorreo(m: Mensaje): Promise<void> {
@@ -43,16 +74,7 @@ async function enviarCorreo(m: Mensaje): Promise<void> {
 }
 
 async function enviarTelegram(m: Mensaje, chatId: string): Promise<void> {
-  const r = await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chat_id: chatId, text: `${m.asunto}\n\n${m.texto}`, disable_web_page_preview: true }),
-    signal: AbortSignal.timeout(10000),
-  });
-  if (!r.ok) {
-    const detalle = await r.text().catch(() => '');
-    throw new Error(`Telegram respondió ${r.status}: ${detalle.slice(0, 300)}`);
-  }
+  await telegramSendMessage(chatId, `${m.asunto}\n\n${m.texto}`);
 }
 
 /** Envía por todos los canales configurados. Devuelve los errores (vacío = todo bien). */
@@ -100,4 +122,21 @@ export async function detectarChatTelegram(): Promise<{ id: string; nombre: stri
   if (!chat) throw new Error('Telegram no tiene mensajes tuyos todavía. Abre tu bot en Telegram, pulsa Iniciar, escríbele "hola" y vuelve a pulsar Detectar.');
   const nombre = chat.title || [chat.first_name, chat.last_name].filter(Boolean).join(' ') || chat.username || String(chat.id);
   return { id: String(chat.id), nombre };
+}
+
+/** Busca en las últimas actualizaciones un canal donde el bot fue agregado
+ *  como administrador o donde se publicó un mensaje. */
+export async function detectarCanalTelegram(): Promise<{ id: string; nombre: string }> {
+  if (!process.env.TELEGRAM_BOT_TOKEN) throw new Error('Falta TELEGRAM_BOT_TOKEN en Vercel.');
+  const r = await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/getUpdates?allowed_updates=${encodeURIComponent('["channel_post","my_chat_member","message"]')}`, { signal: AbortSignal.timeout(10000), cache: 'no-store' });
+  if (!r.ok) throw new Error(`Telegram respondió ${r.status}. Revisa que el token sea el que te dio @BotFather.`);
+  type Chat = { id: number; type: string; title?: string; username?: string };
+  const datos = (await r.json()) as { ok: boolean; result?: { channel_post?: { chat?: Chat }; my_chat_member?: { chat?: Chat; new_chat_member?: { status?: string } }; message?: { chat?: Chat } }[] };
+  const candidatos = (datos.result ?? []).flatMap((u) => {
+    const c = u.channel_post?.chat ?? (u.my_chat_member?.new_chat_member?.status === 'administrator' ? u.my_chat_member.chat : undefined) ?? (u.message?.chat && ['group', 'supergroup'].includes(u.message.chat.type) ? u.message.chat : undefined);
+    return c && ['channel', 'group', 'supergroup'].includes(c.type) ? [c] : [];
+  });
+  const chat = candidatos[candidatos.length - 1];
+  if (!chat) throw new Error('Telegram no muestra ningún canal todavía. Agrega el bot como administrador del canal, publica cualquier mensaje en el canal y vuelve a pulsar Detectar.');
+  return { id: String(chat.id), nombre: chat.title || chat.username || String(chat.id) };
 }

@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import {
-  cambiarEstado, confirmarDirecto, crearAviso, decidirInscripcion, marcarAviso, marcarConvenio, quitarNovedad, regenerarClave, registrarNovedad, reportarNovedades,
+  cambiarEstado, confirmarDirecto, crearAviso, decidirInscripcion, marcarAviso, marcarConvenio, publicarConvocatoriaCanal, quitarNovedad, regenerarClave, registrarNovedad, reportarNovedades,
 } from '@/app/actions/coordinacion';
 import { CorreoBox } from '@/components/CorreoBox';
 import { IconoCalendario, IconoCerrar } from '@/components/Iconos';
@@ -82,6 +82,12 @@ export function PanelPedido({ p, datos, pedidos, cruceEvento, onCerrar }: { p: P
               <span><span className="muted">Clave del evento (para inscribirse):</span> <strong className="heading" style={{ fontSize: 14, letterSpacing: '.08em' }}>{p.clave ?? '—'}</strong></span>
               <button className="btn btn-ghost btn-sm" type="button" title="Cambia la clave por una aleatoria (UTE-XXXX)" onClick={() => { if (confirm('¿Cambiar la clave por una aleatoria? Los estudiantes deberán usar la nueva.')) run(() => regenerarClave(p.id)); }}>Generar otra</button>
             </div>
+            {datos.notificaciones.canalEstudiantes && (
+              <div className="between fs-12" style={{ border: '1px solid var(--color-divider)', padding: '6px 8px' }}>
+                <span>{p.telegramPostAt ? <span className="tag tag-accent">Publicado en Telegram · {fechaCorta(p.telegramPostAt.slice(0, 10))}</span> : <span className="tag tag-outline">Sin publicar en Telegram</span>}</span>
+                <button className="btn btn-ghost btn-sm" type="button" onClick={() => run(() => publicarConvocatoriaCanal(p.id))}>{p.telegramPostAt ? 'Volver a publicar' : 'Publicar en el canal'}</button>
+              </div>
+            )}
             <CorreoBox titulo="Correo de convocatoria" correo={correoConvocatoria(datos, p)} nota={datos.ajustes.correoGrupoEstudiantes ? undefined : 'Sin grupo de Outlook configurado: los estudiantes activos van en CCO. Puedes fijar el grupo en Resumen → Ajustes.'} />
             {p.inscritosN > 0 && (
               <>

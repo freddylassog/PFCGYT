@@ -5,7 +5,10 @@ import type { JSONValue } from 'postgres';
 import { db } from '@/lib/db';
 import { ajustesActuales, cargarDatos } from '@/lib/datos';
 import { asegurarEsquema } from '@/lib/migrar';
-import { detectarChatTelegram, enviarPrueba } from '@/lib/notificar';
+import { avisarCoordinacion, detectarCanalTelegram, detectarChatTelegram, enviarPrueba, publicarEnCanal } from '@/lib/notificar';
+import { mensajeConvocatoriaCanal } from '@/lib/notificar-texto';
+import { appUrl } from '@/lib/app-url';
+import { vistaPedido } from '@/lib/vista';
 import { leerTabla, parseDocentes, parseEstudiantes, parseHorarios } from '@/lib/excel';
 import {
   ACTIVIDADES, MAX_ESTUDIANTES, UNIFORME, TIPOS_NOVEDAD, VESTIMENTA, claseAplica, claveNombre, cruceClases, esFechaISO, faltasDias, genClave, hoyISO, normalizarCorreo, normalizarParalelo, ordenarDias, telefonoValido,
@@ -52,6 +55,20 @@ export async function cambiarEstado(id: string, estado: Estado): Promise<Resulta
       if (p.tipo === 'externo' && p.convenio === 'no') throw new Error('No se puede aprobar: la institución no tiene convenio vigente con la UTE.');
       // La clave del evento es su propio código (fácil de recordar); "Generar nueva" crea una aleatoria.
       await sql`update requests set estado = 'Aprobado', convocada_at = coalesce(convocada_at, ${hoyISO()}), clave = coalesce(clave, codigo) where id = ${id}`;
+      // Convocatoria automática en el canal de Telegram de estudiantes (si está configurado).
+      const datos = await cargarDatos();
+      if (datos.notificaciones.canalEstudiantes) {
+        const pv = datos.pedidos.find((x) => x.id === id);
+        if (pv) {
+          try {
+            await publicarEnCanal(mensajeConvocatoriaCanal(vistaPedido(datos, pv), appUrl()), datos.ajustes);
+            await sql`update requests set telegram_post_at = now() where id = ${id}`;
+          } catch (e) {
+            console.error('[telegram canal]', (e as Error).message);
+            await avisarCoordinacion(`No se pudo publicar la convocatoria de ${pv.codigo} en el canal: ${(e as Error).message}`, datos.ajustes);
+          }
+        }
+      }
     } else {
       await sql`update requests set estado = ${estado} where id = ${id}`;
     }
@@ -309,6 +326,42 @@ export async function probarNotificacion(): Promise<Resultado> {
   } catch (e) { return fallo(e); }
 }
 
+/** Publica (o vuelve a publicar) la convocatoria de un pedido aprobado en el canal. */
+export async function publicarConvocatoriaCanal(id: string): Promise<Resultado> {
+  try {
+    await exigir();
+    const datos = await cargarDatos();
+    const p = datos.pedidos.find((x) => x.id === id);
+    if (!p || p.estado !== 'Aprobado') throw new Error('Solo se publican pedidos aprobados.');
+    await publicarEnCanal(mensajeConvocatoriaCanal(vistaPedido(datos, p), appUrl()), datos.ajustes);
+    await db()`update requests set telegram_post_at = now() where id = ${id}`;
+    refrescar();
+    return { ok: true };
+  } catch (e) { return fallo(e); }
+}
+
+/** Detecta el canal de estudiantes (el bot debe ser administrador y debe haber un mensaje publicado). */
+export async function detectarCanal(): Promise<Resultado<{ nombre: string }>> {
+  try {
+    await exigir();
+    const canal = await detectarCanalTelegram();
+    const { periodo } = await ajustesActuales();
+    await db()`update settings set telegram_canal_id = ${canal.id}, telegram_canal_nombre = ${canal.nombre} where periodo = ${periodo}`;
+    refrescar();
+    return { ok: true, datos: { nombre: canal.nombre } };
+  } catch (e) { return fallo(e); }
+}
+
+/** Envía un mensaje de prueba al canal de estudiantes. */
+export async function probarCanal(): Promise<Resultado> {
+  try {
+    await exigir();
+    const a = await ajustesActuales();
+    await publicarEnCanal(`Prueba del canal de Protocolo FCGT. Aquí se publicarán las convocatorias de eventos y los recordatorios.\n${appUrl()}/estudiante`, a);
+    return { ok: true };
+  } catch (e) { return fallo(e); }
+}
+
 /** Detecta el chat de Telegram de coordinación y lo guarda. */
 export async function detectarTelegram(): Promise<Resultado<{ nombre: string }>> {
   try {
@@ -331,8 +384,8 @@ export async function nuevoPeriodo(periodo: string, inicioSemestre: string): Pro
     const actual = await ajustesActuales();
     await sql.begin(async (tx) => {
       await tx`update settings set actual = false where actual`;
-      await tx`insert into settings (periodo, actual, inicio_semestre, semanas, horas_semana, correo_decanato, correo_grupo_estudiantes, correo_coordinacion, telegram_chat_id, telegram_chat_nombre)
-        values (${p}, true, ${inicioSemestre}, ${actual.semanas}, ${actual.horasSemana}, ${actual.correoDecanato}, ${actual.correoGrupoEstudiantes}, ${actual.correoCoordinacion}, ${actual.telegramChatId || null}, ${actual.telegramChatNombre || null})
+      await tx`insert into settings (periodo, actual, inicio_semestre, semanas, horas_semana, correo_decanato, correo_grupo_estudiantes, correo_coordinacion, telegram_chat_id, telegram_chat_nombre, telegram_canal_id, telegram_canal_nombre)
+        values (${p}, true, ${inicioSemestre}, ${actual.semanas}, ${actual.horasSemana}, ${actual.correoDecanato}, ${actual.correoGrupoEstudiantes}, ${actual.correoCoordinacion}, ${actual.telegramChatId || null}, ${actual.telegramChatNombre || null}, ${actual.telegramCanalId || null}, ${actual.telegramCanalNombre || null})
         on conflict (periodo) do update set actual = true, inicio_semestre = excluded.inicio_semestre`;
       await tx`insert into grade_subjects (periodo, semestre, materia) select ${p}, semestre, materia from grade_subjects where periodo = ${actual.periodo} on conflict do nothing`;
     });

@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { detectarTelegram, guardarAjustes, nuevoPeriodo, probarNotificacion } from '@/app/actions/coordinacion';
+import { detectarCanal, detectarTelegram, guardarAjustes, nuevoPeriodo, probarCanal, probarNotificacion } from '@/app/actions/coordinacion';
 import { IconoDescargar } from '@/components/Iconos';
 import { Marco } from '@/components/Marco';
 import { useAccion } from '@/components/useAccion';
@@ -66,6 +66,20 @@ export function Resumen({ datos, pedidos }: { datos: Datos; pedidos: PedidoVista
           {prueba && <span className="fs-13" style={{ color: 'var(--color-accent-800)' }}>{prueba}</span>}
         </div>
       </Marco>
+      {(datos.notificaciones.canalEstudiantes || datos.notificaciones.telegramSinCanal) && (
+        <Marco className="mt-4 p-4 stack-3">
+          <h6 className="h6-accent">Canal de Telegram para estudiantes</h6>
+          {datos.notificaciones.canalEstudiantes ? (
+            <p className="m-0 fs-14">Canal conectado: <strong>{datos.notificaciones.canalEstudiantes}</strong>. Al aprobar un pedido, la convocatoria se publica ahí automáticamente; cada día a las 18:00 se publica el recordatorio de los eventos de mañana.</p>
+          ) : (
+            <p className="aviso m-0 fs-13">Crea un canal en Telegram, agrega tu bot como administrador (con permiso de publicar), escribe cualquier mensaje en el canal y pulsa <strong>Detectar canal de estudiantes</strong>. Luego comparte el enlace de invitación del canal con los estudiantes.</p>
+          )}
+          <div className="row">
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => { setPrueba(null); run(() => detectarCanal(), (d) => setPrueba(`Canal detectado: ${d?.nombre}. Pulsa "Probar canal" para publicar un mensaje de prueba.`)); }}>Detectar canal de estudiantes</button>
+            {datos.notificaciones.canalEstudiantes && <button type="button" className="btn btn-secondary btn-sm" onClick={() => { setPrueba(null); run(() => probarCanal(), () => setPrueba('Mensaje de prueba publicado en el canal.')); }}>Probar canal</button>}
+          </div>
+        </Marco>
+      )}
       <div className="cols-auto mt-4">
         <Marco as="form" className="p-4 stack-3" onSubmit={(e: React.FormEvent) => { e.preventDefault(); run(() => guardarAjustes(aj)); }}>
           <h6 className="h6-accent">Ajustes del periodo {a.periodo}</h6>

@@ -46,6 +46,7 @@ export interface Pedido {
   estado: Estado;
   convocadaAt: string | null;
   clave: string | null;
+  telegramPostAt: string | null;
   createdAt: string;
 }
 
@@ -141,6 +142,9 @@ export interface Ajustes {
   archivos: Record<string, ArchivoInfo>;
   telegramChatId: string;
   telegramChatNombre: string;
+  telegramCanalId: string;
+  telegramCanalNombre: string;
+  ultimoRecordatorio: string;
 }
 
 /** Todo lo que necesita el panel de coordinación, cargado en una sola pasada. */
@@ -166,6 +170,10 @@ export interface EstadoNotificaciones {
   canales: { canal: 'correo' | 'telegram'; destino: string }[];
   /** Hay token de bot de Telegram pero aún no se detectó el chat. */
   telegramSinChat: boolean;
+  /** Hay token de bot pero aún no se detectó el canal de estudiantes. */
+  telegramSinCanal: boolean;
+  /** Nombre del canal de estudiantes (null si no está configurado). */
+  canalEstudiantes: string | null;
 }
 
 export interface Resultado<T = undefined> {

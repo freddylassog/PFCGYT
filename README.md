@@ -107,6 +107,17 @@ La app puede avisar a coordinación cada vez que entra un pedido, por dos canale
 
 El aviso incluye código, evento, fechas y horario, solicitante, cantidad de estudiantes, lugar, responsable y el enlace directo al pedido. Si un canal falla, el pedido se registra igual y el error queda en los registros de Vercel.
 
+### Canal de Telegram para estudiantes
+
+Con el mismo bot, la app puede publicar en un canal de Telegram al que se suscriben los estudiantes:
+
+1. En Telegram crea un canal (por ejemplo "Protocolo FCGT · Estudiantes"), privado o público.
+2. En el canal: **Administradores → Añadir administrador** → busca tu bot → dale permiso de **Publicar mensajes**.
+3. Escribe cualquier mensaje en el canal y, en la app, **Resumen → Canal de Telegram para estudiantes → Detectar canal de estudiantes**. Luego **Probar canal**.
+4. Comparte el enlace de invitación del canal con los estudiantes (uno solo, se une quien quiera).
+
+Desde entonces: al **aprobar** un pedido, la convocatoria se publica automáticamente en el canal (con el enlace para inscribirse y la clave); en el panel del pedido hay un botón **Volver a publicar** por si editas algo. Además, todos los días a las 18:00 (hora de Ecuador) la app publica un **recordatorio** con los eventos de mañana (horario, lugar, responsable, vestimenta y confirmados) y te avisa a ti por Telegram. El recordatorio lo dispara un cron de Vercel (`vercel.json`); si defines `CRON_SECRET` en Vercel, la ruta queda protegida, y en cualquier caso solo publica una vez por día.
+
 ## Cada semestre
 
 En **Resumen → Nuevo semestre** escribe el periodo (`2027-1`) y el lunes de inicio. El periodo anterior queda guardado con sus pedidos y reportes; el nuevo empieza vacío y se vuelven a cargar estudiantes, docentes y horarios. Antes de cerrar, descarga el reporte del semestre.
