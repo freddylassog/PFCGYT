@@ -17,7 +17,7 @@ export async function GET(req: Request) {
   const datos = await cargarDatos();
   if (datos.ajustes.ultimoRecordatorio === datos.hoy) return NextResponse.json({ ok: true, detalle: 'Ya se envió hoy' });
   const manana = sumarDias(datos.hoy, 1);
-  const pedidos = vistaPedidos(datos).filter((p) => p.estado === 'Aprobado' && p.dias.some((d) => d.fecha === manana));
+  const pedidos = vistaPedidos(datos).filter((p) => p.estado === 'Aprobado' && !p.finalizado && p.dias.some((d) => d.fecha === manana));
   const sql = db();
   await sql`update settings set ultimo_recordatorio = ${datos.hoy} where periodo = ${datos.ajustes.periodo}`;
   if (!pedidos.length) return NextResponse.json({ ok: true, detalle: 'Sin eventos mañana' });

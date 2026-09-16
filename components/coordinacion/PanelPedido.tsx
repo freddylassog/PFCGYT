@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import {
-  cambiarEstado, confirmarDirecto, crearAviso, decidirInscripcion, marcarAviso, marcarConvenio, publicarConvocatoriaCanal, quitarNovedad, regenerarClave, registrarNovedad, reportarNovedades,
+  cambiarEstado, confirmarDirecto, crearAviso, decidirInscripcion, finalizarEvento, marcarAviso, marcarConvenio, publicarConvocatoriaCanal, quitarNovedad, regenerarClave, registrarNovedad, reportarNovedades,
 } from '@/app/actions/coordinacion';
 import { CorreoBox } from '@/components/CorreoBox';
 import { IconoCalendario, IconoCerrar } from '@/components/Iconos';
@@ -41,7 +41,8 @@ export function PanelPedido({ p, datos, pedidos, cruceEvento, onCerrar }: { p: P
         <button className="btn btn-icon btn-ghost" type="button" onClick={onCerrar} aria-label="Cerrar"><IconoCerrar /></button>
       </div>
       <div className="row">
-        <span className={`tag ${p.tagClass}`}>{p.estado}</span>
+        <span className={`tag ${p.tagClass}`}>{p.estadoLabel}{p.finalizado && p.finalizadoAt ? ` · ${fechaCorta(p.finalizadoAt)}` : ''}</span>
+        <span className={`tag tag-${p.tipo}`}>{p.tipoLabel}</span>
         <span className={`tag ${p.convTag}`}>{p.convLabel}</span>
         {p.tipo === 'externo' && (
           <button type="button" className="btn btn-ghost btn-sm" onClick={() => run(() => marcarConvenio(p.id, p.convenio === 'no' ? 'si' : 'no'))}>{p.convenio === 'no' ? 'Marcar convenio vigente' : 'Marcar sin convenio'}</button>
@@ -194,6 +195,9 @@ export function PanelPedido({ p, datos, pedidos, cruceEvento, onCerrar }: { p: P
       {error && <p className="error" role="alert">{error}</p>}
       <div className="cols-2" style={{ gap: 'var(--space-2)' }}>
         <button className="btn btn-primary btn-40" type="button" style={{ gridColumn: '1/-1' }} disabled={!!p.bloqueo || p.estado === 'Aprobado'} onClick={() => cambiar('Aprobado')}>Aprobar y convocar estudiantes</button>
+        {p.estado === 'Aprobado' && (p.finalizado
+          ? <button className="btn btn-secondary btn-40" type="button" style={{ gridColumn: '1/-1' }} onClick={() => run(() => finalizarEvento(p.id, false))}>Reabrir evento (quitar fin de evento)</button>
+          : <button className="btn btn-verde btn-40" type="button" style={{ gridColumn: '1/-1' }} onClick={() => { if (p.terminado || confirm(`El evento aún no termina (${p.fechaCorta}). ¿Marcarlo como finalizado de todos modos?`)) run(() => finalizarEvento(p.id, true)); }}>Fin de evento</button>)}
         <button className="btn btn-secondary" type="button" disabled={p.estado === 'Ajustes'} onClick={() => cambiar('Ajustes')}>Pedir ajustes</button>
         <button className="btn btn-secondary" type="button" disabled={p.estado === 'Rechazado'} onClick={() => { if (p.estado !== 'Aprobado' || confirm('El pedido está aprobado. ¿Rechazarlo de todos modos?')) cambiar('Rechazado'); }}>Rechazar</button>
       </div>

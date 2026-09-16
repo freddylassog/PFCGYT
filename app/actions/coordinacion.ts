@@ -77,6 +77,20 @@ export async function cambiarEstado(id: string, estado: Estado): Promise<Resulta
   } catch (e) { return fallo(e); }
 }
 
+/** Marca (o desmarca) un evento aprobado como finalizado. */
+export async function finalizarEvento(id: string, fin: boolean): Promise<Resultado> {
+  try {
+    await exigir();
+    const sql = db();
+    const [p] = await sql`select estado from requests where id = ${id}`;
+    if (!p) throw new Error('Pedido no encontrado');
+    if (p.estado !== 'Aprobado') throw new Error('Solo se puede finalizar un evento aprobado.');
+    await sql`update requests set finalizado_at = ${fin ? hoyISO() : null} where id = ${id}`;
+    refrescar();
+    return { ok: true };
+  } catch (e) { return fallo(e); }
+}
+
 export interface CambiosPedido {
   nombre: string; cargo: string; institucion: string; correoSolicitante: string;
   evento: string; dias: DiaEvento[]; lugar: string; lejos: boolean; responsable: string; responsableTelefono: string;

@@ -38,7 +38,7 @@ export function mapPedido(r: Fila): Pedido {
     fecha: s(r.fecha), inicio: hhmm(s(r.inicio)), fin: hhmm(s(r.fin)), dias: mapDias(r), lugar: s(r.lugar), lejos: !!r.lejos,
     responsable: s(r.responsable), responsableTelefono: s(r.responsable_telefono), cantidad: Number(r.cantidad), actividades: (r.actividades as string[]) ?? [], reparto: mapReparto(r),
     vestimenta: r.vestimenta as Pedido['vestimenta'], evidenciaPath: sn(r.evidencia_path), evidenciaNombre: sn(r.evidencia_nombre),
-    estado: r.estado as Pedido['estado'], convocadaAt: sn(r.convocada_at), clave: sn(r.clave), telegramPostAt: r.telegram_post_at ? iso(r.telegram_post_at) : null, createdAt: iso(r.created_at),
+    estado: r.estado as Pedido['estado'], convocadaAt: sn(r.convocada_at), clave: sn(r.clave), telegramPostAt: r.telegram_post_at ? iso(r.telegram_post_at) : null, finalizadoAt: sn(r.finalizado_at), createdAt: iso(r.created_at),
   };
 }
 

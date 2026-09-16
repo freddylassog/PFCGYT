@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { quitarNovedad, registrarNovedad, reportarNovedades } from '@/app/actions/coordinacion';
+import { finalizarEvento, quitarNovedad, registrarNovedad, reportarNovedades } from '@/app/actions/coordinacion';
 import { CorreoBox } from '@/components/CorreoBox';
 import { Marco } from '@/components/Marco';
 import { useAccion } from '@/components/useAccion';
@@ -14,6 +14,8 @@ export function Novedades({ datos, pedidos }: { datos: Datos; pedidos: PedidoVis
   const [nv, setNv] = useState({ evId: '', stId: '', tipo: TIPOS_NOVEDAD[0], nota: '' });
   const [seleccion, setSeleccion] = useState<string[] | null>(null);
   const eventosConEst = pedidos.filter((e) => e.estado === 'Aprobado' && e.confirmadosN > 0);
+  const aprobados = pedidos.filter((e) => e.estado === 'Aprobado');
+  const finalizar = (e: PedidoVista) => { if (e.terminado || confirm(`El evento aún no termina (${e.fechaCorta}). ¿Marcarlo como finalizado de todos modos?`)) run(() => finalizarEvento(e.id, true)); };
   const nvEv = pedidos.find((e) => e.id === nv.evId) ?? null;
   const grupos = pedidos.filter((e) => e.novedades.length).map((e) => ({ pedido: e, novedades: e.novedades }));
   const pendientes = grupos.flatMap((g) => g.novedades.filter((n) => n.pendiente));
@@ -32,7 +34,26 @@ export function Novedades({ datos, pedidos }: { datos: Datos; pedidos: PedidoVis
         <p className="muted fs-12 m-0">Las novedades se reportan a decanato para sanción y quedan en el reporte de cada evento y de cada estudiante.</p>
       </Marco>
       <div className="stack">
-        <div className="between"><h3 className="m-0">Novedades por evento</h3><button className="btn btn-secondary" type="button" disabled={!pendientes.length} onClick={() => setSeleccion(pendientes.map((n) => n.id))}>Reportar pendientes a decanato ({pendientes.length})</button></div>
+        <div className="between"><h3 className="m-0">Eventos aprobados</h3><span className="leyenda"><span><i className="punto tipo-interno" />Interno</span><span><i className="punto tipo-externo" />Externo</span><span><i className="punto finalizado" />Finalizado</span></span></div>
+        {!aprobados.length && <p className="muted m-0">Aún no hay eventos aprobados.</p>}
+        {aprobados.map((e) => (
+          <Marco key={e.id} className={`card p-3 ${e.tipoClass} ${e.finalizado ? 'finalizado' : ''}`}>
+            <div className="between arriba">
+              <div style={{ minWidth: 0 }}>
+                <div className="card-kicker">{e.codigo} · {e.tipoLabel} · {e.fechaCorta}</div>
+                <div className="card-title" style={{ fontSize: 16 }}>{e.evento}</div>
+                <div className="card-meta">{e.multidia ? `${e.dias.length} días` : e.horarioTexto} · {e.confirmadosN}/{e.cantidad} confirmados · {e.novedades.length} novedad(es)</div>
+              </div>
+              <span className="row" style={{ gap: 4, flex: 'none' }}>
+                <span className={`tag ${e.tagClass}`}>{e.finalizado && e.finalizadoAt ? `Finalizado · ${fechaCorta(e.finalizadoAt)}` : e.terminado ? 'Terminó · por cerrar' : 'En curso'}</span>
+                {e.finalizado
+                  ? <button className="btn btn-ghost btn-sm" type="button" onClick={() => run(() => finalizarEvento(e.id, false))}>Reabrir</button>
+                  : <button className="btn btn-verde btn-sm" type="button" onClick={() => finalizar(e)}>Fin de evento</button>}
+              </span>
+            </div>
+          </Marco>
+        ))}
+        <div className="between" style={{ marginTop: 'var(--space-3)' }}><h3 className="m-0">Novedades por evento</h3><button className="btn btn-secondary" type="button" disabled={!pendientes.length} onClick={() => setSeleccion(pendientes.map((n) => n.id))}>Reportar pendientes a decanato ({pendientes.length})</button></div>
         {seleccion && seleccionadas.length > 0 && (
           <CorreoBox titulo={`Correo a decanato · ${seleccion.length} novedad(es)`} abierto correo={correoDecanato(datos, seleccionadas)}
             nota={datos.ajustes.correoDecanato ? undefined : 'Configura el correo de decanato en Resumen → Ajustes para que salga como destinatario.'}
@@ -43,7 +64,7 @@ export function Novedades({ datos, pedidos }: { datos: Datos; pedidos: PedidoVis
         )}
         {!grupos.length && <p className="muted m-0">Sin novedades registradas.</p>}
         {grupos.map((g) => (
-          <Marco key={g.pedido.id} className="p-4 stack-2">
+          <Marco key={g.pedido.id} className={`p-4 stack-2 marco-tipo ${g.pedido.tipoClass} ${g.pedido.finalizado ? 'finalizado' : ''}`}>
             <div className="between" style={{ alignItems: 'baseline' }}><div><div className="card-kicker">{g.pedido.codigo} · {g.pedido.fechaCorta}</div><div className="card-title" style={{ fontSize: 17 }}>{g.pedido.evento}</div></div><span className="muted fs-12">{g.novedades.length} novedad(es)</span></div>
             {g.novedades.map((n) => (
               <div key={n.id} className="linea-item arriba">

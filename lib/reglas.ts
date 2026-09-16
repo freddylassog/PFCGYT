@@ -52,6 +52,13 @@ export const VESTIMENTA: Record<Vestimenta, { label: string; corta: string; nota
 
 export const TIPOS_NOVEDAD = ['Mal uniformado', 'Llegó tarde', 'No asistió', 'Abandonó antes de la hora', 'Otra'];
 export const ESTADOS: Estado[] = ['Pendiente', 'Ajustes', 'Aprobado', 'Rechazado'];
+/** Estado tal como se muestra: un aprobado con fin de evento se ve como "Finalizado". */
+export type EstadoVisible = Estado | 'Finalizado';
+export const ESTADOS_VISIBLES: EstadoVisible[] = ['Pendiente', 'Ajustes', 'Aprobado', 'Finalizado', 'Rechazado'];
+export const ESTADO_PLURAL: Record<EstadoVisible, string> = { Pendiente: 'Pendientes', Ajustes: 'En ajustes', Aprobado: 'Aprobados', Finalizado: 'Finalizados', Rechazado: 'Rechazados' };
+export function estadoVisible(p: { estado: Estado; finalizadoAt: string | null }): EstadoVisible {
+  return p.estado === 'Aprobado' && p.finalizadoAt ? 'Finalizado' : p.estado;
+}
 export const SEMESTRES: Semestre[] = [1, 2, 3];
 
 export const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
@@ -284,7 +291,12 @@ export function tipoLabel(t: string): string {
 }
 
 export function tagClass(estado: string): string {
-  return ({ Aprobado: 'tag-accent', Pendiente: 'tag-outline', Ajustes: 'tag-neutral', Rechazado: 'tag-neutral' } as Record<string, string>)[estado] || 'tag-neutral';
+  return ({ Aprobado: 'tag-accent', Finalizado: 'tag-verde', Pendiente: 'tag-outline', Ajustes: 'tag-neutral', Rechazado: 'tag-neutral' } as Record<string, string>)[estado] || 'tag-neutral';
+}
+
+/** Clase de color por tipo de evento: interno (azul UTE) o externo (naranja). */
+export function tipoClass(t: string): string {
+  return t === 'interno' ? 'tipo-interno' : 'tipo-externo';
 }
 
 export function convenioLabel(p: { tipo: string; convenio: string }): string {

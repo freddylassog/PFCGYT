@@ -2,7 +2,7 @@
 // reporte Excel y los correos. Todo puro: entra `Datos`, salen vistas.
 import {
   ACTIVIDADES, DEVOLUCION, MINIMO_EVENTOS, VESTIMENTA, convenioLabel, cruceClases, diasHasta, duracionTextoDias, fechaCorta, fechaCortaDias, fechaLargaDias,
-  horarioTextoDias, horasDias, infoUniforme, pasa4hDias, redondear1, repartoTexto, semCorto, semLabel, semanaDe, tagClass, tipoLabel, transporteMotivoDias, ultimoDia,
+  estadoVisible, horarioTextoDias, horasDias, infoUniforme, pasa4hDias, redondear1, repartoTexto, semCorto, semLabel, semanaDe, tagClass, tipoClass, tipoLabel, transporteMotivoDias, ultimoDia, type EstadoVisible,
 } from './reglas';
 import type { Clase, Datos, Docente, Estudiante, Novedad, Pedido, Semestre } from './tipos';
 
@@ -20,6 +20,13 @@ export interface PedidoVista extends Pedido {
   fechaLarga: string;
   fechaPedido: string;
   tipoLabel: string;
+  /** 'tipo-interno' | 'tipo-externo' (color en tablero, calendario y novedades). */
+  tipoClass: string;
+  /** Estado que se muestra: 'Finalizado' si el evento aprobado ya se cerró. */
+  estadoLabel: EstadoVisible;
+  finalizado: boolean;
+  /** El último día del evento ya pasó (o es hoy). */
+  terminado: boolean;
   vestLabel: string;
   vestCorta: string;
   vestNotaEst: string;
@@ -87,11 +94,12 @@ export function vistaPedido(d: Datos, p: Pedido): PedidoVista {
     horas: horasDias(p.dias), duracion: duracionTextoDias(p.dias), horarioTexto: horarioTextoDias(p.dias), multidia: p.dias.length > 1,
     ultimaFecha: ultimoDia(p.dias)?.fecha ?? p.fecha,
     fechaCorta: fechaCortaDias(p.dias), fechaLarga: fechaLargaDias(p.dias), fechaPedido: fechaCorta(p.createdAt.slice(0, 10)),
-    tipoLabel: tipoLabel(p.tipo), vestLabel: v.label, vestCorta: v.corta, vestNotaEst: v.est,
+    tipoLabel: tipoLabel(p.tipo), tipoClass: tipoClass(p.tipo), estadoLabel: estadoVisible(p), finalizado: estadoVisible(p) === 'Finalizado', terminado: (ultimoDia(p.dias)?.fecha ?? p.fecha) <= d.hoy,
+    vestLabel: v.label, vestCorta: v.corta, vestNotaEst: v.est,
     pasa4h: p4, transporteMotivo: tm, transporte: !!tm,
     compromisos: [p4 ? 'Alimentación' : null, tm ? 'Transporte' : null].filter(Boolean).join(' · ') || '—',
     convLabel: convenioLabel(p), convTag: p.tipo === 'externo' && p.convenio === 'no' ? 'tag-outline' : 'tag-neutral',
-    tagClass: tagClass(p.estado),
+    tagClass: tagClass(estadoVisible(p)),
     bloqueo: p.tipo === 'externo' && p.convenio === 'no' ? 'No se puede aprobar: la institución no tiene convenio vigente con la UTE.' : null,
     confirmados, inscritos, confirmadosN: confirmados.length, inscritosN: inscritos.length, lleno: confirmados.length >= p.cantidad,
     cruces, cruceAmbito: confirmados.length ? 'semestres confirmados' : 'todos los semestres',

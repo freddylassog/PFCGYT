@@ -14,7 +14,7 @@ export function MisEventos({ datos, yo }: { datos: Datos; yo: Estudiante }) {
   const dev = datos.devoluciones.find((d) => d.studentId === yo.id) ?? null;
   const devTexto = dev?.estado === 'lavado' ? 'Uniforme devuelto y recibido lavado.' : dev?.estado === 'rechazado' ? 'Tu uniforme no fue recibido porque llegó sin lavar. Debes volver a entregarlo lavado.' : 'Al final del semestre devuelve el uniforme lavado; si no está lavado no se recibe.';
   const misEventos = avance.eventos;
-  const convocatorias = pedidos.filter((e) => e.estado === 'Aprobado' && e.convocadaAt && e.ultimaFecha >= datos.hoy && !e.confirmados.some((c) => c.id === yo.id)).map((e) => {
+  const convocatorias = pedidos.filter((e) => e.estado === 'Aprobado' && !e.finalizado && e.convocadaAt && e.ultimaFecha >= datos.hoy && !e.confirmados.some((c) => c.id === yo.id)).map((e) => {
     const insc = datos.inscripciones.find((i) => i.requestId === e.id && i.studentId === yo.id);
     const inscrito = insc?.estado === 'inscrito', rechazado = insc?.estado === 'rechazado';
     const fem = yo.genero === 'F';
@@ -66,7 +66,7 @@ export function MisEventos({ datos, yo }: { datos: Datos; yo: Estudiante }) {
         {!misEventos.length && <p className="muted m-0">Aún no tienes eventos confirmados.</p>}
         {misEventos.map((e) => (
           <Marco key={e.id} className="p-6 stack-3">
-            <div className="between arriba"><div><div className="card-kicker">{e.tipoLabel} · {e.institucion}</div><h3 style={{ margin: '2px 0 0' }}>{e.evento}</h3></div><span className="tag tag-accent">Confirmado · {e.horas} h</span></div>
+            <div className="between arriba"><div><div className="card-kicker">{e.tipoLabel} · {e.institucion}</div><h3 style={{ margin: '2px 0 0' }}>{e.evento}</h3></div><span className={`tag ${e.finalizado ? 'tag-verde' : 'tag-accent'}`}>{e.finalizado ? 'Finalizado' : 'Confirmado'} · {e.horas} h</span></div>
             <div className="fs-14" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 'var(--space-3)' }}>
               <div><div className="etiqueta">Fecha</div>{e.fechaLarga}</div>
               <div><div className="etiqueta">Tu horario</div>{e.horarioTexto} · {e.duracion}</div>

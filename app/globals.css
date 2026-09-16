@@ -289,3 +289,33 @@ select.input { appearance: auto; }
 
 .visualmente-oculto { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 .pendiente { opacity: .6; pointer-events: none; }
+
+/* — colores por tipo de evento y fin de evento — */
+:root {
+  --color-externo: #c2571a;
+  --color-externo-100: #fbeee4;
+  --color-externo-800: #7a3610;
+}
+.tag-verde { background: var(--color-accent-2-100); color: var(--color-accent-2-900); }
+.tag-interno { background: var(--color-accent-100); color: var(--color-accent-800); }
+.tag-externo { background: var(--color-externo-100); color: var(--color-externo-800); }
+.card.tipo-interno, .marco-tipo.tipo-interno { border-left: 4px solid var(--color-accent); }
+.card.tipo-externo, .marco-tipo.tipo-externo { border-left: 4px solid var(--color-externo); }
+.card.tipo-externo .card-kicker, .marco-tipo.tipo-externo .card-kicker { color: var(--color-externo-800); }
+.card.finalizado, .marco-tipo.finalizado { border-left: 4px solid var(--color-accent-2-700); background: var(--color-accent-2-100); }
+.card.finalizado .card-kicker, .marco-tipo.finalizado .card-kicker { color: var(--color-accent-2-900); }
+.card.finalizado.clic:hover { background: color-mix(in srgb, var(--color-accent-2-100) 60%, var(--color-accent-100)); }
+.calendario .evento.tipo-interno { background: var(--color-accent-100); color: var(--color-accent-800); border-left: 3px solid var(--color-accent); }
+.calendario .evento.tipo-externo { background: var(--color-externo-100); color: var(--color-externo-800); border-left: 3px solid var(--color-externo); }
+.calendario .evento.sin-aprobar { background: transparent; outline: 1px dashed currentColor; outline-offset: -1px; }
+.calendario .evento.finalizado { background: var(--color-accent-2-100); color: var(--color-accent-2-900); border-left-color: var(--color-accent-2-700); outline: none; }
+.leyenda { display: flex; gap: var(--space-4); flex-wrap: wrap; font-size: 12px; align-items: center; }
+.leyenda .punto { display: inline-block; width: 12px; height: 12px; margin-right: 5px; vertical-align: -1px; border-left: 3px solid; }
+.leyenda .punto.tipo-interno { background: var(--color-accent-100); border-color: var(--color-accent); }
+.leyenda .punto.tipo-externo { background: var(--color-externo-100); border-color: var(--color-externo); }
+.leyenda .punto.finalizado { background: var(--color-accent-2-100); border-color: var(--color-accent-2-700); }
+.leyenda .punto.sin-aprobar { outline: 1px dashed color-mix(in srgb, var(--color-text) 60%, transparent); outline-offset: -1px; border-color: color-mix(in srgb, var(--color-text) 60%, transparent); }
+
+.btn-verde { background: var(--color-accent-2-700); color: #fff; border-color: var(--color-accent-2-700); }
+.btn-verde:hover:not(:disabled) { background: var(--color-accent-2-900); color: #fff; }
+.btn-verde.blueprint > .corner { color: var(--color-accent-2-900); }

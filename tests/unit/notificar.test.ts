@@ -10,7 +10,7 @@ const pedido: Pedido = {
   tipo: 'externo', convenio: 'no', evento: 'Feria <de> empleo', fecha: '2026-09-22', inicio: '08:00', fin: '12:00',
   dias: [{ fecha: '2026-09-22', inicio: '08:00', fin: '12:00' }, { fecha: '2026-09-23', inicio: '08:00', fin: '12:00' }],
   lugar: 'Centro de Convenciones', lejos: true, responsable: 'J. Andrade', responsableTelefono: '098 777 8899', cantidad: 10,
-  actividades: ['Recepción y registro de invitados'], reparto: [{ actividad: 'Recepción y registro de invitados', cantidad: 10 }], vestimenta: 'ninguna', evidenciaPath: null, evidenciaNombre: null, estado: 'Pendiente', convocadaAt: null, clave: null, telegramPostAt: null, createdAt: '2026-09-15T10:00:00Z',
+  actividades: ['Recepción y registro de invitados'], reparto: [{ actividad: 'Recepción y registro de invitados', cantidad: 10 }], vestimenta: 'ninguna', evidenciaPath: null, evidenciaNombre: null, estado: 'Pendiente', convocadaAt: null, clave: null, telegramPostAt: null, finalizadoAt: null, createdAt: '2026-09-15T10:00:00Z',
 };
 
 test('mensaje de pedido nuevo', () => {

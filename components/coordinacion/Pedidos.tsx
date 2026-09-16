@@ -2,7 +2,7 @@
 import { useMemo, useState } from 'react';
 import { usePreferencia } from '@/components/usePreferencia';
 import type { Datos } from '@/lib/tipos';
-import { ESTADOS, MESES_LARGO, cruceEventos, fechaISO, sumarDias, toDate } from '@/lib/reglas';
+import { ESTADOS_VISIBLES, MESES_LARGO, cruceEventos, fechaCorta, fechaISO, sumarDias, toDate } from '@/lib/reglas';
 import type { PedidoVista } from '@/lib/vista';
 import { Marco } from '@/components/Marco';
 import { PanelPedido } from './PanelPedido';
@@ -65,13 +65,13 @@ export function Pedidos({ datos, pedidos, selInicial }: { datos: Datos; pedidos:
                     <tr key={e.id} className={`clic ${selId === e.id ? 'seleccionada' : ''}`} onClick={() => setSelId(e.id)}>
                       <td className="heading nowrap">{e.codigo}</td>
                       <td>{e.evento}<div className="muted fs-12">{e.institucion}</div></td>
-                      <td>{e.tipoLabel}</td>
+                      <td><span className={`tag tag-${e.tipo}`}>{e.tipoLabel}</span></td>
                       <td className="nowrap">{e.fechaCorta}</td>
                       <td className="nowrap" title={e.horarioTexto}>{e.multidia ? `${e.dias.length} días` : e.horarioTexto}</td>
                       <td className="nowrap">{e.horas} h</td>
                       <td className="nowrap">{e.confirmadosN}/{e.cantidad}{e.inscritosN > 0 && <> <span className="muted fs-12">+{e.inscritosN} por revisar</span></>}</td>
                       <td>{cruceTexto(e)}</td>
-                      <td><span className={`tag ${e.tagClass}`}>{e.estado}</span></td>
+                      <td><span className={`tag ${e.tagClass}`}>{e.estadoLabel}</span></td>
                     </tr>
                   ))}
                 </tbody>
@@ -80,17 +80,17 @@ export function Pedidos({ datos, pedidos, selInicial }: { datos: Datos; pedidos:
           )}
           {vista === 'tablero' && (
             <div className="tablero">
-              {ESTADOS.map((est) => {
-                const items = pedidos.filter((p) => p.estado === est);
+              {ESTADOS_VISIBLES.map((est) => {
+                const items = pedidos.filter((p) => p.estadoLabel === est);
                 return (
                   <div key={est} className="columna">
                     <div className="columna-cab"><h6 className="m-0">{est}</h6><span className="muted fs-12">{items.length}</span></div>
                     {items.map((e) => (
-                      <Marco key={e.id} className={`card clic p-3 ${selId === e.id ? 'seleccionada' : ''}`} role="button" tabIndex={0} onClick={() => setSelId(e.id)} onKeyDown={(ev: React.KeyboardEvent) => { if (ev.key === 'Enter') setSelId(e.id); }}>
+                      <Marco key={e.id} className={`card clic p-3 ${e.tipoClass} ${e.finalizado ? 'finalizado' : ''} ${selId === e.id ? 'seleccionada' : ''}`} role="button" tabIndex={0} onClick={() => setSelId(e.id)} onKeyDown={(ev: React.KeyboardEvent) => { if (ev.key === 'Enter') setSelId(e.id); }}>
                         <div className="card-kicker">{e.codigo} · {e.tipoLabel}</div>
                         <div className="card-title" style={{ fontSize: 16 }}>{e.evento}</div>
                         <div className="card-meta">{e.fechaCorta} · {e.multidia ? `${e.dias.length} días` : e.horarioTexto} · {e.horas} h</div>
-                        <div className="card-meta">{e.confirmadosN}/{e.cantidad} confirmados</div>
+                        <div className="card-meta">{e.confirmadosN}/{e.cantidad} confirmados{e.finalizado && e.finalizadoAt && <> · <span className="tag tag-verde" style={{ fontSize: 10, padding: '1px 6px' }}>Finalizado · {fechaCorta(e.finalizadoAt)}</span></>}</div>
                       </Marco>
                     ))}
                   </div>
@@ -111,12 +111,18 @@ export function Pedidos({ datos, pedidos, selInicial }: { datos: Datos; pedidos:
                   <div key={d.iso} className={`dia ${d.iso === datos.hoy ? 'hoy' : ''} ${d.enMes ? '' : 'otro-mes'}`}>
                     <div className="muted fs-12" style={{ display: 'flex', justifyContent: 'space-between' }}><span>{d.num}</span><span>{d.iso === datos.hoy ? 'hoy' : ''}</span></div>
                     {d.items.map((e) => (
-                      <button key={e.id} type="button" className={`tag ${e.tagClass} evento`} title={`${e.codigo} · ${e.evento}`} onClick={() => setSelId(e.id)}><strong>{e.dias.find((x) => x.fecha === d.iso)?.inicio ?? e.inicio}</strong> {e.evento}</button>
+                      <button key={e.id} type="button" className={`tag evento ${e.tipoClass} ${e.finalizado ? 'finalizado' : ''} ${e.estado !== 'Aprobado' ? 'sin-aprobar' : ''}`} title={`${e.codigo} · ${e.evento}`} onClick={() => setSelId(e.id)}><strong>{e.dias.find((x) => x.fecha === d.iso)?.inicio ?? e.inicio}</strong> {e.evento}</button>
                     ))}
                   </div>
                 ))}
               </Marco>
-              <p className="muted fs-12 mt-2">Los pedidos rechazados no aparecen en el calendario. El día de hoy se resalta.</p>
+              <div className="leyenda mt-2">
+                <span><i className="punto tipo-interno" />Evento interno</span>
+                <span><i className="punto tipo-externo" />Evento externo</span>
+                <span><i className="punto finalizado" />Finalizado</span>
+                <span><i className="punto sin-aprobar" />Pendiente o en ajustes</span>
+                <span className="muted">Los rechazados no aparecen. El día de hoy se resalta.</span>
+              </div>
             </>
           )}
         </div>

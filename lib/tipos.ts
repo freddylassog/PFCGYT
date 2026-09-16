@@ -54,6 +54,8 @@ export interface Pedido {
   convocadaAt: string | null;
   clave: string | null;
   telegramPostAt: string | null;
+  /** Fecha en que coordinación marcó el evento como finalizado (solo eventos aprobados). */
+  finalizadoAt: string | null;
   createdAt: string;
 }
 

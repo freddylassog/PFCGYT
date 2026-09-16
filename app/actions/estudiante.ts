@@ -52,6 +52,7 @@ export async function inscribirme(requestId: string): Promise<Resultado> {
     const [fila] = await sql`select * from requests where id = ${requestId}`;
     const p = fila ? mapPedido(fila) : null;
     if (!p || p.estado !== 'Aprobado' || !p.convocadaAt) throw new Error('La convocatoria no está abierta.');
+    if (p.finalizadoAt) throw new Error('El evento ya finalizó.');
     if ((ultimoDia(p.dias)?.fecha ?? p.fecha) < hoyISO()) throw new Error('El evento ya pasó.');
     const [c] = await sql`select count(*)::int as n from enrollments where request_id = ${requestId} and estado = 'confirmado'`;
     if (Number(c.n) >= Number(p.cantidad)) throw new Error('Cupos completos.');

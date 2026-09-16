@@ -4,7 +4,7 @@ import { activarMensajesPersonales, desactivarMensajesPersonales, detectarCanal,
 import { IconoDescargar } from '@/components/Iconos';
 import { Marco } from '@/components/Marco';
 import { useAccion } from '@/components/useAccion';
-import { ESTADOS, fechaLarga } from '@/lib/reglas';
+import { ESTADOS_VISIBLES, ESTADO_PLURAL, fechaLarga } from '@/lib/reglas';
 import type { Datos } from '@/lib/tipos';
 import { resumenHoras, type PedidoVista } from '@/lib/vista';
 
@@ -36,7 +36,7 @@ export function Resumen({ datos, pedidos }: { datos: Datos; pedidos: PedidoVista
         <p className="muted fs-12 m-0">Horas por evento = tiempo de participación solicitado (inicio a salida de los estudiantes). {h.antesDeInicio ? `El semestre inicia el ${fechaLarga(a.inicioSemestre)} (faltan ${h.diasParaInicio} días); los eventos anteriores cuentan en el total.` : `Semana ${h.semanaN} de ${h.semanas}: ${h.usadasSemana} h de ${h.horasSemana} h.`}</p>
       </Marco>
       <div className="cols-auto-140 mt-4">
-        {ESTADOS.map((est) => <Marco key={est} className="p-4"><div className="card-kicker">{est}s</div><div className="num-xl">{pedidos.filter((e) => e.estado === est).length}</div></Marco>)}
+        {ESTADOS_VISIBLES.map((est) => <Marco key={est} className={`p-4 ${est === 'Finalizado' ? 'marco-tipo finalizado' : ''}`}><div className="card-kicker">{ESTADO_PLURAL[est]}</div><div className="num-xl">{pedidos.filter((e) => e.estadoLabel === est).length}</div></Marco>)}
       </div>
       <Marco className="mt-6 scroll-x">
         <table className="table" style={{ minWidth: 640 }}>
