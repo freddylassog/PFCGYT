@@ -1,4 +1,5 @@
 import 'server-only';
+import { createHash } from 'node:crypto';
 import { appUrl } from './app-url';
 import { mensajeNuevoPedido, mensajePrueba, type Mensaje } from './notificar-texto';
 import type { Ajustes, EstadoNotificaciones, Pedido } from './tipos';
@@ -9,7 +10,7 @@ import type { Ajustes, EstadoNotificaciones, Pedido } from './tipos';
 //  - Telegram: TELEGRAM_BOT_TOKEN en Vercel; el chat se detecta desde Resumen → Avisos
 //    (o se fija con TELEGRAM_CHAT_ID).
 
-type AjustesTelegram = Pick<Ajustes, 'telegramChatId' | 'telegramChatNombre'> & Partial<Pick<Ajustes, 'telegramCanalId' | 'telegramCanalNombre'>>;
+type AjustesTelegram = Pick<Ajustes, 'telegramChatId' | 'telegramChatNombre'> & Partial<Pick<Ajustes, 'telegramCanalId' | 'telegramCanalNombre' | 'telegramBotUsername' | 'telegramWebhookUrl'>>;
 
 function chatTelegram(a?: AjustesTelegram | null): string {
   return process.env.TELEGRAM_CHAT_ID || a?.telegramChatId || '';
@@ -20,7 +21,7 @@ export function estadoCanales(a?: AjustesTelegram | null): EstadoNotificaciones 
   if (process.env.RESEND_API_KEY && process.env.NOTIFICACION_CORREO) canales.push({ canal: 'correo', destino: process.env.NOTIFICACION_CORREO });
   const token = !!process.env.TELEGRAM_BOT_TOKEN, chat = chatTelegram(a), canal = canalTelegram(a);
   if (token && chat) canales.push({ canal: 'telegram', destino: a?.telegramChatNombre ? `Telegram (${a.telegramChatNombre})` : 'Telegram' });
-  return { canales, telegramSinChat: token && !chat, telegramSinCanal: token && !canal, canalEstudiantes: token && canal ? (a?.telegramCanalNombre || 'canal de Telegram') : null };
+  return { canales, telegramSinChat: token && !chat, telegramSinCanal: token && !canal, canalEstudiantes: token && canal ? (a?.telegramCanalNombre || 'canal de Telegram') : null, botUsername: token && a?.telegramWebhookUrl && a?.telegramBotUsername ? a.telegramBotUsername : null };
 }
 
 function canalTelegram(a?: AjustesTelegram | null): string {
@@ -114,6 +115,7 @@ export async function enviarPrueba(a?: AjustesTelegram | null): Promise<string[]
 /** Busca el último mensaje recibido por el bot y devuelve el chat que lo envió. */
 export async function detectarChatTelegram(): Promise<{ id: string; nombre: string }> {
   if (!process.env.TELEGRAM_BOT_TOKEN) throw new Error('Falta TELEGRAM_BOT_TOKEN en Vercel.');
+  return conWebhookPausado(async () => {
   const r = await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/getUpdates`, { signal: AbortSignal.timeout(10000), cache: 'no-store' });
   if (!r.ok) throw new Error(`Telegram respondió ${r.status}. Revisa que el token sea el que te dio @BotFather.`);
   const datos = (await r.json()) as { ok: boolean; result?: { message?: { chat?: { id: number; first_name?: string; last_name?: string; username?: string; title?: string } } }[] };
@@ -122,12 +124,14 @@ export async function detectarChatTelegram(): Promise<{ id: string; nombre: stri
   if (!chat) throw new Error('Telegram no tiene mensajes tuyos todavía. Abre tu bot en Telegram, pulsa Iniciar, escríbele "hola" y vuelve a pulsar Detectar.');
   const nombre = chat.title || [chat.first_name, chat.last_name].filter(Boolean).join(' ') || chat.username || String(chat.id);
   return { id: String(chat.id), nombre };
+  });
 }
 
 /** Busca en las últimas actualizaciones un canal donde el bot fue agregado
  *  como administrador o donde se publicó un mensaje. */
 export async function detectarCanalTelegram(): Promise<{ id: string; nombre: string }> {
   if (!process.env.TELEGRAM_BOT_TOKEN) throw new Error('Falta TELEGRAM_BOT_TOKEN en Vercel.');
+  return conWebhookPausado(async () => {
   const r = await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/getUpdates?allowed_updates=${encodeURIComponent('["channel_post","my_chat_member","message"]')}`, { signal: AbortSignal.timeout(10000), cache: 'no-store' });
   if (!r.ok) throw new Error(`Telegram respondió ${r.status}. Revisa que el token sea el que te dio @BotFather.`);
   type Chat = { id: number; type: string; title?: string; username?: string };
@@ -139,4 +143,54 @@ export async function detectarCanalTelegram(): Promise<{ id: string; nombre: str
   const chat = candidatos[candidatos.length - 1];
   if (!chat) throw new Error('Telegram no muestra ningún canal todavía. Agrega el bot como administrador del canal, publica cualquier mensaje en el canal y vuelve a pulsar Detectar.');
   return { id: String(chat.id), nombre: chat.title || chat.username || String(chat.id) };
+  });
+}
+
+// ---------------------------------------------------------------- mensajes personales (webhook)
+
+const API = () => `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}`;
+
+/** Token con el que Telegram firma cada llamada al webhook (derivado del secreto de sesión). */
+export function secretoWebhook(): string {
+  return createHash('sha256').update('telegram-webhook:' + (process.env.SESSION_SECRET || process.env.COORDINACION_PASSWORD || '')).digest('hex').slice(0, 48);
+}
+
+async function llamarTelegram<T>(metodo: string, cuerpo?: Record<string, unknown>): Promise<T> {
+  const r = await fetch(`${API()}/${metodo}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo ?? {}), signal: AbortSignal.timeout(10000), cache: 'no-store',
+  });
+  const datos = (await r.json().catch(() => ({}))) as { ok?: boolean; result?: T; description?: string };
+  if (!r.ok || !datos.ok) throw new Error(`Telegram (${metodo}): ${datos.description || r.status}`);
+  return datos.result as T;
+}
+
+/** Activa la recepción de mensajes del bot en la app. Devuelve el usuario del bot. */
+export async function activarWebhook(url: string): Promise<string> {
+  if (!process.env.TELEGRAM_BOT_TOKEN) throw new Error('Falta TELEGRAM_BOT_TOKEN en Vercel.');
+  if (!url.startsWith('https://')) throw new Error('La dirección de la app debe ser https (revisa NEXT_PUBLIC_APP_URL).');
+  const yo = await llamarTelegram<{ username?: string }>('getMe');
+  await llamarTelegram('setWebhook', { url, secret_token: secretoWebhook(), allowed_updates: ['message', 'my_chat_member', 'channel_post'] });
+  return yo.username || '';
+}
+
+export async function desactivarWebhook(): Promise<void> {
+  await llamarTelegram('deleteWebhook', { drop_pending_updates: false });
+}
+
+/** getUpdates no funciona mientras hay webhook: se pausa, se consulta y se restaura. */
+export async function conWebhookPausado<T>(fn: () => Promise<T>): Promise<T> {
+  const info = await llamarTelegram<{ url?: string }>('getWebhookInfo').catch(() => ({ url: '' }));
+  if (!info.url) return fn();
+  await llamarTelegram('deleteWebhook', { drop_pending_updates: false });
+  try {
+    return await fn();
+  } finally {
+    await llamarTelegram('setWebhook', { url: info.url, secret_token: secretoWebhook(), allowed_updates: ['message', 'my_chat_member', 'channel_post'] }).catch((e) => console.error('[telegram] no se pudo restaurar el webhook', (e as Error).message));
+  }
+}
+
+/** Mensaje directo a un chat (estudiante o coordinación). Nunca lanza; devuelve si se envió. */
+export async function enviarDirecto(chatId: string | null | undefined, texto: string): Promise<boolean> {
+  if (!process.env.TELEGRAM_BOT_TOKEN || !chatId) return false;
+  try { await telegramSendMessage(chatId, texto); return true; } catch (e) { console.error('[telegram]', (e as Error).message); return false; }
 }

@@ -3,7 +3,8 @@ import { useState } from 'react';
 import { editarPedido, type CambiosPedido } from '@/app/actions/coordinacion';
 import { useAccion } from '@/components/useAccion';
 import { EditorDias } from '@/components/EditorDias';
-import { ACTIVIDADES, MAX_ESTUDIANTES, VESTIMENTA, duracionTextoDias } from '@/lib/reglas';
+import { EditorReparto } from '@/components/EditorReparto';
+import { MAX_ESTUDIANTES, VESTIMENTA, ajustarRepartoATotal, duracionTextoDias } from '@/lib/reglas';
 import type { Vestimenta } from '@/lib/tipos';
 import type { PedidoVista } from '@/lib/vista';
 
@@ -12,7 +13,7 @@ export function EditarPedido({ p, onCerrar }: { p: PedidoVista; onCerrar: () => 
   const [c, setC] = useState<CambiosPedido>({
     nombre: p.nombre, cargo: p.cargo, institucion: p.institucion, correoSolicitante: p.correoSolicitante ?? '',
     evento: p.evento, dias: p.dias.map((d) => ({ ...d })), lugar: p.lugar, lejos: p.lejos, responsable: p.responsable, responsableTelefono: p.responsableTelefono,
-    cantidad: p.cantidad, vestimenta: p.vestimenta, actividades: p.actividades,
+    cantidad: p.cantidad, vestimenta: p.vestimenta, reparto: p.reparto.length ? p.reparto.map((x) => ({ ...x })) : p.actividades.map((a, i) => ({ actividad: a, cantidad: i === 0 ? Math.max(1, p.cantidad - (p.actividades.length - 1)) : 1 })),
   });
   const set = <K extends keyof CambiosPedido>(k: K, v: CambiosPedido[K]) => setC((s) => ({ ...s, [k]: v }));
   return (
@@ -20,7 +21,7 @@ export function EditarPedido({ p, onCerrar }: { p: PedidoVista; onCerrar: () => 
       <h6 className="h6-accent">Editar pedido</h6>
       <div className="field"><label>Nombre del evento</label><input className="input" value={c.evento} onChange={(e) => set('evento', e.target.value)} required /></div>
       <div className="field"><label>Días y horarios de participación</label><EditorDias dias={c.dias} onChange={(d) => set('dias', d)} idPrefijo="edit-dia" /></div>
-      <div className="field" style={{ maxWidth: 200 }}><label>Número de estudiantes</label><input className="input" type="number" min={1} max={MAX_ESTUDIANTES} value={c.cantidad} onChange={(e) => set('cantidad', Number(e.target.value))} required /></div>
+      <div className="field" style={{ maxWidth: 200 }}><label>Número de estudiantes</label><input className="input" type="number" min={1} max={MAX_ESTUDIANTES} value={c.cantidad} onChange={(e) => { const n = Number(e.target.value); setC((s) => ({ ...s, cantidad: n, reparto: ajustarRepartoATotal(s.reparto, n) })); }} required /></div>
       <p className="muted fs-12 m-0">Duración: {duracionTextoDias(c.dias)}. Confirmados actuales: {p.confirmadosN} (la cantidad no puede ser menor).</p>
       <div className="field"><label>Lugar y dirección</label><input className="input" value={c.lugar} onChange={(e) => set('lugar', e.target.value)} required /></div>
       <label className="radio fs-13"><input type="checkbox" checked={c.lejos} onChange={(e) => set('lejos', e.target.checked)} /><span className="dot cuadro" />El lugar está fuera del campus / lejos</label>
@@ -29,8 +30,8 @@ export function EditarPedido({ p, onCerrar }: { p: PedidoVista; onCerrar: () => 
         <div className="field"><label>Teléfono</label><input className="input" type="tel" value={c.responsableTelefono} onChange={(e) => set('responsableTelefono', e.target.value)} required /></div>
       </div>
       <div className="field"><label>Vestimenta</label><select className="input" value={c.vestimenta} onChange={(e) => set('vestimenta', e.target.value)}>{(Object.keys(VESTIMENTA) as Vestimenta[]).map((k) => <option key={k} value={k}>{VESTIMENTA[k].label}</option>)}</select></div>
-      <div className="field"><label>Actividades</label>
-        <div className="stack-2" style={{ gap: 2 }}>{ACTIVIDADES.map((a) => <label key={a} className="radio fs-13"><input type="checkbox" checked={c.actividades.includes(a)} onChange={() => set('actividades', c.actividades.includes(a) ? c.actividades.filter((x) => x !== a) : [...c.actividades, a])} /><span className="dot cuadro" />{a}</label>)}</div>
+      <div className="field"><label>Actividades y estudiantes en cada una</label>
+        <EditorReparto reparto={c.reparto} cantidad={c.cantidad} onChange={(r) => set('reparto', r)} idPrefijo="edit-act" />
       </div>
       <details>
         <summary className="muted fs-12" style={{ cursor: 'pointer' }}>Datos del solicitante</summary>

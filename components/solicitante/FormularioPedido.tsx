@@ -5,9 +5,10 @@ import { crearPedido, prepararEvidencia, verificarCruce, type CruceInfo, type Pe
 import { Marco } from '@/components/Marco';
 import { IconoAlerta, IconoCalendario, IconoInfo } from '@/components/Iconos';
 import { EditorDias } from '@/components/EditorDias';
+import { EditorReparto } from '@/components/EditorReparto';
 import {
-  ACTIVIDADES, BLOQUEAR_CRUCE_EVENTOS, FORM_INICIAL, MAX_ESTUDIANTES, VESTIMENTA, cumple72h, duracionTextoDias, esFechaISO, esHora, faltasPedido, fechaCorta, fechaLarga,
-  fechaLargaDias, horarioTextoDias, ordenarDias, pasa4hDias, plazoTexto, primerDia, transporteMotivoDias, type FormPedido,
+  BLOQUEAR_CRUCE_EVENTOS, FORM_INICIAL, MAX_ESTUDIANTES, VESTIMENTA, ajustarRepartoATotal, cumple72h, duracionTextoDias, esFechaISO, esHora, faltasPedido, fechaCorta, fechaLarga,
+  fechaLargaDias, horarioTextoDias, ordenarDias, pasa4hDias, plazoTexto, primerDia, repartoTexto, transporteMotivoDias, type FormPedido,
 } from '@/lib/reglas';
 
 const PASOS = ['Solicitante', 'Evento', 'Estudiantes', 'Compromisos'];
@@ -203,16 +204,12 @@ export function FormularioPedido({ hoy }: { hoy: string }) {
         {paso === 3 && (
           <Marco as="section" className="p-6 stack">
             <h6 className="h6-accent">03 · Estudiantes</h6>
-            <div className="field" style={{ maxWidth: 180 }}><label htmlFor="cantidad">Número de estudiantes</label><input id="cantidad" className="input" type="number" min={1} max={MAX_ESTUDIANTES} value={f.cantidad} onChange={(e) => set('cantidad', Math.max(1, Math.min(MAX_ESTUDIANTES, Number(e.target.value) || 1)))} /></div>
+            <div className="field" style={{ maxWidth: 180 }}><label htmlFor="cantidad">Número de estudiantes</label><input id="cantidad" className="input" type="number" min={1} max={MAX_ESTUDIANTES} value={f.cantidad} onChange={(e) => { const n = Math.max(1, Math.min(MAX_ESTUDIANTES, Number(e.target.value) || 1)); setF((s) => ({ ...s, cantidad: n, reparto: ajustarRepartoATotal(s.reparto, n) })); }} /></div>
             <div className="field">
-              <label>Actividades protocolarias que realizarán</label>
-              <div className="stack-2">
-                {ACTIVIDADES.map((a) => (
-                  <label key={a} className="radio linea fs-14"><input type="checkbox" checked={f.actividades.includes(a)} onChange={() => set('actividades', f.actividades.includes(a) ? f.actividades.filter((x) => x !== a) : [...f.actividades, a])} /><span className="dot cuadro" />{a}</label>
-                ))}
-              </div>
+              <label>Actividades protocolarias que realizarán y cuántos estudiantes en cada una</label>
+              <EditorReparto reparto={f.reparto} cantidad={f.cantidad} onChange={(r) => set('reparto', r)} />
             </div>
-            <p className="muted fs-12 m-0">Los estudiantes no pueden realizar actividades fuera de las marcadas.</p>
+            <p className="muted fs-12 m-0">Los estudiantes no pueden realizar actividades fuera de las marcadas. El total asignado debe ser igual al número de estudiantes.</p>
             <div className="field">
               <label>Vestimenta de los estudiantes</label>
               <div className="stack-2">
@@ -232,7 +229,7 @@ export function FormularioPedido({ hoy }: { hoy: string }) {
             <dl className="dl" style={{ paddingBottom: 'var(--space-3)', borderBottom: '1px solid var(--color-divider)' }}>
               <dt className="muted">Evento</dt><dd>{f.evento} · {resumenTipo}</dd>
               <dt className="muted">Fecha</dt><dd>{fechaLargaDias(f.dias)} · {horarioTextoDias(ordenarDias(f.dias))} ({durTexto})</dd>
-              <dt className="muted">Estudiantes</dt><dd>{f.cantidad} · {f.actividades.join(', ')}</dd>
+              <dt className="muted">Estudiantes</dt><dd>{f.cantidad} · {repartoTexto(f.reparto, [])}</dd>
               <dt className="muted">Vestimenta</dt><dd>{VESTIMENTA[f.vestimenta].label}</dd>
               <dt className="muted">Lugar</dt><dd>{f.lugar}</dd>
               <dt className="muted">Responsable</dt><dd>{f.responsable} · {f.responsableTelefono}</dd>

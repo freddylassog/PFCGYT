@@ -7,8 +7,15 @@ export { appUrl };
 import { hoyISO, hhmm } from './reglas';
 import type {
   Ajustes, Aviso, Clase, Datos, Devolucion, DiaEvento, Docente, Estudiante, Inscripcion,
-  MateriaNota, Novedad, Pedido, PrendaEntregada, Semestre,
+  MateriaNota, Novedad, Pedido, PrendaEntregada, RepartoActividad, Semestre,
 } from './tipos';
+
+function mapReparto(r: Fila): RepartoActividad[] {
+  let valor: unknown = r.reparto;
+  if (typeof valor === 'string') { try { valor = JSON.parse(valor); } catch { valor = []; } }
+  if (!Array.isArray(valor)) return [];
+  return (valor as { actividad?: unknown; cantidad?: unknown }[]).map((x) => ({ actividad: s(x.actividad), cantidad: Number(x.cantidad) || 0 })).filter((x) => x.actividad);
+}
 
 function mapDias(r: Fila): DiaEvento[] {
   let valor: unknown = r.dias;
@@ -29,14 +36,14 @@ export function mapPedido(r: Fila): Pedido {
     nombre: s(r.nombre), cargo: s(r.cargo), institucion: s(r.institucion), correoSolicitante: sn(r.correo_solicitante),
     tipo: r.tipo as Pedido['tipo'], convenio: r.convenio as Pedido['convenio'], evento: s(r.evento),
     fecha: s(r.fecha), inicio: hhmm(s(r.inicio)), fin: hhmm(s(r.fin)), dias: mapDias(r), lugar: s(r.lugar), lejos: !!r.lejos,
-    responsable: s(r.responsable), responsableTelefono: s(r.responsable_telefono), cantidad: Number(r.cantidad), actividades: (r.actividades as string[]) ?? [],
+    responsable: s(r.responsable), responsableTelefono: s(r.responsable_telefono), cantidad: Number(r.cantidad), actividades: (r.actividades as string[]) ?? [], reparto: mapReparto(r),
     vestimenta: r.vestimenta as Pedido['vestimenta'], evidenciaPath: sn(r.evidencia_path), evidenciaNombre: sn(r.evidencia_nombre),
     estado: r.estado as Pedido['estado'], convocadaAt: sn(r.convocada_at), clave: sn(r.clave), telegramPostAt: r.telegram_post_at ? iso(r.telegram_post_at) : null, createdAt: iso(r.created_at),
   };
 }
 
 export function mapEstudiante(r: Fila): Estudiante {
-  return { id: s(r.id), nombre: s(r.nombre), correo: s(r.correo), semestre: Number(r.semestre) as Semestre, paralelo: sn(r.paralelo), genero: r.genero as Estudiante['genero'], activo: !!r.activo };
+  return { id: s(r.id), nombre: s(r.nombre), correo: s(r.correo), semestre: Number(r.semestre) as Semestre, paralelo: sn(r.paralelo), genero: r.genero as Estudiante['genero'], activo: !!r.activo, telegramChatId: sn(r.telegram_chat_id) };
 }
 
 function mapDocente(r: Fila): Docente {
@@ -54,6 +61,7 @@ function mapAjustes(r: Fila): Ajustes {
     matrizEnviada: (r.matriz_enviada as Record<string, string>) ?? {}, archivos: (r.archivos as Ajustes['archivos']) ?? {},
     telegramChatId: s(r.telegram_chat_id), telegramChatNombre: s(r.telegram_chat_nombre),
     telegramCanalId: s(r.telegram_canal_id), telegramCanalNombre: s(r.telegram_canal_nombre), ultimoRecordatorio: s(r.ultimo_recordatorio),
+    telegramBotUsername: s(r.telegram_bot_username), telegramWebhookUrl: s(r.telegram_webhook_url),
   };
 }
 
@@ -73,7 +81,7 @@ export async function cargarDatos(): Promise<Datos> {
   const p = ajustes.periodo;
   const [pedidos, estudiantes, docentes, clases, materias, inscripciones, avisos, prendas, devoluciones, novedades] = await Promise.all([
     sql`select * from requests where periodo = ${p} order by fecha, inicio, numero`,
-    sql`select * from students where periodo = ${p} order by semestre, nombre`,
+    sql`select st.*, t.chat_id as telegram_chat_id from students st left join telegram_estudiantes t on t.correo = st.correo where st.periodo = ${p} order by st.semestre, st.nombre`,
     sql`select * from teachers where periodo = ${p} order by nombre`,
     sql`select * from classes where periodo = ${p} order by semestre, dia, inicio`,
     sql`select * from grade_subjects where periodo = ${p} order by semestre`,

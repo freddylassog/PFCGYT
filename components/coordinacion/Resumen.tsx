@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { detectarCanal, detectarTelegram, guardarAjustes, nuevoPeriodo, probarCanal, probarNotificacion } from '@/app/actions/coordinacion';
+import { activarMensajesPersonales, desactivarMensajesPersonales, detectarCanal, detectarTelegram, guardarAjustes, nuevoPeriodo, probarCanal, probarNotificacion } from '@/app/actions/coordinacion';
 import { IconoDescargar } from '@/components/Iconos';
 import { Marco } from '@/components/Marco';
 import { useAccion } from '@/components/useAccion';
@@ -77,6 +77,22 @@ export function Resumen({ datos, pedidos }: { datos: Datos; pedidos: PedidoVista
           <div className="row">
             <button type="button" className="btn btn-secondary btn-sm" onClick={() => { setPrueba(null); run(() => detectarCanal(), (d) => setPrueba(`Canal detectado: ${d?.nombre}. Pulsa "Probar canal" para publicar un mensaje de prueba.`)); }}>Detectar canal de estudiantes</button>
             {datos.notificaciones.canalEstudiantes && <button type="button" className="btn btn-secondary btn-sm" onClick={() => { setPrueba(null); run(() => probarCanal(), () => setPrueba('Mensaje de prueba publicado en el canal.')); }}>Probar canal</button>}
+          </div>
+        </Marco>
+      )}
+      {(datos.notificaciones.canalEstudiantes || datos.notificaciones.telegramSinCanal || datos.notificaciones.botUsername) && (
+        <Marco className="mt-4 p-4 stack-3">
+          <h6 className="h6-accent">Mensajes personales del bot a cada estudiante</h6>
+          {datos.notificaciones.botUsername ? (
+            <p className="m-0 fs-14">Activos con <strong>@{datos.notificaciones.botUsername}</strong>. Cada estudiante abre el bot, pulsa Iniciar y escribe su correo institucional; desde entonces recibe en su celular la confirmación de cada inscripción, el aviso si no fue confirmado y el recordatorio el día anterior. En la pestaña Estudiantes se ve quién ya lo hizo.</p>
+          ) : (
+            <p className="m-0 fs-14 muted">Inactivos. Al activarlos, el bot podrá recibir mensajes de los estudiantes (para vincular su correo) y enviarles confirmaciones y recordatorios personales.</p>
+          )}
+          <div className="row">
+            {datos.notificaciones.botUsername
+              ? <button type="button" className="btn btn-ghost btn-sm" onClick={() => { if (confirm('¿Desactivar los mensajes personales? Los estudiantes dejarán de recibir avisos en su celular.')) run(() => desactivarMensajesPersonales()); }}>Desactivar</button>
+              : <button type="button" className="btn btn-secondary btn-sm" onClick={() => { setPrueba(null); run(() => activarMensajesPersonales(), (d) => setPrueba(`Mensajes personales activos con @${d?.bot}. Pide a los estudiantes que abran el bot y escriban su correo.`)); }}>Activar mensajes personales</button>}
+            {datos.notificaciones.botUsername && <a className="btn btn-secondary btn-sm" href={`https://t.me/${datos.notificaciones.botUsername}`} target="_blank" rel="noopener">Abrir el bot</a>}
           </div>
         </Marco>
       )}

@@ -10,6 +10,12 @@ export type Semestre = 1 | 2 | 3;
 export type EstadoInscripcion = 'inscrito' | 'confirmado' | 'rechazado';
 export type EstadoDevolucion = 'lavado' | 'rechazado';
 
+/** Cuántos estudiantes hacen cada actividad. */
+export interface RepartoActividad {
+  actividad: string;
+  cantidad: number;
+}
+
 /** Un día de participación de un evento. */
 export interface DiaEvento {
   fecha: string;
@@ -40,6 +46,7 @@ export interface Pedido {
   responsableTelefono: string;
   cantidad: number;
   actividades: string[];
+  reparto: RepartoActividad[];
   vestimenta: Vestimenta;
   evidenciaPath: string | null;
   evidenciaNombre: string | null;
@@ -58,6 +65,8 @@ export interface Estudiante {
   paralelo: string | null;
   genero: Genero;
   activo: boolean;
+  /** Chat de Telegram vinculado (por correo), si el estudiante se registró con el bot. */
+  telegramChatId: string | null;
 }
 
 export interface Docente {
@@ -145,6 +154,8 @@ export interface Ajustes {
   telegramCanalId: string;
   telegramCanalNombre: string;
   ultimoRecordatorio: string;
+  telegramBotUsername: string;
+  telegramWebhookUrl: string;
 }
 
 /** Todo lo que necesita el panel de coordinación, cargado en una sola pasada. */
@@ -174,6 +185,8 @@ export interface EstadoNotificaciones {
   telegramSinCanal: boolean;
   /** Nombre del canal de estudiantes (null si no está configurado). */
   canalEstudiantes: string | null;
+  /** Usuario del bot (sin @) cuando los mensajes personales están activos. */
+  botUsername: string | null;
 }
 
 export interface Resultado<T = undefined> {

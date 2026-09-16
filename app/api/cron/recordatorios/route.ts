@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { cargarDatos } from '@/lib/datos';
-import { avisarCoordinacion, publicarEnCanal } from '@/lib/notificar';
-import { mensajeRecordatorioCanal } from '@/lib/notificar-texto';
+import { avisarCoordinacion, enviarDirecto, publicarEnCanal } from '@/lib/notificar';
+import { mensajeRecordatorioCanal, mensajeRecordatorioPersonal } from '@/lib/notificar-texto';
 import { sumarDias } from '@/lib/reglas';
 import { vistaPedidos } from '@/lib/vista';
 
@@ -26,6 +26,13 @@ export async function GET(req: Request) {
   if (texto && datos.notificaciones.canalEstudiantes) {
     try { await publicarEnCanal(texto, datos.ajustes); resultado.canal = 'publicado'; } catch (e) { resultado.canal = (e as Error).message; }
   }
+  // Recordatorio personal a cada confirmado que vinculó Telegram.
+  let personales = 0;
+  for (const p of pedidos) {
+    const dia = p.dias.find((d) => d.fecha === manana)!;
+    for (const e of p.confirmados) if (e.telegramChatId && (await enviarDirecto(e.telegramChatId, mensajeRecordatorioPersonal(p, dia, e)))) personales++;
+  }
+  resultado.personales = String(personales);
   await avisarCoordinacion(`Mañana: ${pedidos.map((p) => `${p.evento} (${p.confirmadosN}/${p.cantidad} confirmados)`).join(' · ')}`, datos.ajustes);
   return NextResponse.json({ ok: true, eventos: pedidos.map((p) => p.codigo), ...resultado });
 }

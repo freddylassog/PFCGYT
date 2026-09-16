@@ -73,7 +73,7 @@ export function Estudiantes({ datos, pedidos }: { datos: Datos; pedidos: PedidoV
                   <div className="muted fs-13">Matriz para el docente{m.docente ? `: ${m.docente.nombre} · ${m.docente.correo ?? 'sin correo'}` : ' (según el horario cargado)'}</div>
                 </div>
                 <div className="row">
-                  <span className="muted fs-13">{m.cumplenN}/{m.n} cumplen</span>
+                  <span className="muted fs-13">{m.cumplenN}/{m.n} cumplen{datos.notificaciones.botUsername || m.filas.some((f) => f.telegramChatId) ? ` · ${m.filas.filter((f) => f.telegramChatId).length} con Telegram` : ''}</span>
                   {m.enviada && <span className="tag tag-accent">Matriz enviada · {fechaCorta(m.enviada)}</span>}
                   <button className="btn btn-secondary" type="button" onClick={() => setVerCorreo(verCorreo === m.semestre ? null : m.semestre)}>Enviar matriz al docente</button>
                 </div>
@@ -94,7 +94,7 @@ export function Estudiantes({ datos, pedidos }: { datos: Datos; pedidos: PedidoV
                     {m.filas.length === 0 && <tr><td colSpan={8} className="muted">Sin estudiantes activos en este semestre.</td></tr>}
                     {m.filas.map((s) => (
                       <tr key={s.id}>
-                        <td>{s.nombre}{s.paralelo && <span className="muted fs-11"> · {s.paralelo}</span>}</td>
+                        <td>{s.nombre}{s.paralelo && <span className="muted fs-11"> · {s.paralelo}</span>}{s.telegramChatId && <> <span className="tag tag-accent" style={{ fontSize: 10 }} title="Recibe mensajes personales del bot">Telegram</span></>}</td>
                         <td className="muted fs-13">{s.correo}</td>
                         <td>{s.eventosN}</td>
                         <td className="nowrap">{s.horas} h</td>

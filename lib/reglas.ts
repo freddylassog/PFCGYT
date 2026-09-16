@@ -1,7 +1,7 @@
 // Reglas de negocio y formato. Solo funciones puras: se usan igual en el
 // navegador y en el servidor (validaciones, reporte, correos).
 import type {
-  Clase, DiaEvento, Estado, Genero, Semestre, Vestimenta,
+  Clase, DiaEvento, Estado, Genero, RepartoActividad, Semestre, Vestimenta,
 } from './tipos';
 
 export const ZONA_HORARIA = 'America/Guayaquil';
@@ -435,7 +435,7 @@ export interface FormPedido {
   responsable: string;
   responsableTelefono: string;
   cantidad: number;
-  actividades: string[];
+  reparto: RepartoActividad[];
   vestimenta: Vestimenta;
   acepta: boolean;
   evidenciaNombre: string;
@@ -447,7 +447,7 @@ export const DIA_INICIAL: DiaEvento = { fecha: '', inicio: '09:00', fin: '13:00'
 export const FORM_INICIAL: FormPedido = {
   nombre: '', cargo: '', institucion: '', correoSolicitante: '', tipo: 'interno', convenio: 'si',
   evento: '', dias: [{ ...DIA_INICIAL }], lugar: '', lejos: false, responsable: '', responsableTelefono: '',
-  cantidad: 4, actividades: [], vestimenta: 'uniforme', acepta: false, evidenciaNombre: '', evidenciaPath: '',
+  cantidad: 4, reparto: [], vestimenta: 'uniforme', acepta: false, evidenciaNombre: '', evidenciaPath: '',
 };
 
 /** Al menos 7 dígitos (acepta espacios, guiones, paréntesis y +). */
@@ -476,6 +476,54 @@ export function faltasDias(dias: DiaEvento[], hoy: string, soloFuturo = true): s
   return f;
 }
 
+// ---------------------------------------------------------------- reparto por actividad
+
+export function sumaReparto(r: RepartoActividad[]): number {
+  return r.reduce((a, x) => a + (Number(x.cantidad) || 0), 0);
+}
+
+/** Problemas del reparto (vacío = correcto): al menos una actividad, cada una
+ *  con al menos 1 estudiante, y la suma igual al total pedido. */
+export function faltasReparto(r: RepartoActividad[], cantidad: number): string[] {
+  const f: string[] = [];
+  const valido = r.filter((x) => ACTIVIDADES.includes(x.actividad));
+  if (!valido.length) { f.push('al menos una actividad'); return f; }
+  if (valido.some((x) => !(Number(x.cantidad) >= 1))) f.push('al menos 1 estudiante en cada actividad marcada');
+  const suma = sumaReparto(valido);
+  if (suma !== cantidad) f.push(`repartir los ${cantidad} estudiantes entre las actividades (asignados: ${suma})`);
+  return f;
+}
+
+/** Marca o desmarca una actividad manteniendo la suma igual al total. */
+export function alternarActividad(r: RepartoActividad[], actividad: string, cantidad: number): RepartoActividad[] {
+  if (r.some((x) => x.actividad === actividad)) {
+    const resto = r.filter((x) => x.actividad !== actividad);
+    if (!resto.length) return [];
+    const faltan = cantidad - sumaReparto(resto);
+    return resto.map((x, i) => (i === 0 ? { ...x, cantidad: Math.max(1, x.cantidad + faltan) } : x));
+  }
+  const libres = cantidad - sumaReparto(r);
+  if (libres >= 1) return [...r, { actividad, cantidad: libres }];
+  // No queda cupo: se toma 1 de la actividad con más estudiantes.
+  const mayor = r.reduce((m, x) => (x.cantidad > m.cantidad ? x : m), r[0]);
+  const ajustado = r.map((x) => (x === mayor && x.cantidad > 1 ? { ...x, cantidad: x.cantidad - 1 } : x));
+  return [...ajustado, { actividad, cantidad: 1 }];
+}
+
+/** Al cambiar el total, ajusta la primera actividad para que la suma cuadre. */
+export function ajustarRepartoATotal(r: RepartoActividad[], cantidad: number): RepartoActividad[] {
+  if (!r.length) return r;
+  const delta = cantidad - sumaReparto(r);
+  if (!delta) return r;
+  return r.map((x, i) => (i === 0 ? { ...x, cantidad: Math.max(1, x.cantidad + delta) } : x));
+}
+
+/** 'Guía de invitados (2), Acompañamiento en recorridos (2)'. */
+export function repartoTexto(reparto: RepartoActividad[], actividades: string[]): string {
+  if (reparto.length) return reparto.map((x) => `${x.actividad} (${x.cantidad})`).join(', ');
+  return actividades.join(', ');
+}
+
 /** Devuelve, por paso, la lista de lo que falta (vacía = paso completo). */
 export function faltasPedido(f: FormPedido, hoy: string, cruce: { evento: string } | null): string[][] {
   const f1: string[] = [];
@@ -496,7 +544,7 @@ export function faltasPedido(f: FormPedido, hoy: string, cruce: { evento: string
 
   const f3: string[] = [];
   if (!(f.cantidad >= 1 && f.cantidad <= MAX_ESTUDIANTES)) f3.push('número de estudiantes (1–20)');
-  if (!f.actividades.length) f3.push('al menos una actividad');
+  f3.push(...faltasReparto(f.reparto, f.cantidad));
   if (!VESTIMENTA[f.vestimenta]) f3.push('vestimenta');
 
   const f4: string[] = [];

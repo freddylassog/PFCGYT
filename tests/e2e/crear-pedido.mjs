@@ -45,6 +45,8 @@ await p.click('button:has-text("Continuar")');
 await p.fill('#cantidad', '3');
 await p.click('label:has-text("Recepción y registro de invitados")');
 await p.click('label:has-text("Ubicación de autoridades")');
+const asignados = await p.locator('text=Asignados:').textContent();
+if (!/Asignados: 3 de 3/.test(asignados || '')) { console.log('REPARTO INESPERADO:', asignados); }
 await p.click('button:has-text("Continuar")');
 await p.click('label:has-text("Acepto estos compromisos")');
 await p.click('button:has-text("Registrar pedido")');

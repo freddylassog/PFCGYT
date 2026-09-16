@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   BLOQUEAR_CRUCE_EVENTOS, FORM_INICIAL, claveVigente, codigoPedido, cruceClases, cruceEventos, cumple72h, faltasDias, faltasPedido, fechaCortaDias, fechaLarga,
   fechaLargaDias, fmtDur, genClave, horarioTextoDias, horasDe, horasDias, infoUniforme, normalizarClave, overlap, pasa4h, pasa4hDias, plazoTexto, semanaDe, transporteMotivo, transporteMotivoDias,
+  alternarActividad, ajustarRepartoATotal, faltasReparto, repartoTexto,
 } from '../../lib/reglas';
 import type { Clase } from '../../lib/tipos';
 
@@ -109,7 +110,7 @@ test('uniforme', () => {
 
 test('validación del formulario por pasos', () => {
   const hoy = '2026-09-08';
-  const f = { ...FORM_INICIAL, evidenciaPath: 'x', evidenciaNombre: 'x.pdf', nombre: 'A', cargo: 'B', institucion: 'C', correoSolicitante: 'a@b.co', evento: 'E', dias: [{ fecha: '2026-09-22', inicio: '09:00', fin: '13:00' }], lugar: 'L', responsable: 'R', responsableTelefono: '099 123 4567', actividades: ['Guía de invitados'], acepta: true };
+  const f = { ...FORM_INICIAL, evidenciaPath: 'x', evidenciaNombre: 'x.pdf', nombre: 'A', cargo: 'B', institucion: 'C', correoSolicitante: 'a@b.co', evento: 'E', dias: [{ fecha: '2026-09-22', inicio: '09:00', fin: '13:00' }], lugar: 'L', responsable: 'R', responsableTelefono: '099 123 4567', reparto: [{ actividad: 'Guía de invitados', cantidad: 4 }], acepta: true };
   assert.deepEqual(faltasPedido(f, hoy, null), [[], [], [], []]);
   assert.deepEqual(faltasPedido({ ...f, dias: [{ fecha: '2026-09-09', inicio: '09:00', fin: '13:00' }] }, hoy, null)[1], ['fecha con al menos 72 h']);
   assert.deepEqual(faltasPedido({ ...f, correoSolicitante: 'malo' }, hoy, null)[0], ['correo válido']);
@@ -117,4 +118,19 @@ test('validación del formulario por pasos', () => {
   assert.deepEqual(faltasPedido({ ...f, responsableTelefono: '12' }, hoy, null)[1], ['teléfono del responsable']);
   const conCruce = faltasPedido(f, hoy, { evento: 'Otro' })[1];
   assert.equal(conCruce.includes('horario sin cruce'), BLOQUEAR_CRUCE_EVENTOS, 'el cruce bloquea solo si está configurado');
+});
+
+test('reparto de estudiantes por actividad', () => {
+  let r = alternarActividad([], 'Guía de invitados', 4);
+  assert.deepEqual(r, [{ actividad: 'Guía de invitados', cantidad: 4 }], 'la primera actividad toma todos');
+  r = alternarActividad(r, 'Acompañamiento en recorridos', 4);
+  assert.deepEqual(r, [{ actividad: 'Guía de invitados', cantidad: 3 }, { actividad: 'Acompañamiento en recorridos', cantidad: 1 }], 'la segunda toma 1 de la mayor');
+  assert.deepEqual(faltasReparto(r, 4), []);
+  assert.deepEqual(faltasReparto([{ actividad: 'Guía de invitados', cantidad: 2 }, { actividad: 'Acompañamiento en recorridos', cantidad: 1 }], 4), ['repartir los 4 estudiantes entre las actividades (asignados: 3)']);
+  assert.deepEqual(faltasReparto([], 4), ['al menos una actividad']);
+  assert.deepEqual(faltasReparto([{ actividad: 'Guía de invitados', cantidad: 0 }, { actividad: 'Acompañamiento en recorridos', cantidad: 4 }], 4), ['al menos 1 estudiante en cada actividad marcada']);
+  assert.deepEqual(ajustarRepartoATotal(r, 6), [{ actividad: 'Guía de invitados', cantidad: 5 }, { actividad: 'Acompañamiento en recorridos', cantidad: 1 }]);
+  assert.deepEqual(alternarActividad(r, 'Guía de invitados', 4), [{ actividad: 'Acompañamiento en recorridos', cantidad: 4 }], 'al desmarcar, la restante recibe el total');
+  assert.equal(repartoTexto([{ actividad: 'Guía de invitados', cantidad: 2 }, { actividad: 'Apoyo en mesa de honor', cantidad: 2 }], []), 'Guía de invitados (2), Apoyo en mesa de honor (2)');
+  assert.equal(repartoTexto([], ['Guía de invitados']), 'Guía de invitados', 'pedidos antiguos sin reparto');
 });

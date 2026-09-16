@@ -2,11 +2,15 @@
 // reporte Excel y los correos. Todo puro: entra `Datos`, salen vistas.
 import {
   ACTIVIDADES, DEVOLUCION, MINIMO_EVENTOS, VESTIMENTA, convenioLabel, cruceClases, diasHasta, duracionTextoDias, fechaCorta, fechaCortaDias, fechaLargaDias,
-  horarioTextoDias, horasDias, infoUniforme, pasa4hDias, redondear1, semCorto, semLabel, semanaDe, tagClass, tipoLabel, transporteMotivoDias, ultimoDia,
+  horarioTextoDias, horasDias, infoUniforme, pasa4hDias, redondear1, repartoTexto, semCorto, semLabel, semanaDe, tagClass, tipoLabel, transporteMotivoDias, ultimoDia,
 } from './reglas';
 import type { Clase, Datos, Docente, Estudiante, Novedad, Pedido, Semestre } from './tipos';
 
 export interface PedidoVista extends Pedido {
+  /** 'Guía de invitados (2), Acompañamiento en recorridos (2)' */
+  actividadesTexto: string;
+  /** Etiquetas por actividad, con cantidad si el pedido la trae. */
+  actividadesEtiquetas: string[];
   horas: number;
   duracion: string;
   horarioTexto: string;
@@ -78,6 +82,8 @@ export function vistaPedido(d: Datos, p: Pedido): PedidoVista {
   const p4 = pasa4hDias(p.dias);
   return {
     ...p,
+    actividadesTexto: repartoTexto(p.reparto, p.actividades),
+    actividadesEtiquetas: p.reparto.length ? p.reparto.map((x) => `${x.actividad} · ${x.cantidad}`) : p.actividades,
     horas: horasDias(p.dias), duracion: duracionTextoDias(p.dias), horarioTexto: horarioTextoDias(p.dias), multidia: p.dias.length > 1,
     ultimaFecha: ultimoDia(p.dias)?.fecha ?? p.fecha,
     fechaCorta: fechaCortaDias(p.dias), fechaLarga: fechaLargaDias(p.dias), fechaPedido: fechaCorta(p.createdAt.slice(0, 10)),

@@ -60,7 +60,7 @@ export function PanelPedido({ p, datos, pedidos, cruceEvento, onCerrar }: { p: P
         <dt className="muted">Responsable</dt><dd>{p.responsable}{p.responsableTelefono && <> · <a href={`tel:${p.responsableTelefono.replace(/[^\d+]/g, '')}`}>{p.responsableTelefono}</a></>}</dd>
         <dt className="muted">Pedido</dt><dd>{p.fechaPedido} · {p.evidenciaPath ? <a href={`/api/evidencia/${p.id}`} target="_blank" rel="noopener">{p.evidenciaTexto}</a> : p.evidenciaTexto}</dd>
       </dl>
-      <div><h6 style={{ margin: '0 0 4px' }}>Actividades</h6><div className="row" style={{ gap: 4 }}>{p.actividades.map((a) => <span key={a} className="tag tag-neutral">{a}</span>)}</div></div>
+      <div><h6 style={{ margin: '0 0 4px' }}>Actividades</h6><div className="row" style={{ gap: 4 }}>{p.actividadesEtiquetas.map((a) => <span key={a} className="tag tag-neutral">{a}</span>)}</div></div>
       {(p.pasa4h || p.transporte) && (
         <div className="stack-2 fs-13" style={{ gap: 4 }}>
           {p.pasa4h && <div style={{ display: 'flex', gap: 6 }}><span className="tag tag-accent" style={{ flex: 'none' }}>Alimentación</span><span>Más de 4 h: el organizador cubre alimentación.</span></div>}

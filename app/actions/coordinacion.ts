@@ -5,16 +5,16 @@ import type { JSONValue } from 'postgres';
 import { db } from '@/lib/db';
 import { ajustesActuales, cargarDatos } from '@/lib/datos';
 import { asegurarEsquema } from '@/lib/migrar';
-import { avisarCoordinacion, detectarCanalTelegram, detectarChatTelegram, enviarPrueba, publicarEnCanal } from '@/lib/notificar';
-import { mensajeConvocatoriaCanal } from '@/lib/notificar-texto';
+import { activarWebhook, avisarCoordinacion, desactivarWebhook, detectarCanalTelegram, detectarChatTelegram, enviarDirecto, enviarPrueba, publicarEnCanal } from '@/lib/notificar';
+import { mensajeConvocatoriaCanal, mensajeEstudianteConfirmado, mensajeEstudianteNoConfirmado, mensajeEstudianteRetirado } from '@/lib/notificar-texto';
 import { appUrl } from '@/lib/app-url';
-import { vistaPedido } from '@/lib/vista';
+import { avanceEstudiante, vistaPedido } from '@/lib/vista';
 import { leerTabla, parseDocentes, parseEstudiantes, parseHorarios } from '@/lib/excel';
 import {
-  ACTIVIDADES, MAX_ESTUDIANTES, UNIFORME, TIPOS_NOVEDAD, VESTIMENTA, claseAplica, claveNombre, cruceClases, esFechaISO, faltasDias, genClave, hoyISO, normalizarCorreo, normalizarParalelo, ordenarDias, telefonoValido,
+  ACTIVIDADES, MAX_ESTUDIANTES, UNIFORME, TIPOS_NOVEDAD, VESTIMENTA, claseAplica, claveNombre, cruceClases, esFechaISO, faltasDias, genClave, hoyISO, normalizarCorreo, normalizarParalelo, ordenarDias, telefonoValido, faltasReparto,
 } from '@/lib/reglas';
 import { iniciarSesionCoordinacion, passwordCoordinacionOk, sesionCoordinacion } from '@/lib/sesion';
-import type { DiaEvento, Estado, Resultado, Semestre } from '@/lib/tipos';
+import type { DiaEvento, Estado, RepartoActividad, Resultado, Semestre } from '@/lib/tipos';
 
 async function exigir(): Promise<void> {
   if (!(await sesionCoordinacion())) throw new Error('No autorizado. Vuelve a iniciar sesión.');
@@ -80,7 +80,7 @@ export async function cambiarEstado(id: string, estado: Estado): Promise<Resulta
 export interface CambiosPedido {
   nombre: string; cargo: string; institucion: string; correoSolicitante: string;
   evento: string; dias: DiaEvento[]; lugar: string; lejos: boolean; responsable: string; responsableTelefono: string;
-  cantidad: number; vestimenta: string; actividades: string[];
+  cantidad: number; vestimenta: string; reparto: RepartoActividad[];
 }
 
 /** Coordinación corrige los datos de un pedido (por ejemplo, la cantidad de estudiantes). */
@@ -102,13 +102,15 @@ export async function editarPedido(id: string, c: CambiosPedido): Promise<Result
     const [conf] = await sql`select count(*)::int as n from enrollments where request_id = ${id} and estado = 'confirmado'`;
     if (cantidad < Number(conf.n)) throw new Error(`Ya hay ${conf.n} estudiantes confirmados; quita alguno antes de bajar la cantidad.`);
     if (!(c.vestimenta in VESTIMENTA)) throw new Error('Vestimenta inválida');
-    const actividades = c.actividades.filter((a) => ACTIVIDADES.includes(a));
-    if (!actividades.length) throw new Error('Elige al menos una actividad');
+    const reparto: RepartoActividad[] = (c.reparto || []).filter((x) => ACTIVIDADES.includes(x.actividad)).map((x) => ({ actividad: x.actividad, cantidad: Math.round(Number(x.cantidad)) }));
+    const malReparto = faltasReparto(reparto, cantidad);
+    if (malReparto.length) throw new Error('Actividades: ' + malReparto.join(', '));
+    const actividades = reparto.map((x) => x.actividad);
     const correo = normalizarCorreo(c.correoSolicitante) || null;
     await sql`update requests set nombre = ${c.nombre.trim()}, cargo = ${c.cargo.trim()}, institucion = ${c.institucion.trim()}, correo_solicitante = ${correo},
       evento = ${c.evento.trim()}, fecha = ${dias[0].fecha}, inicio = ${dias[0].inicio}, fin = ${dias[0].fin}, dias = ${sql.json(dias as unknown as JSONValue)},
       lugar = ${c.lugar.trim()}, lejos = ${!!c.lejos}, responsable = ${c.responsable.trim()}, responsable_telefono = ${c.responsableTelefono.trim()},
-      cantidad = ${cantidad}, vestimenta = ${c.vestimenta}, actividades = ${actividades} where id = ${id}`;
+      cantidad = ${cantidad}, vestimenta = ${c.vestimenta}, actividades = ${actividades}, reparto = ${sql.json(reparto as unknown as JSONValue)} where id = ${id}`;
     // Si cambiaron los días u horarios, los avisos a docentes pendientes se recalculan.
     const antes = JSON.stringify(ordenarDias((Array.isArray(actual.dias) ? actual.dias : []) as DiaEvento[]).map((d) => [d.fecha, String(d.inicio).slice(0, 5), String(d.fin).slice(0, 5)]));
     const cambioHorario = antes !== JSON.stringify(dias.map((d) => [d.fecha, d.inicio, d.fin]));
@@ -180,6 +182,15 @@ export async function decidirInscripcion(requestId: string, studentId: string, d
         await sql`delete from teacher_notices t using classes c where t.class_id = c.id and t.request_id = ${requestId} and t.sent_at is null and c.semestre = ${Number(st.semestre)}`;
         await prepararAvisos(requestId, Number(st.semestre));
       }
+    }
+    // Mensaje personal de Telegram al estudiante (si vinculó su cuenta).
+    const datos = await cargarDatos();
+    const e = datos.estudiantes.find((x) => x.id === studentId);
+    const p = datos.pedidos.find((x) => x.id === requestId);
+    if (e?.telegramChatId && p) {
+      const pv = vistaPedido(datos, p);
+      const texto = decision === 'aceptar' ? mensajeEstudianteConfirmado(pv, e, avanceEstudiante(datos, e.id).eventosN) : decision === 'rechazar' ? mensajeEstudianteNoConfirmado(pv, e) : mensajeEstudianteRetirado(pv, e);
+      await enviarDirecto(e.telegramChatId, texto);
     }
     refrescar();
     return { ok: true };
@@ -352,6 +363,30 @@ export async function detectarCanal(): Promise<Resultado<{ nombre: string }>> {
   } catch (e) { return fallo(e); }
 }
 
+/** Activa los mensajes personales del bot (Telegram envía a la app lo que le escriben). */
+export async function activarMensajesPersonales(): Promise<Resultado<{ bot: string }>> {
+  try {
+    await exigir();
+    const url = `${appUrl()}/api/telegram/webhook`;
+    const bot = await activarWebhook(url);
+    const { periodo } = await ajustesActuales();
+    await db()`update settings set telegram_bot_username = ${bot}, telegram_webhook_url = ${url} where periodo = ${periodo}`;
+    refrescar();
+    return { ok: true, datos: { bot } };
+  } catch (e) { return fallo(e); }
+}
+
+export async function desactivarMensajesPersonales(): Promise<Resultado> {
+  try {
+    await exigir();
+    await desactivarWebhook();
+    const { periodo } = await ajustesActuales();
+    await db()`update settings set telegram_webhook_url = null where periodo = ${periodo}`;
+    refrescar();
+    return { ok: true };
+  } catch (e) { return fallo(e); }
+}
+
 /** Envía un mensaje de prueba al canal de estudiantes. */
 export async function probarCanal(): Promise<Resultado> {
   try {
@@ -384,8 +419,8 @@ export async function nuevoPeriodo(periodo: string, inicioSemestre: string): Pro
     const actual = await ajustesActuales();
     await sql.begin(async (tx) => {
       await tx`update settings set actual = false where actual`;
-      await tx`insert into settings (periodo, actual, inicio_semestre, semanas, horas_semana, correo_decanato, correo_grupo_estudiantes, correo_coordinacion, telegram_chat_id, telegram_chat_nombre, telegram_canal_id, telegram_canal_nombre)
-        values (${p}, true, ${inicioSemestre}, ${actual.semanas}, ${actual.horasSemana}, ${actual.correoDecanato}, ${actual.correoGrupoEstudiantes}, ${actual.correoCoordinacion}, ${actual.telegramChatId || null}, ${actual.telegramChatNombre || null}, ${actual.telegramCanalId || null}, ${actual.telegramCanalNombre || null})
+      await tx`insert into settings (periodo, actual, inicio_semestre, semanas, horas_semana, correo_decanato, correo_grupo_estudiantes, correo_coordinacion, telegram_chat_id, telegram_chat_nombre, telegram_canal_id, telegram_canal_nombre, telegram_bot_username, telegram_webhook_url)
+        values (${p}, true, ${inicioSemestre}, ${actual.semanas}, ${actual.horasSemana}, ${actual.correoDecanato}, ${actual.correoGrupoEstudiantes}, ${actual.correoCoordinacion}, ${actual.telegramChatId || null}, ${actual.telegramChatNombre || null}, ${actual.telegramCanalId || null}, ${actual.telegramCanalNombre || null}, ${actual.telegramBotUsername || null}, ${actual.telegramWebhookUrl || null})
         on conflict (periodo) do update set actual = true, inicio_semestre = excluded.inicio_semestre`;
       await tx`insert into grade_subjects (periodo, semestre, materia) select ${p}, semestre, materia from grade_subjects where periodo = ${actual.periodo} on conflict do nothing`;
     });

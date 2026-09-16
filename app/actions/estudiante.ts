@@ -2,7 +2,11 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
-import { ajustesActuales, mapPedido } from '@/lib/datos';
+import { ajustesActuales, cargarDatos, mapPedido } from '@/lib/datos';
+import { appUrl } from '@/lib/app-url';
+import { avisarCoordinacion } from '@/lib/notificar';
+import { mensajeInscripcionCoordinacion } from '@/lib/notificar-texto';
+import { vistaPedido } from '@/lib/vista';
 import { claveVigente, horaAhora, hoyISO, normalizarClave, normalizarCorreo, ultimoDia } from '@/lib/reglas';
 import { iniciarSesionEstudiante, sesionEstudiante } from '@/lib/sesion';
 import type { Resultado } from '@/lib/tipos';
@@ -23,6 +27,16 @@ export async function loginEstudiante(_prev: { error?: string } | undefined, for
   if (!vigente) return { error: ERROR_LOGIN };
   await iniciarSesionEstudiante(String(st.id));
   redirect('/estudiante');
+}
+
+async function avisarInscripcion(requestId: string, studentId: string, tipo: 'inscripcion' | 'retiro'): Promise<void> {
+  try {
+    const datos = await cargarDatos();
+    if (!datos.notificaciones.canales.some((c) => c.canal === 'telegram')) return;
+    const p = datos.pedidos.find((x) => x.id === requestId);
+    const e = datos.estudiantes.find((x) => x.id === studentId);
+    if (p && e) await avisarCoordinacion(mensajeInscripcionCoordinacion(vistaPedido(datos, p), e, tipo, appUrl()), datos.ajustes);
+  } catch (err) { console.error('[aviso inscripción]', (err as Error).message); }
 }
 
 async function exigir(): Promise<string> {
@@ -46,6 +60,7 @@ export async function inscribirme(requestId: string): Promise<Resultado> {
     if (ya?.estado === 'confirmado') throw new Error('Ya estás confirmado en este evento.');
     await sql`insert into enrollments (request_id, student_id, estado) values (${requestId}, ${studentId}, 'inscrito') on conflict (request_id, student_id) do nothing`;
     revalidatePath('/estudiante'); revalidatePath('/coordinacion');
+    await avisarInscripcion(requestId, studentId, 'inscripcion');
     return { ok: true };
   } catch (e) { return { ok: false, error: (e as Error).message }; }
 }
@@ -53,8 +68,9 @@ export async function inscribirme(requestId: string): Promise<Resultado> {
 export async function retirarme(requestId: string): Promise<Resultado> {
   try {
     const studentId = await exigir();
-    await db()`delete from enrollments where request_id = ${requestId} and student_id = ${studentId} and estado = 'inscrito'`;
+    const borradas = await db()`delete from enrollments where request_id = ${requestId} and student_id = ${studentId} and estado = 'inscrito' returning id`;
     revalidatePath('/estudiante'); revalidatePath('/coordinacion');
+    if (borradas.length) await avisarInscripcion(requestId, studentId, 'retiro');
     return { ok: true };
   } catch (e) { return { ok: false, error: (e as Error).message }; }
 }

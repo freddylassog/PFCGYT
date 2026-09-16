@@ -10,7 +10,7 @@ Costo mensual: **$0** (Supabase + Vercel en sus planes gratuitos).
 |---|---|---|
 | **Solicitante** (interno UTE o externo) | Llena el pedido de 4 pasos y adjunta la evidencia (correo o pedido formal). | Enlace público, sin clave. |
 | **Coordinación** | Revisa, aprueba, convoca, confirma estudiantes, registra novedades y uniformes, descarga el reporte. | `/coordinacion` con usuario y contraseña. |
-| **Estudiante** | Se inscribe a convocatorias, ve sus eventos confirmados y su uniforme. | `/estudiante` con su correo institucional y la **clave del evento** (su código, p. ej. `SOL-2026-003`). |
+| **Estudiante** | Se inscribe a convocatorias, ve sus eventos confirmados y su uniforme. Si conecta el bot de Telegram, recibe en su celular la confirmación y el recordatorio de cada evento. | `/estudiante` con su correo institucional y la **clave del evento** (su código, p. ej. `SOL-2026-003`). |
 
 ### Correos: la app no los envía, los prepara
 
@@ -34,6 +34,7 @@ Coordinación lo envía desde su propia cuenta y luego marca **"Marcar como envi
 9. **Clave por evento**: es el **código del evento** (`SOL-2026-003`), fácil de recordar porque aparece en todos los correos y pantallas. Se asigna al aprobar y deja de servir al terminar el evento. No es secreta: solo sirve para que el estudiante se inscriba (además debe estar en el listado activo). Si hace falta, *"Generar otra"* la reemplaza por una aleatoria `UTE-XXXX`.
 10. Las novedades solo se registran para estudiantes confirmados; una vez reportadas a decanato quedan bloqueadas.
 11. Devolución del uniforme: solo se acepta **lavado**; si no, queda como *"No recibido · sin lavar"*.
+12. **Reparto por actividad**: en el paso Estudiantes el solicitante marca las actividades y escribe cuántos estudiantes van en cada una (p. ej. 4 en total: 2 en guía de invitados y 2 en acompañamiento en recorridos). La suma debe **cuadrar con la cantidad total** para pasar al siguiente paso; el reparto aparece en el panel del pedido, en la convocatoria, en el portal del estudiante y en el reporte. Coordinación puede corregirlo desde *Editar pedido*.
 
 ## Puesta en marcha (una sola vez, ~40 minutos)
 
@@ -89,14 +90,14 @@ Cada carga **actualiza** por correo electrónico (no duplica), agrega los nuevos
 
 ## Manual breve por pantalla
 
-- **Solicitante** (`/`): 4 pasos — Solicitante (datos, interno/externo, convenio), Evento (nombre, evidencia adjunta, uno o varios días con su horario, regla de 72 h, cruces, lugar, responsable en sitio con nombre y teléfono de contacto), Estudiantes (cantidad, actividades, vestimenta) y Compromisos (alimentación, transporte, actividades). Al final recibe su código `SOL-AAAA-NNN`.
+- **Solicitante** (`/`): 4 pasos — Solicitante (datos, interno/externo, convenio), Evento (nombre, evidencia adjunta, uno o varios días con su horario, regla de 72 h, cruces, lugar, responsable en sitio con nombre y teléfono de contacto), Estudiantes (cantidad, actividades con cuántos estudiantes en cada una, vestimenta) y Compromisos (alimentación, transporte, actividades). Al final recibe su código `SOL-AAAA-NNN`.
 - **Coordinación → Pedidos**: vista Tabla, Tablero o Calendario (la elección se recuerda). Al abrir un pedido: datos, evidencia, **Editar pedido** (cantidad de estudiantes, días y horarios, lugar, actividades, vestimenta y datos del solicitante), cruces con otros eventos, **Aprobar y convocar** (genera la clave y el correo de convocatoria), inscritos por revisar (Aceptar/Rechazar), confirmados (Quitar, Correo), agregar estudiante directamente, novedades del evento con reporte a decanato, cruce con clases con el correo a cada docente, y el correo de respuesta al solicitante.
-- **Coordinación → Estudiantes**: carga del listado, matriz por semestre con estado (Cumple / Falta 1 evento / Sin eventos · nota 0) y **Enviar matriz al docente** (descarga el Excel del semestre para adjuntarlo y marca el envío).
+- **Coordinación → Estudiantes**: carga del listado (con la etiqueta *Telegram* en quienes conectaron el bot), matriz por semestre con estado (Cumple / Falta 1 evento / Sin eventos · nota 0) y **Enviar matriz al docente** (descarga el Excel del semestre para adjuntarlo y marca el envío).
 - **Coordinación → Uniformes**: solo los estudiantes confirmados en eventos con uniforme institucional (o con prendas entregadas), con sus eventos; interruptor para ver a todos. Prendas entregadas, estado (Completo / Parcial / Sin entregar) y devolución.
 - **Coordinación → Novedades**: registro por evento y estudiante confirmado; **Reportar** prepara el correo a decanato y marca las novedades como reportadas.
 - **Coordinación → Resumen**: horas por semana, total del semestre, horas registradas y disponibles, contadores por estado, eventos aprobados, **reporte .xlsx** (hojas Eventos, Horas, Estudiantes, Novedades), ajustes del periodo y creación del nuevo semestre.
 - **Horarios**: carga de horarios y docentes, tabla semanal por semestre (editable) y lista de correos a docentes preparados con su estado (pendiente / enviado).
-- **Estudiante**: avance (N / 2 eventos y horas), uniforme, convocatorias abiertas (Inscribirme / Retirar inscripción) y eventos confirmados con horario, lugar, responsable, vestimenta y actividades.
+- **Estudiante**: avance (N / 2 eventos y horas), uniforme, tarjeta *Avisos en tu celular* (enlace al bot y estado de conexión), convocatorias abiertas (Inscribirme / Retirar inscripción) y eventos confirmados con horario, lugar, responsable, vestimenta y actividades.
 
 ## Avisos de pedidos nuevos
 
@@ -105,7 +106,7 @@ La app puede avisar a coordinación cada vez que entra un pedido, por dos canale
 - **Correo con Resend** (recomendado): entra a [resend.com](https://resend.com) y crea la cuenta **con la dirección donde quieres recibir los avisos** (sin dominio propio, Resend solo permite enviar a esa misma dirección). En *API Keys → Create API Key* copia la clave. Variables: `RESEND_API_KEY` (la clave) y `NOTIFICACION_CORREO` (esa misma dirección). Los avisos llegan desde `onboarding@resend.dev`; la primera vez revisa la carpeta de spam.
 - **Telegram** (mensaje al celular): en Telegram habla con **@BotFather**, envía `/newbot`, sigue los pasos y copia el token. Variable: `TELEGRAM_BOT_TOKEN`. Tras el *Redeploy*, abre tu bot en Telegram, pulsa **Iniciar**, escríbele "hola" y en la app pulsa **Detectar mi chat de Telegram** (Resumen → Avisos): la app guarda tu chat. (`TELEGRAM_CHAT_ID` es opcional para fijarlo a mano.)
 
-El aviso incluye código, evento, fechas y horario, solicitante, cantidad de estudiantes, lugar, responsable y el enlace directo al pedido. Si un canal falla, el pedido se registra igual y el error queda en los registros de Vercel.
+El aviso incluye código, evento, fechas y horario, solicitante, cantidad de estudiantes, reparto por actividad, lugar, responsable y el enlace directo al pedido. Por Telegram también llega un aviso cada vez que un estudiante **se inscribe** o **retira su inscripción** (con el conteo de inscritos y el enlace al pedido para aceptar o rechazar). Si un canal falla, el pedido se registra igual y el error queda en los registros de Vercel.
 
 ### Canal de Telegram para estudiantes
 
@@ -117,6 +118,16 @@ Con el mismo bot, la app puede publicar en un canal de Telegram al que se suscri
 4. Comparte el enlace de invitación del canal con los estudiantes (uno solo, se une quien quiera).
 
 Desde entonces: al **aprobar** un pedido, la convocatoria se publica automáticamente en el canal (con el enlace para inscribirse y la clave); en el panel del pedido hay un botón **Volver a publicar** por si editas algo. Además, todos los días a las 18:00 (hora de Ecuador) la app publica un **recordatorio** con los eventos de mañana (horario, lugar, responsable, vestimenta y confirmados) y te avisa a ti por Telegram. El recordatorio lo dispara un cron de Vercel (`vercel.json`); si defines `CRON_SECRET` en Vercel, la ruta queda protegida, y en cualquier caso solo publica una vez por día.
+
+### Mensajes personales del bot a cada estudiante
+
+Además del canal, el mismo bot puede escribirle **a cada estudiante en privado**. Se activa una sola vez desde la app y no necesita nada en Vercel (usa el `TELEGRAM_BOT_TOKEN` ya configurado):
+
+1. En **Resumen → Mensajes personales del bot** pulsa **Activar mensajes personales**. La app registra en Telegram la dirección donde el bot recibe los mensajes (`/api/telegram/webhook`, protegida con un secreto derivado de `SESSION_SECRET`) y guarda el nombre del bot.
+2. Cada estudiante abre el bot (el enlace `t.me/<bot>` aparece en su portal, en la tarjeta *Avisos en tu celular*, y puedes compartirlo también en el canal), pulsa **Iniciar** y escribe su **correo institucional**. Si el correo está en el listado activo del semestre, queda vinculado y recibe la confirmación; si no, el bot le explica que pida a coordinación que lo agregue.
+3. En **Coordinación → Estudiantes** verás la etiqueta *Telegram* junto a cada estudiante conectado y el total conectado.
+
+Desde entonces cada estudiante conectado recibe: la **confirmación** cuando coordinación lo acepta en un evento (con fecha, horario, lugar, responsable, vestimenta y actividades), el aviso si **no fue aceptado** o fue **retirado**, y un **recordatorio personal** el día antes de cada evento confirmado (junto con el del canal). Quien no conecte el bot sigue viendo todo en su portal y en el canal. **Desactivar** deja de recibir mensajes en la app (los estudiantes ya vinculados se conservan por si vuelves a activarlo). Si en Vercel cambias `SESSION_SECRET`, vuelve a pulsar **Activar** para renovar el secreto.
 
 ## Cada semestre
 
@@ -132,7 +143,7 @@ npm test                     # pruebas unitarias (reglas, importación, vistas, 
 npm run lint && npm run typecheck && npm run build
 ```
 
-Sin `SUPABASE_SERVICE_ROLE_KEY` las evidencias se guardan en `.data/evidencias/` (solo para desarrollo). Para una prueba completa con navegador: `node tests/e2e/crear-pedido.mjs` y luego `node tests/e2e/flujo.mjs` (requieren la app corriendo y Chromium de Playwright).
+Sin `SUPABASE_SERVICE_ROLE_KEY` las evidencias se guardan en `.data/evidencias/` (solo para desarrollo). Para una prueba completa con navegador: `node tests/e2e/crear-pedido.mjs`, luego `node tests/e2e/flujo.mjs` `node tests/e2e/reparto.mjs` (reparto por actividad) y, para el bot, `node tests/e2e/telegram.mjs` (requieren la app corriendo y Chromium de Playwright).
 
 ## Estructura
 
@@ -142,7 +153,7 @@ app/                 Páginas (App Router) y acciones de servidor
   coordinacion/      Panel de coordinación
   horarios/          Horarios, docentes y correos a docentes
   estudiante/        Acceso y portal del estudiante
-  api/               Reporte .xlsx, matriz por semestre, evidencias
+  api/               Reporte .xlsx, matriz por semestre, evidencias, cron de recordatorios y webhook de Telegram
   actions/           Acciones de servidor (pedidos, coordinación, estudiante, sesión)
 components/          Interfaz (formulario, panel, pestañas, correos)
 lib/
