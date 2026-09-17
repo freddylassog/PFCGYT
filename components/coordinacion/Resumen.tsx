@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { activarMensajesPersonales, desactivarMensajesPersonales, detectarCanal, detectarTelegram, guardarAjustes, nuevoPeriodo, probarCanal, probarNotificacion } from '@/app/actions/coordinacion';
+import { activarMensajesPersonales, desactivarMensajesPersonales, detectarCanal, detectarTelegram, guardarAjustes, nuevoPeriodo, probarCanal, probarNotificacion, crearEnlaceCalendario } from '@/app/actions/coordinacion';
 import { IconoDescargar } from '@/components/Iconos';
 import { Marco } from '@/components/Marco';
 import { useAccion } from '@/components/useAccion';
@@ -16,6 +16,11 @@ export function Resumen({ datos, pedidos }: { datos: Datos; pedidos: PedidoVista
   const [aj, setAj] = useState({ correoDecanato: a.correoDecanato, correoGrupoEstudiantes: a.correoGrupoEstudiantes, correoCoordinacion: a.correoCoordinacion, inicioSemestre: a.inicioSemestre, uniformeLugar: a.uniformeLugar });
   const [np, setNp] = useState({ periodo: '', inicio: '' });
   const [prueba, setPrueba] = useState<string | null>(null);
+  const [copiado, setCopiado] = useState(false);
+  const base = datos.appUrl.replace(/\/$/, '');
+  async function copiar(texto: string) {
+    try { await navigator.clipboard.writeText(texto); setCopiado(true); setTimeout(() => setCopiado(false), 2000); } catch { window.prompt('Copia el enlace:', texto); }
+  }
   const aprobados = pedidos.filter((e) => e.estado === 'Aprobado');
   const color = h.restantes < 0 ? 'var(--color-accent-900)' : 'var(--color-accent)';
 
@@ -49,6 +54,27 @@ export function Resumen({ datos, pedidos }: { datos: Datos; pedidos: PedidoVista
       </Marco>
 
       <Marco className="mt-8 p-4 stack-3">
+        <h6 className="h6-accent">Calendario en tu celular (iPhone, Google Calendar u Outlook)</h6>
+        {a.calendarioToken ? (
+          <>
+            <p className="m-0 fs-14">Calendario privado con todos los eventos del semestre (día por día, con estado y confirmados) y las entregas y devoluciones de uniformes. Una vez agregado se actualiza solo; no hay que volver a agregarlo.</p>
+            <div className="row">
+              <a className="btn btn-primary btn-sm" href={`${base.replace(/^https?:\/\//, 'webcal://')}/api/calendario/${a.calendarioToken}`}>Agregar al calendario del iPhone</a>
+              <button type="button" className="btn btn-secondary btn-sm" onClick={() => copiar(`${base}/api/calendario/${a.calendarioToken}`)}>{copiado ? 'Enlace copiado' : 'Copiar enlace'}</button>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => { if (confirm('¿Generar un enlace nuevo? El anterior dejará de funcionar y tendrás que volver a agregar el calendario.')) run(() => crearEnlaceCalendario()); }}>Generar nuevo enlace</button>
+            </div>
+            <p className="muted fs-12 m-0" style={{ overflowWrap: 'anywhere' }}>Enlace: {base}/api/calendario/{a.calendarioToken}</p>
+            <p className="muted fs-12 m-0">En el iPhone: toca &quot;Agregar al calendario&quot; y confirma <strong>Suscribirse</strong>. Si no se abre, ve a Ajustes → Apps → Calendario → Cuentas → Añadir cuenta → Otro → <strong>Añadir calendario suscrito</strong> y pega el enlace. En Google Calendar: Otros calendarios → + → Desde URL. En Outlook: Agregar calendario → Suscribirse desde la web. El enlace es privado: quien lo tenga puede ver el calendario; &quot;Generar nuevo enlace&quot; anula el anterior.</p>
+          </>
+        ) : (
+          <>
+            <p className="m-0 fs-14 muted">Crea un enlace privado para ver los eventos y las citas de uniformes en el calendario de tu celular o computadora. Se actualiza solo.</p>
+            <button type="button" className="btn btn-secondary btn-sm" style={{ justifySelf: 'start' }} onClick={() => run(() => crearEnlaceCalendario())}>Crear enlace del calendario</button>
+          </>
+        )}
+      </Marco>
+
+      <Marco className="mt-4 p-4 stack-3">
         <h6 className="h6-accent">Avisos de pedidos nuevos</h6>
         {datos.notificaciones.canales.length ? (
           <p className="m-0 fs-14">Cada pedido nuevo te avisa por: {datos.notificaciones.canales.map((n) => n.canal === 'correo' ? `correo a ${n.destino}` : n.destino).join(' y ')}.</p>

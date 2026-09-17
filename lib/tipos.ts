@@ -173,6 +173,8 @@ export interface Ajustes {
   telegramWebhookUrl: string;
   /** Lugar habitual de entrega de uniformes (se propone al fijar cada cita). */
   uniformeLugar: string;
+  /** Enlace privado del calendario suscrito (vacío hasta crearlo en Resumen). */
+  calendarioToken: string;
 }
 
 /** Todo lo que necesita el panel de coordinación, cargado en una sola pasada. */

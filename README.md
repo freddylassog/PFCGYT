@@ -131,6 +131,10 @@ Además del canal, el mismo bot puede escribirle **a cada estudiante en privado*
 
 Desde entonces cada estudiante conectado recibe: la **confirmación** cuando coordinación lo acepta en un evento (con fecha, horario, lugar, responsable, vestimenta y actividades), el aviso si **no fue aceptado** o fue **retirado**, y un **recordatorio personal** el día antes de cada evento confirmado (junto con el del canal). Quien no conecte el bot sigue viendo todo en su portal y en el canal. **Desactivar** deja de recibir mensajes en la app (los estudiantes ya vinculados se conservan por si vuelves a activarlo). Si en Vercel cambias `SESSION_SECRET`, vuelve a pulsar **Activar** para renovar el secreto.
 
+## Calendario en el celular (iPhone, Google Calendar, Outlook)
+
+En **Resumen → Calendario en tu celular** pulsa **Crear enlace del calendario**. La app genera un enlace privado (`/api/calendario/<clave>`) en formato iCalendar con un evento por cada día de cada pedido (con estado, confirmados, actividades, lugar y responsable) y con las entregas y devoluciones de uniformes. En el iPhone, **Agregar al calendario del iPhone** abre la suscripción (o Ajustes → Apps → Calendario → Cuentas → Añadir cuenta → Otro → Añadir calendario suscrito, pegando el enlace). Google Calendar (Desde URL) y Outlook (Suscribirse desde la web) aceptan el mismo enlace. El calendario se actualiza solo (el iPhone lo consulta cada cierto tiempo; se puede forzar deslizando hacia abajo en la app Calendario). Los pedidos por aprobar aparecen con el prefijo *[Por aprobar]* y los finalizados con *[Finalizado]*; los rechazados no aparecen. Las horas están en hora de Ecuador. El enlace es privado: **Generar nuevo enlace** anula el anterior. Al iniciar un nuevo semestre el enlace se conserva y pasa a mostrar el periodo nuevo.
+
 ## Cada semestre
 
 En **Resumen → Nuevo semestre** escribe el periodo (`2027-1`) y el lunes de inicio. El periodo anterior queda guardado con sus pedidos y reportes; el nuevo empieza vacío y se vuelven a cargar estudiantes, docentes y horarios. Antes de cerrar, descarga el reporte del semestre.
@@ -155,7 +159,7 @@ app/                 Páginas (App Router) y acciones de servidor
   coordinacion/      Panel de coordinación
   horarios/          Horarios, docentes y correos a docentes
   estudiante/        Acceso y portal del estudiante
-  api/               Reporte .xlsx, matriz por semestre, evidencias, cron de recordatorios y webhook de Telegram
+  api/               Reporte .xlsx, matriz por semestre, evidencias, calendario .ics, cron de recordatorios y webhook de Telegram
   actions/           Acciones de servidor (pedidos, coordinación, estudiante, sesión)
 components/          Interfaz (formulario, panel, pestañas, correos)
 lib/

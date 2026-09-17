@@ -69,7 +69,7 @@ function mapAjustes(r: Fila): Ajustes {
     matrizEnviada: (r.matriz_enviada as Record<string, string>) ?? {}, archivos: (r.archivos as Ajustes['archivos']) ?? {},
     telegramChatId: s(r.telegram_chat_id), telegramChatNombre: s(r.telegram_chat_nombre),
     telegramCanalId: s(r.telegram_canal_id), telegramCanalNombre: s(r.telegram_canal_nombre), ultimoRecordatorio: s(r.ultimo_recordatorio),
-    telegramBotUsername: s(r.telegram_bot_username), telegramWebhookUrl: s(r.telegram_webhook_url), uniformeLugar: s(r.uniforme_lugar),
+    telegramBotUsername: s(r.telegram_bot_username), telegramWebhookUrl: s(r.telegram_webhook_url), uniformeLugar: s(r.uniforme_lugar), calendarioToken: s(r.calendario_token),
   };
 }
 

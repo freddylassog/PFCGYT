@@ -1,4 +1,5 @@
 'use server';
+import { randomBytes } from 'node:crypto';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import type { JSONValue } from 'postgres';
@@ -122,6 +123,18 @@ export async function guardarCitaUniforme(id: string, c: CitaUniforme, avisar: b
     await sql`update requests set uniforme_cita = ${sql.json(cita as unknown as JSONValue)} where id = ${id}`;
     refrescar();
     return { ok: true, datos: { canal, personales, sinCanal } };
+  } catch (e) { return fallo(e); }
+}
+
+/** Crea (o reemplaza) el enlace privado del calendario suscrito. El anterior deja de funcionar. */
+export async function crearEnlaceCalendario(): Promise<Resultado<{ token: string }>> {
+  try {
+    await exigir();
+    const token = randomBytes(16).toString('hex');
+    const { periodo } = await ajustesActuales();
+    await db()`update settings set calendario_token = ${token} where periodo = ${periodo}`;
+    refrescar();
+    return { ok: true, datos: { token } };
   } catch (e) { return fallo(e); }
 }
 
@@ -468,8 +481,8 @@ export async function nuevoPeriodo(periodo: string, inicioSemestre: string): Pro
     const actual = await ajustesActuales();
     await sql.begin(async (tx) => {
       await tx`update settings set actual = false where actual`;
-      await tx`insert into settings (periodo, actual, inicio_semestre, semanas, horas_semana, correo_decanato, correo_grupo_estudiantes, correo_coordinacion, telegram_chat_id, telegram_chat_nombre, telegram_canal_id, telegram_canal_nombre, telegram_bot_username, telegram_webhook_url, uniforme_lugar)
-        values (${p}, true, ${inicioSemestre}, ${actual.semanas}, ${actual.horasSemana}, ${actual.correoDecanato}, ${actual.correoGrupoEstudiantes}, ${actual.correoCoordinacion}, ${actual.telegramChatId || null}, ${actual.telegramChatNombre || null}, ${actual.telegramCanalId || null}, ${actual.telegramCanalNombre || null}, ${actual.telegramBotUsername || null}, ${actual.telegramWebhookUrl || null}, ${actual.uniformeLugar || ''})
+      await tx`insert into settings (periodo, actual, inicio_semestre, semanas, horas_semana, correo_decanato, correo_grupo_estudiantes, correo_coordinacion, telegram_chat_id, telegram_chat_nombre, telegram_canal_id, telegram_canal_nombre, telegram_bot_username, telegram_webhook_url, uniforme_lugar, calendario_token)
+        values (${p}, true, ${inicioSemestre}, ${actual.semanas}, ${actual.horasSemana}, ${actual.correoDecanato}, ${actual.correoGrupoEstudiantes}, ${actual.correoCoordinacion}, ${actual.telegramChatId || null}, ${actual.telegramChatNombre || null}, ${actual.telegramCanalId || null}, ${actual.telegramCanalNombre || null}, ${actual.telegramBotUsername || null}, ${actual.telegramWebhookUrl || null}, ${actual.uniformeLugar || ''}, ${actual.calendarioToken || null})
         on conflict (periodo) do update set actual = true, inicio_semestre = excluded.inicio_semestre`;
       await tx`insert into grade_subjects (periodo, semestre, materia) select ${p}, semestre, materia from grade_subjects where periodo = ${actual.periodo} on conflict do nothing`;
     });

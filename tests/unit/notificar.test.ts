@@ -31,7 +31,7 @@ test('mensaje de prueba', () => {
 function datosMin(p: Pedido): Datos {
   return {
     hoy: '2026-09-21', appUrl: 'https://protocolo.test', notificaciones: { canales: [], telegramSinChat: false, telegramSinCanal: false, canalEstudiantes: 'Canal', botUsername: null },
-    ajustes: { periodo: '2026-2', inicioSemestre: '2026-10-05', semanas: 16, horasSemana: 20, correoDecanato: '', correoGrupoEstudiantes: '', correoCoordinacion: '', matrizEnviada: {}, archivos: {}, telegramChatId: '', telegramChatNombre: '', telegramCanalId: '-100', telegramCanalNombre: 'Canal', ultimoRecordatorio: '', telegramBotUsername: '', telegramWebhookUrl: '', uniformeLugar: '' },
+    ajustes: { periodo: '2026-2', inicioSemestre: '2026-10-05', semanas: 16, horasSemana: 20, correoDecanato: '', correoGrupoEstudiantes: '', correoCoordinacion: '', matrizEnviada: {}, archivos: {}, telegramChatId: '', telegramChatNombre: '', telegramCanalId: '-100', telegramCanalNombre: 'Canal', ultimoRecordatorio: '', telegramBotUsername: '', telegramWebhookUrl: '', uniformeLugar: '', calendarioToken: '' },
     pedidos: [p], estudiantes: [{ id: 's1', nombre: 'Camila Ríos', correo: 'c@ute.edu.ec', semestre: 1, paralelo: null, genero: 'F', activo: true, telegramChatId: '55' }], docentes: [], clases: [], materias: [],
     inscripciones: [{ id: 'i1', requestId: p.id, studentId: 's1', estado: 'confirmado', createdAt: '' }], avisos: [], prendas: [], devoluciones: [], novedades: [],
   };
