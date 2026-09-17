@@ -1,6 +1,6 @@
 // Texto de las notificaciones (puro, sin dependencias de servidor).
-import { MINIMO_EVENTOS, fechaLarga, fechaLargaDias, horarioTextoDias, horasDias, repartoTexto, tipoLabel } from './reglas';
-import type { DiaEvento, Estudiante, Pedido } from './tipos';
+import { MINIMO_EVENTOS, citaDevolucionTexto, citaEntregaTexto, fechaLarga, fechaLargaDias, horarioTextoDias, horasDias, repartoTexto, tipoLabel } from './reglas';
+import type { CitaUniforme, DiaEvento, Estudiante, Pedido } from './tipos';
 import type { PedidoVista } from './vista';
 
 export interface Mensaje { asunto: string; texto: string; html: string }
@@ -129,6 +129,52 @@ export function mensajeRecordatorioPersonal(p: PedidoVista, dia: DiaEvento, e: E
     `Vestimenta: ${p.vestLabel}. ${p.vestNotaEst}`,
     `Llega 15 minutos antes.`,
   ].join('\n');
+}
+
+// ---------------------------------------------------------------- uniformes: entrega y devolución
+
+function lineasCita(c: CitaUniforme): string[] {
+  const l: string[] = [];
+  const e = citaEntregaTexto(c), d = citaDevolucionTexto(c);
+  if (e) l.push(`📦 Entrega del uniforme: ${e}`);
+  if (d) l.push(`↩️ Devolución (lavado): ${d}`);
+  if (c.lugar) l.push(`📍 Lugar: ${c.lugar}`);
+  return l;
+}
+
+/** Aviso en el canal: para los confirmados del evento. */
+export function mensajeUniformesCanal(p: PedidoVista, c: CitaUniforme): string {
+  return [
+    `👔 Uniformes · ${p.evento} (${p.fechaCorta})`,
+    ...lineasCita(c),
+    `Para: ${p.confirmados.map((e) => e.nombre).join(', ') || 'los estudiantes confirmados'}.`,
+    `Lleva tu cédula o carné para retirar el uniforme y devuélvelo lavado.`,
+  ].join('\n');
+}
+
+export function mensajeUniformesPersonal(p: PedidoVista, c: CitaUniforme, e: Estudiante): string {
+  return [
+    `👔 ${primerNombre(e)}, uniforme para el evento ${p.evento} (${p.fechaCorta}):`,
+    ...lineasCita(c),
+    `Lleva tu cédula o carné para retirarlo y devuélvelo lavado.`,
+  ].join('\n');
+}
+
+export type TipoCita = 'entrega' | 'devolucion';
+
+/** Recordatorio del día anterior a una entrega o devolución (canal). */
+export function mensajeUniformesRecordatorioCanal(items: { p: PedidoVista; c: CitaUniforme; tipo: TipoCita }[], manana: string): string | null {
+  if (!items.length) return null;
+  const lineas = items.map(({ p, c, tipo }) => tipo === 'entrega'
+    ? `📦 Entrega del uniforme · ${p.evento}: ${c.entregaHora}${c.lugar ? ` · ${c.lugar}` : ''} (${p.confirmados.map((e) => e.nombre).join(', ')})`
+    : `↩️ Devolución del uniforme lavado · ${p.evento}: ${c.devolucionHora}${c.lugar ? ` · ${c.lugar}` : ''} (${p.confirmados.map((e) => e.nombre).join(', ')})`);
+  return [`👔 Mañana ${fechaLarga(manana)}, uniformes:`, ...lineas].join('\n');
+}
+
+export function mensajeUniformesRecordatorioPersonal(p: PedidoVista, c: CitaUniforme, tipo: TipoCita, e: Estudiante): string {
+  return tipo === 'entrega'
+    ? `📦 ${primerNombre(e)}, mañana ${fechaLarga(c.entregaFecha)} a las ${c.entregaHora} retiras el uniforme para ${p.evento}${c.lugar ? ` en ${c.lugar}` : ''}. Lleva tu cédula o carné.`
+    : `↩️ ${primerNombre(e)}, mañana ${fechaLarga(c.devolucionFecha)} a las ${c.devolucionHora} devuelves el uniforme de ${p.evento}${c.lugar ? ` en ${c.lugar}` : ''}. Recuerda entregarlo lavado.`;
 }
 
 // ---------------------------------------------------------------- avisos a coordinación

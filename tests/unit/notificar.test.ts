@@ -10,7 +10,7 @@ const pedido: Pedido = {
   tipo: 'externo', convenio: 'no', evento: 'Feria <de> empleo', fecha: '2026-09-22', inicio: '08:00', fin: '12:00',
   dias: [{ fecha: '2026-09-22', inicio: '08:00', fin: '12:00' }, { fecha: '2026-09-23', inicio: '08:00', fin: '12:00' }],
   lugar: 'Centro de Convenciones', lejos: true, responsable: 'J. Andrade', responsableTelefono: '098 777 8899', cantidad: 10,
-  actividades: ['Recepción y registro de invitados'], reparto: [{ actividad: 'Recepción y registro de invitados', cantidad: 10 }], vestimenta: 'ninguna', evidenciaPath: null, evidenciaNombre: null, estado: 'Pendiente', convocadaAt: null, clave: null, telegramPostAt: null, finalizadoAt: null, createdAt: '2026-09-15T10:00:00Z',
+  actividades: ['Recepción y registro de invitados'], reparto: [{ actividad: 'Recepción y registro de invitados', cantidad: 10 }], vestimenta: 'ninguna', evidenciaPath: null, evidenciaNombre: null, estado: 'Pendiente', convocadaAt: null, clave: null, telegramPostAt: null, finalizadoAt: null, uniformeCita: null, createdAt: '2026-09-15T10:00:00Z',
 };
 
 test('mensaje de pedido nuevo', () => {
@@ -31,7 +31,7 @@ test('mensaje de prueba', () => {
 function datosMin(p: Pedido): Datos {
   return {
     hoy: '2026-09-21', appUrl: 'https://protocolo.test', notificaciones: { canales: [], telegramSinChat: false, telegramSinCanal: false, canalEstudiantes: 'Canal', botUsername: null },
-    ajustes: { periodo: '2026-2', inicioSemestre: '2026-10-05', semanas: 16, horasSemana: 20, correoDecanato: '', correoGrupoEstudiantes: '', correoCoordinacion: '', matrizEnviada: {}, archivos: {}, telegramChatId: '', telegramChatNombre: '', telegramCanalId: '-100', telegramCanalNombre: 'Canal', ultimoRecordatorio: '', telegramBotUsername: '', telegramWebhookUrl: '' },
+    ajustes: { periodo: '2026-2', inicioSemestre: '2026-10-05', semanas: 16, horasSemana: 20, correoDecanato: '', correoGrupoEstudiantes: '', correoCoordinacion: '', matrizEnviada: {}, archivos: {}, telegramChatId: '', telegramChatNombre: '', telegramCanalId: '-100', telegramCanalNombre: 'Canal', ultimoRecordatorio: '', telegramBotUsername: '', telegramWebhookUrl: '', uniformeLugar: '' },
     pedidos: [p], estudiantes: [{ id: 's1', nombre: 'Camila Ríos', correo: 'c@ute.edu.ec', semestre: 1, paralelo: null, genero: 'F', activo: true, telegramChatId: '55' }], docentes: [], clases: [], materias: [],
     inscripciones: [{ id: 'i1', requestId: p.id, studentId: 's1', estado: 'confirmado', createdAt: '' }], avisos: [], prendas: [], devoluciones: [], novedades: [],
   };

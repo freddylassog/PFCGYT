@@ -1,6 +1,6 @@
 // Textos de los correos. La app NO envía correos: los genera listos para
 // copiar o abrir en Outlook (mailto:), y coordinación los manda desde su cuenta.
-import { fechaLarga, semLabel } from './reglas';
+import { citaDevolucionTexto, citaEntregaTexto, fechaLarga, semLabel } from './reglas';
 import type { Datos, Estudiante } from './tipos';
 import type { CruceVista, MatrizSemestre, NovedadVista, PedidoVista } from './vista';
 
@@ -186,6 +186,27 @@ export function correoRecordatorio(p: PedidoVista): Correo {
     FIRMA,
   ].join('\n');
   return { para: [], cco: p.confirmados.map((e) => e.correo), asunto: `Recordatorio · ${p.evento} · ${p.fechaLarga}`, cuerpo };
+}
+
+// ---------------------------------------------------------------- 6b. uniformes: entrega y devolución
+
+export function correoUniformes(p: PedidoVista): Correo {
+  const c = p.uniformeCita;
+  const entrega = citaEntregaTexto(c), devolucion = citaDevolucionTexto(c);
+  const cuerpo = [
+    `Hola:`,
+    ``,
+    `Para el evento ${p.evento} (${p.fechaLarga}) el uniforme institucional se entrega y se devuelve así:`,
+    ``,
+    entrega ? `Entrega del uniforme: ${entrega}` : null,
+    devolucion ? `Devolución del uniforme (lavado): ${devolucion}` : null,
+    c?.lugar ? `Lugar: ${c.lugar}` : null,
+    ``,
+    `Lleva tu cédula o carné para retirarlo. El uniforme se recibe únicamente lavado; si no está lavado no se recibe.`,
+    ``,
+    FIRMA,
+  ].filter((l) => l !== null).join('\n');
+  return { para: [], cco: p.confirmados.map((e) => e.correo), asunto: `Uniformes · ${p.evento} · ${entrega ? `entrega ${entrega}` : `devolución ${devolucion}`}`, cuerpo };
 }
 
 // ---------------------------------------------------------------- 7. respuesta al solicitante

@@ -3,18 +3,18 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import type { JSONValue } from 'postgres';
 import { db } from '@/lib/db';
-import { ajustesActuales, cargarDatos } from '@/lib/datos';
+import { ajustesActuales, cargarDatos, mapCita } from '@/lib/datos';
 import { asegurarEsquema } from '@/lib/migrar';
 import { activarWebhook, avisarCoordinacion, desactivarWebhook, detectarCanalTelegram, detectarChatTelegram, enviarDirecto, enviarPrueba, publicarEnCanal } from '@/lib/notificar';
-import { mensajeConvocatoriaCanal, mensajeEstudianteConfirmado, mensajeEstudianteNoConfirmado, mensajeEstudianteRetirado } from '@/lib/notificar-texto';
+import { mensajeConvocatoriaCanal, mensajeEstudianteConfirmado, mensajeEstudianteNoConfirmado, mensajeEstudianteRetirado, mensajeUniformesCanal, mensajeUniformesPersonal } from '@/lib/notificar-texto';
 import { appUrl } from '@/lib/app-url';
 import { avanceEstudiante, vistaPedido } from '@/lib/vista';
 import { leerTabla, parseDocentes, parseEstudiantes, parseHorarios } from '@/lib/excel';
 import {
-  ACTIVIDADES, MAX_ESTUDIANTES, UNIFORME, TIPOS_NOVEDAD, VESTIMENTA, claseAplica, claveNombre, cruceClases, esFechaISO, faltasDias, genClave, hoyISO, normalizarCorreo, normalizarParalelo, ordenarDias, telefonoValido, faltasReparto,
+  ACTIVIDADES, MAX_ESTUDIANTES, UNIFORME, TIPOS_NOVEDAD, VESTIMENTA, claseAplica, claveNombre, cruceClases, esFechaISO, faltasDias, genClave, hoyISO, normalizarCorreo, normalizarParalelo, ordenarDias, telefonoValido, faltasReparto, faltasCitaUniforme,
 } from '@/lib/reglas';
 import { iniciarSesionCoordinacion, passwordCoordinacionOk, sesionCoordinacion } from '@/lib/sesion';
-import type { DiaEvento, Estado, RepartoActividad, Resultado, Semestre } from '@/lib/tipos';
+import type { CitaUniforme, DiaEvento, Estado, RepartoActividad, Resultado, Semestre } from '@/lib/tipos';
 
 async function exigir(): Promise<void> {
   if (!(await sesionCoordinacion())) throw new Error('No autorizado. Vuelve a iniciar sesión.');
@@ -88,6 +88,40 @@ export async function finalizarEvento(id: string, fin: boolean): Promise<Resulta
     await sql`update requests set finalizado_at = ${fin ? hoyISO() : null} where id = ${id}`;
     refrescar();
     return { ok: true };
+  } catch (e) { return fallo(e); }
+}
+
+/** Fija la cita de entrega y devolución de uniformes de un evento; con `avisar`, la publica en el canal y por mensaje personal. */
+export async function guardarCitaUniforme(id: string, c: CitaUniforme, avisar: boolean): Promise<Resultado<{ canal: boolean; personales: number; sinCanal: boolean }>> {
+  try {
+    await exigir();
+    const sql = db();
+    const cita: CitaUniforme = {
+      entregaFecha: (c.entregaFecha || '').trim(), entregaHora: (c.entregaHora || '').trim(), devolucionFecha: (c.devolucionFecha || '').trim(), devolucionHora: (c.devolucionHora || '').trim(),
+      lugar: (c.lugar || '').trim().slice(0, 200), avisoAt: null,
+    };
+    const faltas = faltasCitaUniforme(cita);
+    if (faltas.length) throw new Error('Revisa: ' + faltas.join(', '));
+    const [p] = await sql`select estado, vestimenta, uniforme_cita from requests where id = ${id}`;
+    if (!p) throw new Error('Pedido no encontrado');
+    if (p.estado !== 'Aprobado') throw new Error('El evento debe estar aprobado.');
+    cita.avisoAt = mapCita(p)?.avisoAt ?? null;
+    let canal = false, personales = 0, sinCanal = false;
+    if (avisar) {
+      await sql`update requests set uniforme_cita = ${sql.json(cita as unknown as JSONValue)} where id = ${id}`;
+      const datos = await cargarDatos();
+      const pv = vistaPedido(datos, datos.pedidos.find((x) => x.id === id)!);
+      if (!pv.confirmadosN) throw new Error('Aún no hay estudiantes confirmados a quienes avisar. La cita quedó guardada.');
+      if (datos.notificaciones.canalEstudiantes) {
+        await publicarEnCanal(mensajeUniformesCanal(pv, cita), datos.ajustes);
+        canal = true;
+      } else sinCanal = true;
+      for (const e of pv.confirmados) if (e.telegramChatId && (await enviarDirecto(e.telegramChatId, mensajeUniformesPersonal(pv, cita, e)))) personales++;
+      if (canal || personales) cita.avisoAt = new Date().toISOString();
+    }
+    await sql`update requests set uniforme_cita = ${sql.json(cita as unknown as JSONValue)} where id = ${id}`;
+    refrescar();
+    return { ok: true, datos: { canal, personales, sinCanal } };
   } catch (e) { return fallo(e); }
 }
 
@@ -310,7 +344,7 @@ export async function fijarDevolucion(studentId: string, estado: 'lavado' | 'rec
 
 // ---------------------------------------------------------------- ajustes
 
-export async function guardarAjustes(a: { horasSemana?: number; inicioSemestre?: string; correoDecanato?: string; correoGrupoEstudiantes?: string; correoCoordinacion?: string }): Promise<Resultado> {
+export async function guardarAjustes(a: { horasSemana?: number; inicioSemestre?: string; correoDecanato?: string; correoGrupoEstudiantes?: string; correoCoordinacion?: string; uniformeLugar?: string }): Promise<Resultado> {
   try {
     await exigir();
     const sql = db();
@@ -323,6 +357,7 @@ export async function guardarAjustes(a: { horasSemana?: number; inicioSemestre?:
     if (a.correoDecanato != null) await sql`update settings set correo_decanato = ${a.correoDecanato.trim()} where periodo = ${periodo}`;
     if (a.correoGrupoEstudiantes != null) await sql`update settings set correo_grupo_estudiantes = ${a.correoGrupoEstudiantes.trim()} where periodo = ${periodo}`;
     if (a.correoCoordinacion != null) await sql`update settings set correo_coordinacion = ${a.correoCoordinacion.trim()} where periodo = ${periodo}`;
+    if (a.uniformeLugar != null) await sql`update settings set uniforme_lugar = ${a.uniformeLugar.trim().slice(0, 200)} where periodo = ${periodo}`;
     refrescar();
     return { ok: true };
   } catch (e) { return fallo(e); }
@@ -433,8 +468,8 @@ export async function nuevoPeriodo(periodo: string, inicioSemestre: string): Pro
     const actual = await ajustesActuales();
     await sql.begin(async (tx) => {
       await tx`update settings set actual = false where actual`;
-      await tx`insert into settings (periodo, actual, inicio_semestre, semanas, horas_semana, correo_decanato, correo_grupo_estudiantes, correo_coordinacion, telegram_chat_id, telegram_chat_nombre, telegram_canal_id, telegram_canal_nombre, telegram_bot_username, telegram_webhook_url)
-        values (${p}, true, ${inicioSemestre}, ${actual.semanas}, ${actual.horasSemana}, ${actual.correoDecanato}, ${actual.correoGrupoEstudiantes}, ${actual.correoCoordinacion}, ${actual.telegramChatId || null}, ${actual.telegramChatNombre || null}, ${actual.telegramCanalId || null}, ${actual.telegramCanalNombre || null}, ${actual.telegramBotUsername || null}, ${actual.telegramWebhookUrl || null})
+      await tx`insert into settings (periodo, actual, inicio_semestre, semanas, horas_semana, correo_decanato, correo_grupo_estudiantes, correo_coordinacion, telegram_chat_id, telegram_chat_nombre, telegram_canal_id, telegram_canal_nombre, telegram_bot_username, telegram_webhook_url, uniforme_lugar)
+        values (${p}, true, ${inicioSemestre}, ${actual.semanas}, ${actual.horasSemana}, ${actual.correoDecanato}, ${actual.correoGrupoEstudiantes}, ${actual.correoCoordinacion}, ${actual.telegramChatId || null}, ${actual.telegramChatNombre || null}, ${actual.telegramCanalId || null}, ${actual.telegramCanalNombre || null}, ${actual.telegramBotUsername || null}, ${actual.telegramWebhookUrl || null}, ${actual.uniformeLugar || ''})
         on conflict (periodo) do update set actual = true, inicio_semestre = excluded.inicio_semestre`;
       await tx`insert into grade_subjects (periodo, semestre, materia) select ${p}, semestre, materia from grade_subjects where periodo = ${actual.periodo} on conflict do nothing`;
     });

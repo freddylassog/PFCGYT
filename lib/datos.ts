@@ -8,7 +8,7 @@ import { hoyISO, hhmm } from './reglas';
 import type {
   Ajustes, Aviso, Clase, Datos, Devolucion, DiaEvento, Docente, Estudiante, Inscripcion,
   MateriaNota, Novedad, Pedido, PrendaEntregada, RepartoActividad, Semestre,
-} from './tipos';
+ CitaUniforme } from './tipos';
 
 function mapReparto(r: Fila): RepartoActividad[] {
   let valor: unknown = r.reparto;
@@ -30,6 +30,14 @@ const s = (v: unknown) => (v == null ? '' : String(v));
 const sn = (v: unknown) => (v == null ? null : String(v));
 const iso = (v: unknown) => (v instanceof Date ? v.toISOString() : s(v));
 
+export function mapCita(r: Fila): CitaUniforme | null {
+  let c = r.uniforme_cita as unknown;
+  if (typeof c === 'string') { try { c = JSON.parse(c); } catch { return null; } }
+  if (!c || typeof c !== 'object') return null;
+  const o = c as Record<string, unknown>;
+  return { entregaFecha: s(o.entregaFecha), entregaHora: s(o.entregaHora), devolucionFecha: s(o.devolucionFecha), devolucionHora: s(o.devolucionHora), lugar: s(o.lugar), avisoAt: sn(o.avisoAt) };
+}
+
 export function mapPedido(r: Fila): Pedido {
   return {
     id: s(r.id), periodo: s(r.periodo), numero: Number(r.numero), codigo: s(r.codigo),
@@ -38,7 +46,7 @@ export function mapPedido(r: Fila): Pedido {
     fecha: s(r.fecha), inicio: hhmm(s(r.inicio)), fin: hhmm(s(r.fin)), dias: mapDias(r), lugar: s(r.lugar), lejos: !!r.lejos,
     responsable: s(r.responsable), responsableTelefono: s(r.responsable_telefono), cantidad: Number(r.cantidad), actividades: (r.actividades as string[]) ?? [], reparto: mapReparto(r),
     vestimenta: r.vestimenta as Pedido['vestimenta'], evidenciaPath: sn(r.evidencia_path), evidenciaNombre: sn(r.evidencia_nombre),
-    estado: r.estado as Pedido['estado'], convocadaAt: sn(r.convocada_at), clave: sn(r.clave), telegramPostAt: r.telegram_post_at ? iso(r.telegram_post_at) : null, finalizadoAt: sn(r.finalizado_at), createdAt: iso(r.created_at),
+    estado: r.estado as Pedido['estado'], convocadaAt: sn(r.convocada_at), clave: sn(r.clave), telegramPostAt: r.telegram_post_at ? iso(r.telegram_post_at) : null, finalizadoAt: sn(r.finalizado_at), uniformeCita: mapCita(r), createdAt: iso(r.created_at),
   };
 }
 
@@ -61,7 +69,7 @@ function mapAjustes(r: Fila): Ajustes {
     matrizEnviada: (r.matriz_enviada as Record<string, string>) ?? {}, archivos: (r.archivos as Ajustes['archivos']) ?? {},
     telegramChatId: s(r.telegram_chat_id), telegramChatNombre: s(r.telegram_chat_nombre),
     telegramCanalId: s(r.telegram_canal_id), telegramCanalNombre: s(r.telegram_canal_nombre), ultimoRecordatorio: s(r.ultimo_recordatorio),
-    telegramBotUsername: s(r.telegram_bot_username), telegramWebhookUrl: s(r.telegram_webhook_url),
+    telegramBotUsername: s(r.telegram_bot_username), telegramWebhookUrl: s(r.telegram_webhook_url), uniformeLugar: s(r.uniforme_lugar),
   };
 }
 

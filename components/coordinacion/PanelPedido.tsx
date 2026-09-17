@@ -8,6 +8,7 @@ import { IconoCalendario, IconoCerrar } from '@/components/Iconos';
 import { Marco } from '@/components/Marco';
 import { useAccion } from '@/components/useAccion';
 import { EditarPedido } from './EditarPedido';
+import { CitaUniforme } from './CitaUniforme';
 import { correoAvisoDocente, correoConvocatoria, correoDecanato, correoEstudianteDecision, correoRecordatorio, correoSolicitante, mailtoUrl } from '@/lib/correos';
 import { TIPOS_NOVEDAD, claseAplica, fechaCorta, infoUniforme, semCorto } from '@/lib/reglas';
 import type { Datos, Estado, Estudiante } from '@/lib/tipos';
@@ -132,6 +133,14 @@ export function PanelPedido({ p, datos, pedidos, cruceEvento, onCerrar }: { p: P
           </>
         )}
       </div>
+
+      {/* Uniformes: entrega y devolución */}
+      {p.vestimenta === 'uniforme' && p.convocadaAt && (
+        <div className="stack-2 borde-arriba">
+          <h6 className="m-0">Uniformes · entrega y devolución</h6>
+          <CitaUniforme p={p} datos={datos} idPrefijo="panel-cita" />
+        </div>
+      )}
 
       {/* Novedades */}
       {p.convocadaAt && (

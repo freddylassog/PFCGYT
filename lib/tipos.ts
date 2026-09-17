@@ -16,6 +16,17 @@ export interface RepartoActividad {
   cantidad: number;
 }
 
+/** Cita de entrega y devolución de uniformes de un evento (la fija coordinación). */
+export interface CitaUniforme {
+  entregaFecha: string;
+  entregaHora: string;
+  devolucionFecha: string;
+  devolucionHora: string;
+  lugar: string;
+  /** Último aviso enviado a los estudiantes (ISO), si se avisó. */
+  avisoAt: string | null;
+}
+
 /** Un día de participación de un evento. */
 export interface DiaEvento {
   fecha: string;
@@ -56,6 +67,8 @@ export interface Pedido {
   telegramPostAt: string | null;
   /** Fecha en que coordinación marcó el evento como finalizado (solo eventos aprobados). */
   finalizadoAt: string | null;
+  /** Entrega y devolución de uniformes (solo eventos con uniforme institucional). */
+  uniformeCita: CitaUniforme | null;
   createdAt: string;
 }
 
@@ -158,6 +171,8 @@ export interface Ajustes {
   ultimoRecordatorio: string;
   telegramBotUsername: string;
   telegramWebhookUrl: string;
+  /** Lugar habitual de entrega de uniformes (se propone al fijar cada cita). */
+  uniformeLugar: string;
 }
 
 /** Todo lo que necesita el panel de coordinación, cargado en una sola pasada. */

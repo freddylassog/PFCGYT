@@ -1,7 +1,7 @@
 // Reglas de negocio y formato. Solo funciones puras: se usan igual en el
 // navegador y en el servidor (validaciones, reporte, correos).
 import type {
-  Clase, DiaEvento, Estado, Genero, RepartoActividad, Semestre, Vestimenta,
+  CitaUniforme, Clase, DiaEvento, Estado, Genero, RepartoActividad, Semestre, Vestimenta,
 } from './tipos';
 
 export const ZONA_HORARIA = 'America/Guayaquil';
@@ -274,6 +274,29 @@ export function cumple72h(fecha: string, hoy: string): boolean {
 /** Semana del semestre (1..N) en la que cae una fecha. */
 export function semanaDe(fecha: string, inicioSemestre: string): number {
   return Math.floor(diasHasta(fecha, inicioSemestre) / 7) + 1;
+}
+
+// ---------------------------------------------------------------- citas de uniformes
+
+export const CITA_VACIA: CitaUniforme = { entregaFecha: '', entregaHora: '', devolucionFecha: '', devolucionHora: '', lugar: '', avisoAt: null };
+
+/** Errores de una cita de uniformes: cada pareja fecha+hora va completa y al menos una de las dos. */
+export function faltasCitaUniforme(c: CitaUniforme): string[] {
+  const f: string[] = [];
+  const entrega = !!(c.entregaFecha || c.entregaHora), devolucion = !!(c.devolucionFecha || c.devolucionHora);
+  if (entrega && !(esFechaISO(c.entregaFecha) && esHora(c.entregaHora))) f.push('fecha y hora de entrega');
+  if (devolucion && !(esFechaISO(c.devolucionFecha) && esHora(c.devolucionHora))) f.push('fecha y hora de devolución');
+  if (!entrega && !devolucion) f.push('al menos la entrega o la devolución');
+  if (entrega && devolucion && esFechaISO(c.entregaFecha) && esFechaISO(c.devolucionFecha) && c.devolucionFecha < c.entregaFecha) f.push('la devolución no puede ser antes de la entrega');
+  return f;
+}
+
+export function citaEntregaTexto(c: CitaUniforme | null): string | null {
+  return c?.entregaFecha ? `${fechaLarga(c.entregaFecha)} · ${c.entregaHora}` : null;
+}
+
+export function citaDevolucionTexto(c: CitaUniforme | null): string | null {
+  return c?.devolucionFecha ? `${fechaLarga(c.devolucionFecha)} · ${c.devolucionHora}` : null;
 }
 
 // ---------------------------------------------------------------- etiquetas

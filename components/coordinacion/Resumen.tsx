@@ -13,7 +13,7 @@ export function Resumen({ datos, pedidos }: { datos: Datos; pedidos: PedidoVista
   const h = resumenHoras(datos, pedidos);
   const [horas, setHoras] = useState(String(h.horasSemana));
   const a = datos.ajustes;
-  const [aj, setAj] = useState({ correoDecanato: a.correoDecanato, correoGrupoEstudiantes: a.correoGrupoEstudiantes, correoCoordinacion: a.correoCoordinacion, inicioSemestre: a.inicioSemestre });
+  const [aj, setAj] = useState({ correoDecanato: a.correoDecanato, correoGrupoEstudiantes: a.correoGrupoEstudiantes, correoCoordinacion: a.correoCoordinacion, inicioSemestre: a.inicioSemestre, uniformeLugar: a.uniformeLugar });
   const [np, setNp] = useState({ periodo: '', inicio: '' });
   const [prueba, setPrueba] = useState<string | null>(null);
   const aprobados = pedidos.filter((e) => e.estado === 'Aprobado');
@@ -103,6 +103,7 @@ export function Resumen({ datos, pedidos }: { datos: Datos; pedidos: PedidoVista
           <div className="field"><label>Correo de decanato (reporte de novedades)</label><input className="input" type="email" value={aj.correoDecanato} onChange={(e) => setAj({ ...aj, correoDecanato: e.target.value })} placeholder="decanato.fcgt@ute.edu.ec" /></div>
           <div className="field"><label>Grupo de Outlook de estudiantes (convocatorias)</label><input className="input" type="email" value={aj.correoGrupoEstudiantes} onChange={(e) => setAj({ ...aj, correoGrupoEstudiantes: e.target.value })} placeholder="protocolo.estudiantes@ute.edu.ec" /><div className="muted fs-12 mt-2">Si lo dejas vacío, el correo de convocatoria pone a todos los estudiantes activos en copia oculta.</div></div>
           <div className="field"><label>Correo de coordinación (para copia)</label><input className="input" type="email" value={aj.correoCoordinacion} onChange={(e) => setAj({ ...aj, correoCoordinacion: e.target.value })} /></div>
+          <div className="field"><label>Lugar habitual de entrega de uniformes</label><input className="input" value={aj.uniformeLugar} onChange={(e) => setAj({ ...aj, uniformeLugar: e.target.value })} placeholder="ej. Oficina de coordinación de protocolo" /><div className="muted fs-12 mt-2">Se propone al fijar la entrega y devolución de cada evento (pestaña Uniformes).</div></div>
           {error && <p className="error">{error}</p>}
           <button className="btn btn-primary" type="submit" style={{ justifySelf: 'start' }}>Guardar ajustes</button>
         </Marco>

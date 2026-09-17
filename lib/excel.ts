@@ -1,6 +1,6 @@
 import 'server-only';
 import ExcelJS from 'exceljs';
-import { DEVOLUCION, DIAS_CLASE, infoUniforme, semLabel } from './reglas';
+import { DEVOLUCION, DIAS_CLASE, infoUniforme, semLabel, citaDevolucionTexto, citaEntregaTexto } from './reglas';
 import { CLAVES_HORA, normalizarClave, pad2, parsearCsv, type Fila } from './importar';
 export { parseDocentes, parseEstudiantes, parseHorarios, parseDia, parseGenero, parseHora, parseSemestre } from './importar';
 export type { Fila } from './importar';
@@ -87,8 +87,8 @@ export async function generarReporte(d: Datos): Promise<Buffer> {
   const wb = new ExcelJS.Workbook();
   wb.creator = 'Protocolo FCGT';
 
-  const ev: (string | number)[][] = [['Código', 'Evento', 'Institución', 'Tipo', 'Convenio', 'Estado', 'Fecha', 'Fechas y horarios', 'Horas', 'Estudiantes solicitados', 'Actividades', 'Confirmados', 'Vestimenta', 'Alimentación', 'Transporte', 'Lugar', 'Responsable', 'Teléfono responsable', 'Fecha pedido', 'Evidencia', 'Estudiantes confirmados', 'Novedades']];
-  pedidos.forEach((e) => ev.push([e.codigo, e.evento, e.institucion, e.tipoLabel, e.tipo === 'externo' ? (e.convenio === 'si' ? 'Vigente' : 'Sin convenio') : 'UTE', e.estadoLabel, e.fecha, `${e.fechaLarga} · ${e.horarioTexto}`, e.horas, e.cantidad, e.actividadesTexto, e.confirmadosN, e.vestLabel, e.pasa4h ? 'Sí' : 'No', e.transporte ? 'Sí' : 'No', e.lugar, e.responsable, e.responsableTelefono, e.createdAt.slice(0, 10), e.evidenciaTexto, e.confirmados.map((s) => s.nombre).join('; '), e.novedadesTexto]));
+  const ev: (string | number)[][] = [['Código', 'Evento', 'Institución', 'Tipo', 'Convenio', 'Estado', 'Fecha', 'Fechas y horarios', 'Horas', 'Estudiantes solicitados', 'Actividades', 'Confirmados', 'Vestimenta', 'Alimentación', 'Transporte', 'Lugar', 'Responsable', 'Teléfono responsable', 'Entrega uniforme', 'Devolución uniforme', 'Lugar uniforme', 'Fecha pedido', 'Evidencia', 'Estudiantes confirmados', 'Novedades']];
+  pedidos.forEach((e) => ev.push([e.codigo, e.evento, e.institucion, e.tipoLabel, e.tipo === 'externo' ? (e.convenio === 'si' ? 'Vigente' : 'Sin convenio') : 'UTE', e.estadoLabel, e.fecha, `${e.fechaLarga} · ${e.horarioTexto}`, e.horas, e.cantidad, e.actividadesTexto, e.confirmadosN, e.vestLabel, e.pasa4h ? 'Sí' : 'No', e.transporte ? 'Sí' : 'No', e.lugar, e.responsable, e.responsableTelefono, citaEntregaTexto(e.uniformeCita) ?? '', citaDevolucionTexto(e.uniformeCita) ?? '', e.uniformeCita?.lugar ?? '', e.createdAt.slice(0, 10), e.evidenciaTexto, e.confirmados.map((s) => s.nombre).join('; '), e.novedadesTexto]));
   hoja(wb, 'Eventos', ev, [14, 34, 28, 9, 13, 10, 11, 40, 7, 10, 40, 11, 24, 12, 11, 32, 26, 16, 11, 28, 40, 40]);
 
   hoja(wb, 'Horas', [['Concepto', 'Horas'], ['Horas asignadas por semana', horas.horasSemana], [`Horas del semestre (${horas.semanas} semanas)`, horas.total], ['Horas registradas en eventos aprobados', horas.usadas], ['Horas disponibles', horas.restantes]], [40, 10]);

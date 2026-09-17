@@ -2,7 +2,7 @@
 import { inscribirme, retirarme } from '@/app/actions/estudiante';
 import { Marco } from '@/components/Marco';
 import { useAccion } from '@/components/useAccion';
-import { MINIMO_EVENTOS, infoUniforme, semLabel } from '@/lib/reglas';
+import { MINIMO_EVENTOS, citaDevolucionTexto, citaEntregaTexto, infoUniforme, semLabel } from '@/lib/reglas';
 import type { Datos, Estudiante } from '@/lib/tipos';
 import { avanceEstudiante, vistaPedidos } from '@/lib/vista';
 
@@ -73,6 +73,8 @@ export function MisEventos({ datos, yo }: { datos: Datos; yo: Estudiante }) {
               <div><div className="etiqueta">Lugar</div>{e.lugar}</div>
               <div><div className="etiqueta">Responsable en sitio</div>{e.responsable}{e.responsableTelefono && <div className="muted fs-12">{e.responsableTelefono}</div>}</div>
               <div><div className="etiqueta">Vestimenta</div>{e.vestLabel}<div className="muted fs-12">{e.vestNotaEst}</div></div>
+              {e.vestimenta === 'uniforme' && citaEntregaTexto(e.uniformeCita) && <div><div className="etiqueta">Entrega del uniforme</div>{citaEntregaTexto(e.uniformeCita)}{e.uniformeCita?.lugar && <div className="muted fs-12">{e.uniformeCita.lugar}</div>}</div>}
+              {e.vestimenta === 'uniforme' && citaDevolucionTexto(e.uniformeCita) && <div><div className="etiqueta">Devolución del uniforme (lavado)</div>{citaDevolucionTexto(e.uniformeCita)}{e.uniformeCita?.lugar && <div className="muted fs-12">{e.uniformeCita.lugar}</div>}</div>}
             </div>
             <div><div className="etiqueta" style={{ marginBottom: 4 }}>Actividades del evento</div><div className="row" style={{ gap: 4 }}>{e.actividadesEtiquetas.map((a) => <span key={a} className="tag tag-neutral">{a}</span>)}</div></div>
           </Marco>
