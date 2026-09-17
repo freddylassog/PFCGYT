@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { editarPedido, type CambiosPedido } from '@/app/actions/coordinacion';
 import { useAccion } from '@/components/useAccion';
 import { EditorDias } from '@/components/EditorDias';
+import { InputNumero } from '@/components/InputNumero';
 import { EditorReparto } from '@/components/EditorReparto';
 import { MAX_ESTUDIANTES, VESTIMENTA, ajustarRepartoATotal, duracionTextoDias } from '@/lib/reglas';
 import type { Vestimenta } from '@/lib/tipos';
@@ -21,7 +22,7 @@ export function EditarPedido({ p, onCerrar }: { p: PedidoVista; onCerrar: () => 
       <h6 className="h6-accent">Editar pedido</h6>
       <div className="field"><label>Nombre del evento</label><input className="input" value={c.evento} onChange={(e) => set('evento', e.target.value)} required /></div>
       <div className="field"><label>Días y horarios de participación</label><EditorDias dias={c.dias} onChange={(d) => set('dias', d)} idPrefijo="edit-dia" /></div>
-      <div className="field" style={{ maxWidth: 200 }}><label>Número de estudiantes</label><input className="input" type="number" min={1} max={MAX_ESTUDIANTES} value={c.cantidad} onChange={(e) => { const n = Number(e.target.value); setC((s) => ({ ...s, cantidad: n, reparto: ajustarRepartoATotal(s.reparto, n) })); }} required /></div>
+      <div className="field" style={{ maxWidth: 200 }}><label>Número de estudiantes</label><InputNumero id="edit-cantidad" min={1} max={MAX_ESTUDIANTES} value={c.cantidad} onChange={(n) => setC((s) => ({ ...s, cantidad: n, reparto: ajustarRepartoATotal(s.reparto, n) }))} required /></div>
       <p className="muted fs-12 m-0">Duración: {duracionTextoDias(c.dias)}. Confirmados actuales: {p.confirmadosN} (la cantidad no puede ser menor).</p>
       <div className="field"><label>Lugar y dirección</label><input className="input" value={c.lugar} onChange={(e) => set('lugar', e.target.value)} required /></div>
       <label className="radio fs-13"><input type="checkbox" checked={c.lejos} onChange={(e) => set('lejos', e.target.checked)} /><span className="dot cuadro" />El lugar está fuera del campus / lejos</label>

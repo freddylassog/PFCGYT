@@ -5,6 +5,7 @@ import { crearPedido, prepararEvidencia, verificarCruce, type CruceInfo, type Pe
 import { Marco } from '@/components/Marco';
 import { IconoAlerta, IconoCalendario, IconoInfo } from '@/components/Iconos';
 import { EditorDias } from '@/components/EditorDias';
+import { InputNumero } from '@/components/InputNumero';
 import { EditorReparto } from '@/components/EditorReparto';
 import {
   BLOQUEAR_CRUCE_EVENTOS, FORM_INICIAL, MAX_ESTUDIANTES, VESTIMENTA, ajustarRepartoATotal, cumple72h, duracionTextoDias, esFechaISO, esHora, faltasPedido, fechaCorta, fechaLarga,
@@ -204,7 +205,7 @@ export function FormularioPedido({ hoy }: { hoy: string }) {
         {paso === 3 && (
           <Marco as="section" className="p-6 stack">
             <h6 className="h6-accent">03 · Estudiantes</h6>
-            <div className="field" style={{ maxWidth: 180 }}><label htmlFor="cantidad">Número de estudiantes</label><input id="cantidad" className="input" type="number" min={1} max={MAX_ESTUDIANTES} value={f.cantidad} onChange={(e) => { const n = Math.max(1, Math.min(MAX_ESTUDIANTES, Number(e.target.value) || 1)); setF((s) => ({ ...s, cantidad: n, reparto: ajustarRepartoATotal(s.reparto, n) })); }} /></div>
+            <div className="field" style={{ maxWidth: 180 }}><label htmlFor="cantidad">Número de estudiantes</label><InputNumero id="cantidad" min={1} max={MAX_ESTUDIANTES} value={f.cantidad} onChange={(n) => setF((s) => ({ ...s, cantidad: n, reparto: ajustarRepartoATotal(s.reparto, n) }))} /></div>
             <div className="field">
               <label>Actividades protocolarias que realizarán y cuántos estudiantes en cada una</label>
               <EditorReparto reparto={f.reparto} cantidad={f.cantidad} onChange={(r) => set('reparto', r)} />

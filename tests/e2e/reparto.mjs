@@ -20,6 +20,17 @@ await p.waitForTimeout(600);
 if (await bloqueado()) throw new Error('paso 2 bloqueado: ' + (await p.locator('.alerta').allTextContents()).join(' | '));
 await p.click('button:has-text("Continuar")');
 await p.waitForSelector('#cantidad');
+// El número se puede borrar y volver a escribir (antes saltaba a 1 y no dejaba editar)
+await p.fill('#cantidad', '');
+await p.keyboard.type('2');
+if ((await p.inputValue('#cantidad')) !== '2') throw new Error('al borrar y escribir 2 quedó: ' + (await p.inputValue('#cantidad')));
+await p.fill('#cantidad', '');
+await p.keyboard.type('12');
+if ((await p.inputValue('#cantidad')) !== '12') throw new Error('al escribir 12 quedó: ' + (await p.inputValue('#cantidad')));
+await p.fill('#cantidad', '');
+await p.keyboard.press('Tab');
+if ((await p.inputValue('#cantidad')) !== '1') throw new Error('vacío al salir debería volver al mínimo 1, quedó: ' + (await p.inputValue('#cantidad')));
+paso('número de estudiantes: se borra, se escribe 2 y 12; vacío al salir vuelve a 1');
 await p.fill('#cantidad', '4');
 if (!(await bloqueado())) throw new Error('sin actividades marcadas se pudo continuar');
 paso('sin actividades: bloqueado');
