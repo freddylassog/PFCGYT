@@ -21,7 +21,7 @@ export function MisEventos({ datos, yo }: { datos: Datos; yo: Estudiante }) {
     return {
       ...e, inscrito, rechazado, puedo: !inscrito && !rechazado && !e.lleno,
       miEstado: inscrito ? (fem ? 'Inscrita · por confirmar' : 'Inscrito · por confirmar') : rechazado ? 'No confirmada' : e.lleno ? 'Cupos completos' : 'Abierta',
-      miTag: inscrito ? 'tag-outline' : rechazado || e.lleno ? 'tag-neutral' : 'tag-accent',
+      miTag: inscrito ? 'tag-outline' : rechazado ? 'tag-alerta' : e.lleno ? 'tag-neutral' : 'tag-accent',
     };
   });
 
@@ -34,7 +34,7 @@ export function MisEventos({ datos, yo }: { datos: Datos; yo: Estudiante }) {
       <Marco className="mt-6 max-720 p-4 stack-2">
         <div className="between"><h6 className="m-0">Mi uniforme</h6><span className={`tag ${uni.tagClass}`}>{uni.estado}</span></div>
         <div className="row" style={{ gap: 6 }}>{uni.items.map((l) => <span key={l} className={`tag ${uni.tiene.includes(l) ? 'tag-accent' : 'tag-outline'}`}>{l}{uni.tiene.includes(l) ? '' : ' · pendiente'}</span>)}</div>
-        <p className="muted fs-12 m-0">{devTexto}</p>
+        <p className={`fs-12 m-0 ${dev?.estado === 'rechazado' ? 'falta' : 'muted'}`}>{devTexto}</p>
       </Marco>
       {datos.notificaciones.botUsername && (
         <Marco className="mt-4 max-720 p-4 stack-2">

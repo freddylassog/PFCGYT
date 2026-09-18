@@ -23,7 +23,7 @@ export function EditorReparto({ reparto, cantidad, onChange, idPrefijo = 'act' }
           </div>
         );
       })}
-      <p className={`fs-12 m-0 ${suma === cantidad && reparto.length ? 'muted' : ''}`} style={suma !== cantidad && reparto.length ? { color: 'var(--color-accent-800)' } : undefined}>
+      <p className={`fs-12 m-0 ${suma === cantidad && reparto.length ? 'muted' : 'falta'}`}>
         Asignados: <strong>{suma}</strong> de {cantidad} estudiantes{reparto.length && suma !== cantidad ? (suma < cantidad ? ` · faltan ${cantidad - suma} por asignar` : ` · sobran ${suma - cantidad}`) : ''}.
       </p>
     </div>

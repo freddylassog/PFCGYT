@@ -22,7 +22,7 @@ export function Resumen({ datos, pedidos }: { datos: Datos; pedidos: PedidoVista
     try { await navigator.clipboard.writeText(texto); setCopiado(true); setTimeout(() => setCopiado(false), 2000); } catch { window.prompt('Copia el enlace:', texto); }
   }
   const aprobados = pedidos.filter((e) => e.estado === 'Aprobado');
-  const color = h.restantes < 0 ? 'var(--color-accent-900)' : 'var(--color-accent)';
+  const color = h.restantes < 0 ? 'var(--color-alerta)' : 'var(--color-accent)';
 
   return (
     <div className={pending ? 'pendiente' : ''}>
@@ -82,7 +82,7 @@ export function Resumen({ datos, pedidos }: { datos: Datos; pedidos: PedidoVista
           <p className="m-0 fs-14 muted">Sin avisos configurados. Para recibir un correo o un mensaje de Telegram cuando entre un pedido, agrega las variables en Vercel (ver README, sección Avisos).</p>
         )}
         {datos.notificaciones.telegramSinChat && (
-          <p className="aviso m-0 fs-13">Telegram casi listo: abre tu bot en Telegram, pulsa <strong>Iniciar</strong>, escríbele &quot;hola&quot; y luego pulsa <strong>Detectar mi chat de Telegram</strong>.</p>
+          <p className="aviso-info m-0 fs-13">Telegram casi listo: abre tu bot en Telegram, pulsa <strong>Iniciar</strong>, escríbele &quot;hola&quot; y luego pulsa <strong>Detectar mi chat de Telegram</strong>.</p>
         )}
         <div className="row">
           {(datos.notificaciones.telegramSinChat || datos.notificaciones.canales.some((n) => n.canal === 'telegram')) && (
@@ -98,7 +98,7 @@ export function Resumen({ datos, pedidos }: { datos: Datos; pedidos: PedidoVista
           {datos.notificaciones.canalEstudiantes ? (
             <p className="m-0 fs-14">Canal conectado: <strong>{datos.notificaciones.canalEstudiantes}</strong>. Al aprobar un pedido, la convocatoria se publica ahí automáticamente; cada día a las 18:00 se publica el recordatorio de los eventos de mañana.</p>
           ) : (
-            <p className="aviso m-0 fs-13">Crea un canal en Telegram, agrega tu bot como administrador (con permiso de publicar), escribe cualquier mensaje en el canal y pulsa <strong>Detectar canal de estudiantes</strong>. Luego comparte el enlace de invitación del canal con los estudiantes.</p>
+            <p className="aviso-info m-0 fs-13">Crea un canal en Telegram, agrega tu bot como administrador (con permiso de publicar), escribe cualquier mensaje en el canal y pulsa <strong>Detectar canal de estudiantes</strong>. Luego comparte el enlace de invitación del canal con los estudiantes.</p>
           )}
           <div className="row">
             <button type="button" className="btn btn-secondary btn-sm" onClick={() => { setPrueba(null); run(() => detectarCanal(), (d) => setPrueba(`Canal detectado: ${d?.nombre}. Pulsa "Probar canal" para publicar un mensaje de prueba.`)); }}>Detectar canal de estudiantes</button>

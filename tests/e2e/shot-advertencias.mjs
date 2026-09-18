@@ -1,0 +1,28 @@
+// Capturas de las advertencias (en rojo): cruce de horario en el formulario y panel de un pedido sin convenio. Uso: node tests/e2e/shot-advertencias.mjs
+import { chromium } from '@playwright/test';
+import { writeFileSync } from 'node:fs';
+const base = process.env.BASE_URL || 'http://localhost:3000';
+const shots = process.env.SHOTS || '/tmp/claude-0/-home-user-PFCGYT/5a10c32a-d366-574f-b48c-ac6051283a90/scratchpad/shots';
+const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
+const p = await b.newPage({ viewport: { width: 1280, height: 900 } });
+const tmp = '/tmp/evidencia-prueba.pdf'; writeFileSync(tmp, '%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF');
+await p.goto(base + '/');
+await p.fill('#nombre', 'Carla Espinosa'); await p.fill('#cargo', 'Directora'); await p.fill('#institucion', 'Universidad UTE'); await p.fill('#correo', 'carla@ejemplo.com');
+await p.click('button:has-text("Continuar")');
+await p.fill('#evento', 'Otro evento'); await p.setInputFiles('input[type=file]', tmp); await p.waitForSelector('.tag-accent', { timeout: 15000 });
+await p.fill('#dia-fecha-0', '2026-09-25'); await p.fill('#dia-inicio-0', '10:00'); await p.fill('#dia-fin-0', '12:00');
+await p.waitForSelector('.alerta', { timeout: 10000 });
+await p.screenshot({ path: shots + '/advertencia-cruce.png', fullPage: true, caret: 'initial' });
+console.log('alerta:', (await p.locator('.alerta').first().textContent()).slice(0, 80));
+console.log('falta:', await p.locator('.falta').first().textContent());
+await p.goto(base + '/coordinacion');
+await p.fill('#password', 'protocolo2026');
+await p.click('button:has-text("Ingresar")');
+await p.waitForSelector('h1:has-text("Coordinación")');
+await p.click('table tbody tr:has-text("Gala Embajada")');
+await p.waitForSelector('aside');
+await p.screenshot({ path: shots + '/advertencia-panel.png', fullPage: false, caret: 'initial' });
+console.log('panel:', (await p.locator('aside .tag-alerta').allTextContents()).join(' | '), '·', await p.locator('aside .error').first().textContent());
+await p.goto(base + '/coordinacion?tab=estudiantes');
+await p.screenshot({ path: shots + '/advertencia-estudiantes.png', fullPage: false, caret: 'initial' });
+await b.close();

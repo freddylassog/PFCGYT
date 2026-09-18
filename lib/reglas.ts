@@ -445,13 +445,13 @@ export function infoUniforme(genero: Genero, entregadas: string[]): InfoUniforme
     items, tiene, n, completo,
     faltan: items.filter((i) => !tiene.includes(i)),
     estado: completo ? 'Completo' : n ? `Parcial ${n}/${items.length}` : 'Sin entregar',
-    tagClass: completo ? 'tag-accent' : n ? 'tag-outline' : 'tag-neutral',
+    tagClass: completo ? 'tag-accent' : n ? 'tag-alerta-suave' : 'tag-neutral',
   };
 }
 
 export const DEVOLUCION = {
   lavado: { label: 'Devuelto lavado', tag: 'tag-accent' },
-  rechazado: { label: 'No recibido · sin lavar', tag: 'tag-outline' },
+  rechazado: { label: 'No recibido · sin lavar', tag: 'tag-alerta' },
 } as const;
 
 // ---------------------------------------------------------------- validación del pedido

@@ -96,7 +96,7 @@ export function PanelPedido({ p, datos, pedidos, cruceEvento, onCerrar }: { p: P
                 <div className="card-kicker">Inscritos por revisar · {p.inscritosN}</div>
                 {p.inscritos.map((s) => (
                   <div key={s.id} className="linea-item">
-                    <span style={{ minWidth: 0 }}>{s.nombre} <span className="muted fs-11">{semCorto(s.semestre)} · {eventosPor(s.id)} ev.</span>{uniformeIncompleto(s) && <> <span className="tag tag-outline" style={{ fontSize: 10 }}>Uniforme incompleto</span></>}</span>
+                    <span style={{ minWidth: 0 }}>{s.nombre} <span className="muted fs-11">{semCorto(s.semestre)} · {eventosPor(s.id)} ev.</span>{uniformeIncompleto(s) && <> <span className="tag tag-alerta-suave" style={{ fontSize: 10 }}>Uniforme incompleto</span></>}</span>
                     <span style={{ display: 'flex', gap: 4, flex: 'none' }}>
                       <button className="btn btn-primary btn-sm" type="button" disabled={p.lleno} onClick={() => run(() => decidirInscripcion(p.id, s.id, 'aceptar'))}>Aceptar</button>
                       <button className="btn btn-ghost btn-sm" type="button" onClick={() => run(() => decidirInscripcion(p.id, s.id, 'rechazar'))}>Rechazar</button>

@@ -98,7 +98,7 @@ export function vistaPedido(d: Datos, p: Pedido): PedidoVista {
     vestLabel: v.label, vestCorta: v.corta, vestNotaEst: v.est,
     pasa4h: p4, transporteMotivo: tm, transporte: !!tm,
     compromisos: [p4 ? 'Alimentación' : null, tm ? 'Transporte' : null].filter(Boolean).join(' · ') || '—',
-    convLabel: convenioLabel(p), convTag: p.tipo === 'externo' && p.convenio === 'no' ? 'tag-outline' : 'tag-neutral',
+    convLabel: convenioLabel(p), convTag: p.tipo === 'externo' && p.convenio === 'no' ? 'tag-alerta' : 'tag-neutral',
     tagClass: tagClass(estadoVisible(p)),
     bloqueo: p.tipo === 'externo' && p.convenio === 'no' ? 'No se puede aprobar: la institución no tiene convenio vigente con la UTE.' : null,
     confirmados, inscritos, confirmadosN: confirmados.length, inscritosN: inscritos.length, lleno: confirmados.length >= p.cantidad,
@@ -134,7 +134,7 @@ export function avanceEstudiante(d: Datos, studentId: string, pedidos?: PedidoVi
     eventos,
     cumple: k >= MINIMO_EVENTOS,
     estado: k >= MINIMO_EVENTOS ? 'Cumple' : k === 1 ? 'Falta 1 evento' : 'Sin eventos · nota 0',
-    tagClass: k >= MINIMO_EVENTOS ? 'tag-accent' : k === 1 ? 'tag-outline' : 'tag-neutral',
+    tagClass: k >= MINIMO_EVENTOS ? 'tag-accent' : k === 1 ? 'tag-alerta-suave' : 'tag-alerta',
     novedadesN: d.novedades.filter((n) => n.studentId === studentId).length,
   };
 }

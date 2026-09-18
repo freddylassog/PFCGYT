@@ -37,7 +37,7 @@ export function Estudiantes({ datos, pedidos }: { datos: Datos; pedidos: PedidoV
             <label className="btn btn-secondary" style={{ cursor: 'pointer' }}>{arch ? 'Reemplazar archivo' : 'Cargar archivo'}<input type="file" accept=".xlsx,.csv" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) subir(f); e.target.value = ''; }} /></label>
             <button type="button" className="btn btn-ghost" onClick={() => { setForm(FORM_VACIO); setVerForm(!verForm); }}>{verForm ? 'Cerrar' : 'Agregar o editar a mano'}</button>
           </div>
-          {resultado && <p className="fs-12 m-0" style={{ color: 'var(--color-accent-800)' }}>{resultado.resumen}{resultado.errores.length > 0 && <> Filas omitidas: {resultado.errores.slice(0, 5).join(' · ')}{resultado.errores.length > 5 ? ` (+${resultado.errores.length - 5})` : ''}</>}</p>}
+          {resultado && <p className="fs-12 m-0" style={{ color: 'var(--color-accent-800)' }}>{resultado.resumen}{resultado.errores.length > 0 && <span className="falta"> Filas omitidas: {resultado.errores.slice(0, 5).join(' · ')}{resultado.errores.length > 5 ? ` (+${resultado.errores.length - 5})` : ''}</span>}</p>}
           {error && <p className="error">{error}</p>}
           <p className="muted fs-12 m-0">La carga actualiza por correo, agrega los nuevos y desactiva a quienes ya no aparecen. Nunca borra historial.</p>
         </Marco>

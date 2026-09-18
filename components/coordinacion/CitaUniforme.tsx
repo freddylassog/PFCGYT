@@ -34,7 +34,7 @@ export function CitaUniforme({ p, datos, idPrefijo = 'cita' }: { p: PedidoVista;
         <div className="field"><label htmlFor={id('dh')}>Devolución · hora</label><input id={id('dh')} className="input" type="time" value={c.devolucionHora} onChange={(e) => set('devolucionHora', e.target.value)} /></div>
         <div className="field" style={{ gridColumn: '1/-1' }}><label htmlFor={id('lugar')}>Lugar de entrega y devolución</label><input id={id('lugar')} className="input" value={c.lugar} onChange={(e) => set('lugar', e.target.value)} placeholder="ej. Oficina de coordinación de protocolo" /></div>
       </div>
-      {algo && faltas.length > 0 && <p className="muted fs-12 m-0">Falta: {faltas.join(', ')}.</p>}
+      {algo && faltas.length > 0 && <p className="falta fs-12 m-0">Falta: {faltas.join(', ')}.</p>}
       <div className="row">
         <button className="btn btn-secondary btn-sm" type="button" disabled={!!faltas.length} onClick={() => guardar(false)}>Guardar</button>
         <button className="btn btn-primary btn-sm" type="button" disabled={!!faltas.length || !p.confirmadosN || !telegram} title={!p.confirmadosN ? 'Confirma estudiantes primero' : !telegram ? 'Sin Telegram configurado: usa el correo' : ''} onClick={() => guardar(true)}>Guardar y avisar por Telegram</button>

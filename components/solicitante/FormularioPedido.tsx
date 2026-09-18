@@ -157,7 +157,7 @@ export function FormularioPedido({ hoy }: { hoy: string }) {
                 )}
               </>
             )}
-            {faltas[0].length > 0 && <p className="muted fs-12 m-0">Falta: {faltas[0].join(', ')}</p>}
+            {faltas[0].length > 0 && <p className="falta fs-12 m-0">Falta: {faltas[0].join(', ')}</p>}
             <button className="btn btn-primary btn-40" type="button" onClick={siguiente} disabled={faltas[0].length > 0} style={{ justifySelf: 'end' }}>Continuar</button>
           </Marco>
         )}
@@ -197,7 +197,7 @@ export function FormularioPedido({ hoy }: { hoy: string }) {
                 <input id="telefono" className="input" type="tel" value={f.responsableTelefono} onChange={(e) => set('responsableTelefono', e.target.value)} placeholder="Teléfono (ej. 099 123 4567)" aria-label="Teléfono del responsable" autoComplete="off" />
               </div>
             </div>
-            {faltas[1].length > 0 && <p className="muted fs-12 m-0">Falta: {faltas[1].join(', ')}</p>}
+            {faltas[1].length > 0 && <p className="falta fs-12 m-0">Falta: {faltas[1].join(', ')}</p>}
             <div className="between"><button className="btn btn-secondary" type="button" onClick={anterior}>Atrás</button><button className="btn btn-primary btn-40" type="button" onClick={siguiente} disabled={faltas[1].length > 0}>Continuar</button></div>
           </Marco>
         )}
@@ -219,7 +219,7 @@ export function FormularioPedido({ hoy }: { hoy: string }) {
                 ))}
               </div>
             </div>
-            {faltas[2].length > 0 && <p className="muted fs-12 m-0">Falta: {faltas[2].join(', ')}</p>}
+            {faltas[2].length > 0 && <p className="falta fs-12 m-0">Falta: {faltas[2].join(', ')}</p>}
             <div className="between"><button className="btn btn-secondary" type="button" onClick={anterior}>Atrás</button><button className="btn btn-primary btn-40" type="button" onClick={siguiente} disabled={faltas[2].length > 0}>Continuar</button></div>
           </Marco>
         )}
