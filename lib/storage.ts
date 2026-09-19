@@ -1,6 +1,6 @@
 import 'server-only';
 import { createClient } from '@supabase/supabase-js';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 const BUCKET = 'evidencias';
@@ -63,6 +63,13 @@ export async function evidenciaExiste(ruta: string): Promise<boolean> {
   const nombre = ruta.split('/').pop()!;
   const { data } = await cliente().storage.from(BUCKET).list(carpeta, { search: nombre, limit: 5 });
   return !!data?.some((f) => f.name === nombre);
+}
+
+/** Borra la evidencia de un pedido eliminado (no falla si ya no existe). */
+export async function borrarEvidencia(ruta: string): Promise<void> {
+  if (storageLocal()) { await rm(archivoLocal(ruta), { force: true }); return; }
+  const { error } = await cliente().storage.from(BUCKET).remove([ruta]);
+  if (error) throw new Error(error.message);
 }
 
 // ---------------------------------------------------------------- modo local

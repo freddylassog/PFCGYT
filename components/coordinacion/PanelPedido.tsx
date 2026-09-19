@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import {
-  cambiarEstado, confirmarDirecto, crearAviso, decidirInscripcion, finalizarEvento, marcarAviso, marcarConvenio, publicarConvocatoriaCanal, quitarNovedad, regenerarClave, registrarNovedad, reportarNovedades,
+  cambiarEstado, confirmarDirecto, crearAviso, decidirInscripcion, eliminarPedido, finalizarEvento, marcarAviso, marcarConvenio, publicarConvocatoriaCanal, quitarNovedad, regenerarClave, registrarNovedad, reportarNovedades,
 } from '@/app/actions/coordinacion';
 import { CorreoBox } from '@/components/CorreoBox';
 import { IconoCalendario, IconoCerrar } from '@/components/Iconos';
@@ -34,6 +34,12 @@ export function PanelPedido({ p, datos, pedidos, cruceEvento, onCerrar }: { p: P
   }
 
   const cambiar = (estado: Estado) => run(() => cambiarEstado(p.id, estado));
+  function eliminar() {
+    const detalle = [p.confirmadosN ? `${p.confirmadosN} estudiante(s) confirmado(s)` : '', p.inscritosN ? `${p.inscritosN} inscripción(es) por revisar` : '', p.novedades.length ? `${p.novedades.length} novedad(es)` : '', p.evidenciaPath ? 'la evidencia adjunta' : ''].filter(Boolean).join(', ');
+    if (!confirm(`¿Eliminar para siempre el pedido ${p.codigo} · ${p.evento}?${detalle ? `\nSe borrarán también: ${detalle}.` : ''}\nEsta acción no se puede deshacer (si solo quieres descartarlo, usa Rechazar).`)) return;
+    if (p.confirmadosN > 0 && prompt(`Este pedido tiene estudiantes confirmados y sus horas dejarán de contar. Para confirmar, escribe el código ${p.codigo}:`)?.trim().toUpperCase() !== p.codigo) return;
+    run(() => eliminarPedido(p.id), onCerrar);
+  }
 
   return (
     <Marco as="aside" className={`panel-lateral ${pending ? 'pendiente' : ''}`} aria-label={`Detalle del pedido ${p.codigo}`}>
@@ -211,6 +217,10 @@ export function PanelPedido({ p, datos, pedidos, cruceEvento, onCerrar }: { p: P
         <button className="btn btn-secondary" type="button" disabled={p.estado === 'Rechazado'} onClick={() => { if (p.estado !== 'Aprobado' || confirm('El pedido está aprobado. ¿Rechazarlo de todos modos?')) cambiar('Rechazado'); }}>Rechazar</button>
       </div>
       <CorreoBox titulo={`Correo al solicitante · ${p.estado}`} correo={correoSolicitante(p)} />
+      <div className="between borde-arriba" style={{ paddingTop: 'var(--space-2)' }}>
+        <span className="muted fs-12">Pedido de prueba o duplicado: se puede borrar del todo.</span>
+        <button className="btn btn-ghost btn-sm" type="button" style={{ color: 'var(--color-alerta)' }} onClick={eliminar}>Eliminar pedido</button>
+      </div>
     </Marco>
   );
 }

@@ -11,6 +11,7 @@ import { mensajeConvocatoriaCanal, mensajeEstudianteConfirmado, mensajeEstudiant
 import { appUrl } from '@/lib/app-url';
 import { avanceEstudiante, vistaPedido } from '@/lib/vista';
 import { leerTabla, parseDocentes, parseEstudiantes, parseHorarios } from '@/lib/excel';
+import { borrarEvidencia } from '@/lib/storage';
 import {
   ACTIVIDADES, MAX_ESTUDIANTES, UNIFORME, TIPOS_NOVEDAD, VESTIMENTA, claseAplica, claveNombre, cruceClases, esFechaISO, faltasDias, genClave, hoyISO, normalizarCorreo, normalizarParalelo, ordenarDias, telefonoValido, faltasReparto, faltasCitaUniforme,
 } from '@/lib/reglas';
@@ -75,6 +76,20 @@ export async function cambiarEstado(id: string, estado: Estado): Promise<Resulta
     }
     refrescar();
     return { ok: true };
+  } catch (e) { return fallo(e); }
+}
+
+/** Elimina un pedido para siempre, con sus inscripciones, novedades, avisos a docentes y evidencia. */
+export async function eliminarPedido(id: string): Promise<Resultado<{ codigo: string }>> {
+  try {
+    await exigir();
+    const sql = db();
+    const [p] = await sql`select codigo, evidencia_path from requests where id = ${id}`;
+    if (!p) throw new Error('Pedido no encontrado');
+    await sql`delete from requests where id = ${id}`; // inscripciones, novedades y avisos se borran en cascada
+    if (p.evidencia_path) await borrarEvidencia(String(p.evidencia_path)).catch((e) => console.error('[evidencia] no se pudo borrar', (e as Error).message));
+    refrescar();
+    return { ok: true, datos: { codigo: String(p.codigo) } };
   } catch (e) { return fallo(e); }
 }
 
