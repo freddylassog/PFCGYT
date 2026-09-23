@@ -181,6 +181,6 @@ Cada vez que se publica una versión nueva (push a GitHub → Vercel la desplieg
 
 ## Seguridad
 
-- La base de datos solo se usa desde el servidor con la cadena de conexión; todas las tablas tienen RLS activado sin políticas, así que la API pública de Supabase no expone nada.
+- La base de datos solo se usa desde el servidor con la cadena de conexión; todas las tablas (incluida `schema_migrations`, la de control de actualizaciones) tienen RLS activado sin políticas, así que la API pública de Supabase no expone nada. Si Supabase envía el aviso *rls_disabled_in_public*, basta con abrir la app una vez tras desplegar: la app activa RLS en cualquier tabla propia que le falte.
 - Las evidencias van a un bucket **privado**; coordinación las ve mediante enlaces temporales de 1 hora.
 - Coordinación entra con contraseña (variable de entorno) y sesión firmada de 12 h; el estudiante con correo + clave del evento y sesión de 8 h.

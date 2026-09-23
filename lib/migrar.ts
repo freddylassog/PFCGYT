@@ -18,6 +18,8 @@ export function asegurarEsquema(): Promise<void> {
 async function migrar(): Promise<void> {
   const sql = db();
   await sql`create table if not exists schema_migrations (nombre text primary key, aplicada_at timestamptz not null default now())`;
+  // Como todas las tablas: con seguridad por filas y sin políticas, para que la API pública de Supabase no la exponga.
+  await sql`alter table schema_migrations enable row level security`;
   const dir = path.join(/*turbopackIgnore: true*/ process.cwd(), 'supabase', 'migrations');
   const archivos = (await readdir(dir)).filter((f) => f.endsWith('.sql')).sort();
   const aplicadas = new Set((await sql`select nombre from schema_migrations`).map((r) => String(r.nombre)));
