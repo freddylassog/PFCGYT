@@ -183,7 +183,6 @@ export function FormularioPedido({ hoy, anticipacion = { horas: 72, hasta: '' } 
               <label>Días y horarios de participación de los estudiantes</label>
               <EditorDias dias={f.dias} onChange={(d) => setF((s) => ({ ...s, dias: d, lugar: d[0]?.lugar ?? '', lejos: d.some((x) => !!x.lejos) }))} min={hoy} idPrefijo="dia" />
             </div>
-            {horasMin !== 72 && <p className="aviso-info m-0 fs-12" style={{ display: 'block' }}>Anticipación mínima temporal: <strong>{horasMin} horas</strong>{anticipacion.hasta ? ` hasta el ${fechaCorta(anticipacion.hasta)}` : ''}. Después vuelve a la regla normal de 72 horas.</p>}
             <p className="muted fs-12 m-0">Plazo: <strong style={{ color: 'var(--color-text)' }}>{primero?.fecha ? plazoTexto(primero.fecha, hoy, horasMin) : 'Elige la fecha'}</strong> · Duración: <strong style={{ color: 'var(--color-text)' }}>{durTexto}</strong>.</p>
             {error72 && (
               <div className="alerta" role="alert"><IconoAlerta /><span><strong>No se puede registrar el pedido.</strong> El evento está a menos de {horasMin} horas. Los pedidos deben ingresar con al menos {Math.ceil(horasMin / 24)} día{Math.ceil(horasMin / 24) === 1 ? '' : 's'} de anticipación.</span></div>

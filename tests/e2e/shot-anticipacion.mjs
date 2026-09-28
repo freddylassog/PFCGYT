@@ -11,7 +11,7 @@ const manana = new Date(); manana.setDate(manana.getDate() + 1);
 await p.fill('#dia-fecha-0', manana.toISOString().slice(0, 10));
 await p.waitForTimeout(300);
 const aviso = await p.locator('.aviso-info').first().textContent().catch(() => null);
-console.log('aviso:', aviso);
+console.log('aviso (debe ser null):', aviso);
 console.log('plazo:', await p.locator('text=Plazo:').first().textContent());
 console.log('alerta 72 h presente:', (await p.locator('.alerta:has-text("menos de")').count()) > 0);
 await p.screenshot({ path: shots + '/anticipacion-24h.png', fullPage: true, caret: 'initial' });
