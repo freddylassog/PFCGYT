@@ -20,9 +20,9 @@ function mapReparto(r: Fila): RepartoActividad[] {
 function mapDias(r: Fila): DiaEvento[] {
   let valor: unknown = r.dias;
   if (typeof valor === 'string') { try { valor = JSON.parse(valor); } catch { valor = []; } }
-  const crudo = Array.isArray(valor) ? (valor as { fecha?: unknown; inicio?: unknown; fin?: unknown }[]) : [];
-  const dias = crudo.map((d) => ({ fecha: s(d.fecha).slice(0, 10), inicio: hhmm(s(d.inicio)), fin: hhmm(s(d.fin)) })).filter((d) => d.fecha).sort((a, b) => a.fecha.localeCompare(b.fecha));
-  return dias.length ? dias : [{ fecha: s(r.fecha), inicio: hhmm(s(r.inicio)), fin: hhmm(s(r.fin)) }];
+  const crudo = Array.isArray(valor) ? (valor as { fecha?: unknown; inicio?: unknown; fin?: unknown; lugar?: unknown; lejos?: unknown }[]) : [];
+  const dias = crudo.map((d) => ({ fecha: s(d.fecha).slice(0, 10), inicio: hhmm(s(d.inicio)), fin: hhmm(s(d.fin)), lugar: d.lugar != null && s(d.lugar) ? s(d.lugar) : s(r.lugar), lejos: d.lejos == null ? !!r.lejos : !!d.lejos })).filter((d) => d.fecha).sort((a, b) => a.fecha.localeCompare(b.fecha));
+  return dias.length ? dias : [{ fecha: s(r.fecha), inicio: hhmm(s(r.inicio)), fin: hhmm(s(r.fin)), lugar: s(r.lugar), lejos: !!r.lejos }];
 }
 
 type Fila = Record<string, unknown>;

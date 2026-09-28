@@ -1,6 +1,7 @@
 // Calendario iCalendar (.ics) de coordinación: un evento por cada día de cada pedido
 // (menos los rechazados) y las citas de entrega y devolución de uniformes.
 // Puro: entra `Datos`, sale el texto del calendario.
+import { lugarDia } from './reglas';
 import type { Datos } from './tipos';
 import { vistaPedidos, type PedidoVista } from './vista';
 
@@ -68,7 +69,7 @@ export function eventosCalendario(d: Datos, appUrl: string): Evento[] {
       eventos.push({
         uid: `${p.id}-${dia.fecha}@protocolo-fcgt`, inicio: aUTC(dia.fecha, dia.inicio), fin: aUTC(dia.fecha, dia.fin),
         titulo: `${prefijo(p)}${p.evento}${p.multidia ? ` (día ${p.dias.indexOf(dia) + 1} de ${p.dias.length})` : ''}`,
-        lugar: p.lugar, descripcion, estado: p.estado === 'Aprobado' ? 'CONFIRMED' : 'TENTATIVE', categoria: `Evento ${p.tipoLabel.toLowerCase()}`,
+        lugar: lugarDia(p, dia), descripcion, estado: p.estado === 'Aprobado' ? 'CONFIRMED' : 'TENTATIVE', categoria: `Evento ${p.tipoLabel.toLowerCase()}`,
       });
     }
     const c = p.uniformeCita;

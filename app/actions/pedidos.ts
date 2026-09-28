@@ -48,7 +48,9 @@ export interface PedidoCreado { id: string; codigo: string; evento: string; fech
 export async function crearPedido(f: FormPedido): Promise<Resultado<PedidoCreado>> {
   const hoy = hoyISO();
   const pedidos = await pedidosDelPeriodo();
-  const dias = ordenarDias(f.dias || []);
+  const dias = ordenarDias(f.dias || []).map((d) => ({ fecha: d.fecha, inicio: d.inicio, fin: d.fin, lugar: (d.lugar ?? '').trim().slice(0, 300), lejos: !!d.lejos }));
+  const lugar = dias[0]?.lugar || f.lugar.trim();
+  const lejos = dias.some((d) => d.lejos);
   const cruce = cruceEventos({ dias }, pedidos);
   const faltas = faltasPedido({ ...f, dias }, hoy, cruce ? { evento: cruce.pedido.evento } : null).flat();
   if (faltas.length) return { ok: false, error: 'Falta: ' + faltas.join(', ') };
@@ -68,7 +70,7 @@ export async function crearPedido(f: FormPedido): Promise<Resultado<PedidoCreado
         select ${periodo}, n, ${'SOL-' + periodo.slice(0, 4) + '-'} || lpad(n::text, 3, '0'),
           ${f.nombre.trim()}, ${f.cargo.trim()}, ${f.institucion.trim()}, ${normalizarCorreo(f.correoSolicitante)},
           ${f.tipo}, ${f.tipo === 'externo' ? f.convenio : 'si'}, ${f.evento.trim()}, ${primero.fecha}, ${primero.inicio}, ${primero.fin}, ${sql.json(dias as unknown as JSONValue)},
-          ${f.lugar.trim()}, ${!!f.lejos}, ${f.responsable.trim()}, ${f.responsableTelefono.trim()}, ${Math.round(f.cantidad)}, ${actividades}, ${sql.json(reparto as unknown as JSONValue)}, ${f.vestimenta},
+          ${lugar}, ${lejos}, ${f.responsable.trim()}, ${f.responsableTelefono.trim()}, ${Math.round(f.cantidad)}, ${actividades}, ${sql.json(reparto as unknown as JSONValue)}, ${f.vestimenta},
           ${f.evidenciaPath}, ${f.evidenciaNombre.slice(0, 200)}
         from (select coalesce(max(numero), 0) + 1 as n from requests where periodo = ${periodo}) s
         returning *`;

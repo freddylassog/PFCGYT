@@ -15,7 +15,7 @@ await p.fill('#nombre', 'Carla Espinosa'); await p.fill('#cargo', 'Directora'); 
 await p.click('button:has-text("Continuar")');
 await p.fill('#evento', 'Cena de gala'); await p.setInputFiles('input[type=file]', tmp); await p.waitForSelector('.tag-accent', { timeout: 15000 });
 await p.fill('#dia-fecha-0', '2026-10-20'); await p.fill('#dia-inicio-0', '17:00'); await p.fill('#dia-fin-0', '21:00');
-await p.fill('#lugar', 'Auditorio'); await p.fill('#responsable', 'Secretaría'); await p.fill('#telefono', '0991234567');
+await p.fill('#dia-lugar-0', 'Auditorio'); await p.fill('#responsable', 'Secretaría'); await p.fill('#telefono', '0991234567');
 await p.waitForTimeout(600);
 if (await bloqueado()) throw new Error('paso 2 bloqueado: ' + (await p.locator('.alerta').allTextContents()).join(' | '));
 await p.click('button:has-text("Continuar")');

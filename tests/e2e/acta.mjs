@@ -22,7 +22,7 @@ await p.click('button:has-text("Externo")');
 await p.click('button:has-text("Continuar")');
 await p.fill('#evento', evento); await p.setInputFiles('input[type=file]', tmp); await p.waitForSelector('.tag-accent', { timeout: 15000 });
 await p.fill('#dia-fecha-0', '2026-11-27'); await p.fill('#dia-inicio-0', '10:00'); await p.fill('#dia-fin-0', '18:00');
-await p.fill('#lugar', 'Hacienda La Compañía, Cayambe'); await p.click('label:has-text("fuera del Distrito Metropolitano")');
+await p.fill('#dia-lugar-0', 'Hacienda La Compañía, Cayambe'); await p.click('label:has-text("fuera del Distrito Metropolitano")');
 await p.fill('#responsable', 'María Paz'); await p.fill('#telefono', '0991234567');
 await p.waitForTimeout(600); await p.click('button:has-text("Continuar")');
 await p.waitForSelector('#cantidad'); await p.fill('#cantidad', '6');

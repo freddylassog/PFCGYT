@@ -32,6 +32,10 @@ export interface DiaEvento {
   fecha: string;
   inicio: string;
   fin: string;
+  /** Lugar de ese día (si falta, se usa el del pedido). */
+  lugar?: string;
+  /** Fuera del DMQ o aeropuerto ese día (si falta, se usa el del pedido). */
+  lejos?: boolean;
 }
 
 export interface Pedido {

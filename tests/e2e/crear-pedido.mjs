@@ -26,11 +26,13 @@ await p.waitForSelector('.tag-accent', { timeout: 15000 });
 await p.fill('#dia-fecha-0', fecha);
 await p.fill('#dia-inicio-0', inicio);
 await p.fill('#dia-fin-0', fin);
+await p.fill('#dia-lugar-0', 'Auditorio Principal, Campus Occidental');
 if (segundoDia) {
   await p.click('button:has-text("Agregar otro día")');
   await p.fill('#dia-fecha-1', segundoDia);
+  if ((await p.inputValue('#dia-lugar-1')) !== 'Auditorio Principal, Campus Occidental') throw new Error('el lugar no se copió al día 2: ' + (await p.inputValue('#dia-lugar-1')));
+  console.log('LUGAR COPIADO al día 2');
 }
-await p.fill('#lugar', 'Auditorio Principal, Campus Occidental');
 await p.fill('#responsable', 'Secretaría FCGT');
 await p.fill('#telefono', '02 299 0800 ext. 2410');
 await p.waitForTimeout(700);

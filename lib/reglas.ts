@@ -157,9 +157,47 @@ export interface Transporte {
   motivos: string[];
 }
 
+/** Lugar de un día: el suyo o, si no tiene, el del pedido. */
+export function lugarDia(p: { lugar: string }, d: DiaEvento): string {
+  return (d.lugar ?? '').trim() || p.lugar;
+}
+
+export function lejosDia(p: { lejos: boolean }, d: DiaEvento): boolean {
+  return d.lejos == null ? !!p.lejos : !!d.lejos;
+}
+
+/** ¿Todos los días son en el mismo lugar? */
+export function mismoLugar(p: { lugar: string; lejos: boolean; dias: DiaEvento[] }): boolean {
+  return p.dias.every((d) => lugarDia(p, d) === lugarDia(p, p.dias[0]) && lejosDia(p, d) === lejosDia(p, p.dias[0]));
+}
+
+/** 'Auditorio' o, si cambia por día, 'Día 1: Auditorio · Día 2: Hacienda X'. */
+export function lugaresTexto(p: { lugar: string; lejos: boolean; dias: DiaEvento[] }, conLejos = false): string {
+  const marca = (lejos: boolean) => (conLejos && lejos ? ' (fuera del DMQ / aeropuerto)' : '');
+  const primero = p.dias[0] ?? { fecha: '', inicio: '', fin: '' };
+  if (p.dias.length <= 1 || mismoLugar(p)) return `${lugarDia(p, primero)}${marca(lejosDia(p, primero))}`;
+  return p.dias.map((d, i) => `Día ${i + 1}: ${lugarDia(p, d)}${marca(lejosDia(p, d))}`).join(' · ');
+}
+
+/** Transporte de un día: ida si ese día es fuera del DMQ / aeropuerto; regreso si es lejos o termina después de las 18:00. */
+export function transporteDia(d: DiaEvento, lejosPedido: boolean): Transporte {
+  const lejos = lejosDia({ lejos: lejosPedido }, d);
+  const tarde = !!d.fin && min(d.fin) > 18 * 60;
+  return { ida: lejos, regreso: lejos || tarde, motivos: [lejos ? 'lugar fuera del Distrito Metropolitano de Quito o aeropuerto' : '', tarde ? 'termina después de las 18:00' : ''].filter(Boolean) };
+}
+
 export function transporteDias(e: { dias: DiaEvento[]; lejos: boolean }): Transporte {
-  const tarde = e.dias.some((d) => !!d.fin && min(d.fin) > 18 * 60);
-  return { ida: !!e.lejos, regreso: !!e.lejos || tarde, motivos: [e.lejos ? 'lugar fuera del Distrito Metropolitano de Quito o aeropuerto' : '', tarde ? 'termina después de las 18:00' : ''].filter(Boolean) };
+  const porDia = e.dias.map((d) => transporteDia(d, e.lejos));
+  const motivos = [...new Set(porDia.flatMap((t) => t.motivos))];
+  return { ida: porDia.some((t) => t.ida), regreso: porDia.some((t) => t.regreso), motivos };
+}
+
+/** Detalle por día cuando el transporte cambia entre días: 'día 1: regreso a casa (…); día 2: ida y regreso (…)'. */
+export function transporteDetallePorDia(e: { dias: DiaEvento[]; lejos: boolean }): string | null {
+  if (e.dias.length <= 1) return null;
+  const porDia = e.dias.map((d) => transporteDia(d, e.lejos));
+  if (porDia.every((t) => t.ida === porDia[0].ida && t.regreso === porDia[0].regreso)) return null;
+  return porDia.map((t, i) => `día ${i + 1}: ${t.regreso ? (t.ida ? 'ida y regreso' : 'regreso a casa') : 'por su cuenta'}${t.motivos.length ? ` (${t.motivos.join(' y ')})` : ''}`).join('; ');
 }
 
 /** 'Ida y regreso' · 'Regreso a casa' · null si no aplica. */
@@ -184,6 +222,8 @@ export function compromisosPedido(p: { dias: DiaEvento[]; lejos: boolean; cantid
   const porDia = p.dias.length > 1 ? ` (${p.dias.map((d, i) => `día ${i + 1}: ${comidasDia(d)}`).join(', ')})` : '';
   const t = transporteDias(p);
   const motivos = t.motivos.join(' y ');
+  const detalle = transporteDetallePorDia(p);
+  const porDiaTexto = detalle ? ` Por día: ${detalle}.` : '';
   const tel = (p.responsableTelefono || '').trim();
   return [
     {
@@ -196,8 +236,8 @@ export function compromisosPedido(p: { dias: DiaEvento[]; lejos: boolean; cantid
       clave: 'transporte', titulo: 'Transporte', aplica: t.regreso, corto: t.regreso ? `Transporte ${t.ida ? 'ida y regreso' : 'de regreso'}` : null,
       texto: t.regreso
         ? (t.ida
-          ? `Ida y regreso para los ${n} estudiante${n === 1 ? '' : 's'}: los lleva desde la universidad y los regresa a su casa (${motivos}).`
-          : `Regreso a casa para los ${n} estudiante${n === 1 ? '' : 's'} (${motivos}).`)
+          ? `Ida y regreso para los ${n} estudiante${n === 1 ? '' : 's'}: los lleva desde la universidad y los regresa a su casa (${motivos}).${porDiaTexto}`
+          : `Regreso a casa para los ${n} estudiante${n === 1 ? '' : 's'} (${motivos}).${porDiaTexto}`)
         : 'No aplica: el lugar está dentro de Quito y el evento termina antes de las 18:00; los estudiantes llegan y regresan por su cuenta.',
     },
     {
@@ -551,7 +591,7 @@ export interface FormPedido {
   evidenciaPath: string;
 }
 
-export const DIA_INICIAL: DiaEvento = { fecha: '', inicio: '09:00', fin: '13:00' };
+export const DIA_INICIAL: DiaEvento = { fecha: '', inicio: '09:00', fin: '13:00', lugar: '', lejos: false };
 
 export const FORM_INICIAL: FormPedido = {
   nombre: '', cargo: '', institucion: '', correoSolicitante: '', tipo: 'interno', convenio: 'si',
@@ -647,7 +687,7 @@ export function faltasPedido(f: FormPedido, hoy: string, cruce: { evento: string
   if (!f.evidenciaPath) f2.push('evidencia del pedido');
   f2.push(...faltasDias(f.dias, hoy));
   if (cruce && BLOQUEAR_CRUCE_EVENTOS) f2.push('horario sin cruce');
-  if (!f.lugar.trim()) f2.push('lugar');
+  if (f.dias.some((d) => !(d.lugar ?? '').trim())) f2.push(f.dias.length > 1 ? 'lugar de cada día' : 'lugar');
   if (!f.responsable.trim()) f2.push('nombre del responsable');
   if (!telefonoValido(f.responsableTelefono)) f2.push('teléfono del responsable');
 

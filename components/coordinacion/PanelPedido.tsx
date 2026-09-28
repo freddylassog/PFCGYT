@@ -78,7 +78,7 @@ export function PanelPedido({ p, datos, pedidos, cruceEvento, onCerrar }: { p: P
         <dt className="muted">Horario</dt><dd>{p.multidia ? p.dias.map((d) => <div key={d.fecha}>{fechaCorta(d.fecha)} · {d.inicio}–{d.fin}</div>) : `${p.inicio}–${p.fin}`}<div><strong>{p.horas} h</strong> de protocolo{p.multidia ? ` en ${p.dias.length} días` : ''}</div></dd>
         <dt className="muted">Estudiantes</dt><dd>{p.cantidad} solicitados</dd>
         <dt className="muted">Vestimenta</dt><dd>{p.vestLabel}</dd>
-        <dt className="muted">Lugar</dt><dd>{p.lugar}{p.lejos ? ' · fuera del DMQ / aeropuerto' : ''}</dd>
+        <dt className="muted">Lugar</dt><dd>{p.mismoLugar ? <>{p.lugar}{p.lejos ? ' · fuera del DMQ / aeropuerto' : ''}</> : p.dias.map((d, i) => <div key={d.fecha}>Día {i + 1}: {d.lugar || p.lugar}{d.lejos ? ' · fuera del DMQ / aeropuerto' : ''}</div>)}</dd>
         <dt className="muted">Responsable</dt><dd>{p.responsable}{p.responsableTelefono && <> · <a href={`tel:${p.responsableTelefono.replace(/[^\d+]/g, '')}`}>{p.responsableTelefono}</a></>}</dd>
         <dt className="muted">Pedido</dt><dd>{p.fechaPedido} · {p.evidenciaPath ? <a href={`/api/evidencia/${p.id}`} target="_blank" rel="noopener">{p.evidenciaTexto}</a> : p.evidenciaTexto}</dd>
       </dl>

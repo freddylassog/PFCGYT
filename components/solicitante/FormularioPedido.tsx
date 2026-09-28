@@ -9,7 +9,7 @@ import { InputNumero } from '@/components/InputNumero';
 import { EditorReparto } from '@/components/EditorReparto';
 import {
   BLOQUEAR_CRUCE_EVENTOS, FORM_INICIAL, MAX_ESTUDIANTES, VESTIMENTA, ajustarRepartoATotal, cumple72h, duracionTextoDias, esFechaISO, esHora, faltasPedido, fechaCorta, fechaLarga,
-  compromisosPedido, fechaLargaDias, horarioTextoDias, ordenarDias, plazoTexto, primerDia, repartoTexto, type FormPedido,
+  compromisosPedido, fechaLargaDias, horarioTextoDias, lugaresTexto, ordenarDias, plazoTexto, primerDia, repartoTexto, type FormPedido,
 } from '@/lib/reglas';
 
 const PASOS = ['Solicitante', 'Evento', 'Estudiantes', 'Compromisos'];
@@ -180,7 +180,7 @@ export function FormularioPedido({ hoy }: { hoy: string }) {
             </div>
             <div className="field">
               <label>Días y horarios de participación de los estudiantes</label>
-              <EditorDias dias={f.dias} onChange={(d) => set('dias', d)} min={hoy} idPrefijo="dia" />
+              <EditorDias dias={f.dias} onChange={(d) => setF((s) => ({ ...s, dias: d, lugar: d[0]?.lugar ?? '', lejos: d.some((x) => !!x.lejos) }))} min={hoy} idPrefijo="dia" />
             </div>
             <p className="muted fs-12 m-0">Plazo: <strong style={{ color: 'var(--color-text)' }}>{primero?.fecha ? plazoTexto(primero.fecha, hoy) : 'Elige la fecha'}</strong> · Duración: <strong style={{ color: 'var(--color-text)' }}>{durTexto}</strong>.</p>
             {error72 && (
@@ -189,8 +189,6 @@ export function FormularioPedido({ hoy }: { hoy: string }) {
             {cruceActual && (
               <div className="alerta" role="alert"><IconoCalendario /><span><strong>Horario ocupado.</strong> Ya hay un evento en esa hora el {fechaCorta(cruceActual.fecha)}: se cruza con <em>{cruceActual.evento}</em> ({cruceActual.inicio}–{cruceActual.fin}, {cruceActual.estado}). {BLOQUEAR_CRUCE_EVENTOS ? 'No se puede registrar otro evento en esa hora: elige otro horario el mismo día u otra fecha.' : 'Puedes continuar; la coordinación revisará el cruce antes de aprobar.'}</span></div>
             )}
-            <div className="field"><label htmlFor="lugar">Lugar y dirección</label><input id="lugar" className="input" value={f.lugar} onChange={(e) => set('lugar', e.target.value)} placeholder="Salón, edificio, calle" /></div>
-            <label className="radio fs-13"><input type="checkbox" checked={f.lejos} onChange={(e) => set('lejos', e.target.checked)} /><span className="dot cuadro" />El lugar está fuera del Distrito Metropolitano de Quito o es el aeropuerto (Tababela)</label>
             <p className="muted fs-12 m-0">Dentro de Quito los estudiantes llegan por su cuenta. Fuera del Distrito Metropolitano o en el aeropuerto, la organización los lleva y los regresa; si el evento termina después de las 18:00, garantiza el regreso a casa.</p>
             <div className="field">
               <label>Responsable en sitio durante el evento (contacto para coordinar)</label>
@@ -234,7 +232,7 @@ export function FormularioPedido({ hoy }: { hoy: string }) {
               <dt className="muted">Fecha</dt><dd>{fechaLargaDias(f.dias)} · {horarioTextoDias(ordenarDias(f.dias))} ({durTexto})</dd>
               <dt className="muted">Estudiantes</dt><dd>{f.cantidad} · {repartoTexto(f.reparto, [])}</dd>
               <dt className="muted">Vestimenta</dt><dd>{VESTIMENTA[f.vestimenta].label}</dd>
-              <dt className="muted">Lugar</dt><dd>{f.lugar}</dd>
+              <dt className="muted">Lugar</dt><dd>{lugaresTexto({ ...f, dias: ordenarDias(f.dias) }, true)}</dd>
               <dt className="muted">Responsable</dt><dd>{f.responsable} · {f.responsableTelefono}</dd>
               <dt className="muted">Evidencia</dt><dd>{f.evidenciaNombre}</dd>
             </dl>

@@ -1,0 +1,28 @@
+// Captura el paso 2 con dos días y lugares distintos. Uso: node tests/e2e/shot-dos-dias.mjs
+import { chromium } from '@playwright/test';
+import { writeFileSync } from 'node:fs';
+const base = process.env.BASE_URL || 'http://localhost:3000';
+const shots = process.env.SHOTS || '/tmp/claude-0/-home-user-PFCGYT/5a10c32a-d366-574f-b48c-ac6051283a90/scratchpad/shots';
+const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
+const p = await b.newPage({ viewport: { width: 1280, height: 1000 } });
+const tmp = '/tmp/evidencia-prueba.pdf'; writeFileSync(tmp, '%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF');
+await p.goto(base + '/');
+await p.fill('#nombre', 'Carla Espinosa'); await p.fill('#cargo', 'Directora'); await p.fill('#institucion', 'Universidad UTE'); await p.fill('#correo', 'carla@ejemplo.com');
+await p.click('button:has-text("Continuar")');
+await p.fill('#evento', 'Congreso en dos sedes'); await p.setInputFiles('input[type=file]', tmp); await p.waitForSelector('.tag-accent', { timeout: 15000 });
+await p.fill('#dia-fecha-0', '2026-12-10'); await p.fill('#dia-inicio-0', '09:00'); await p.fill('#dia-fin-0', '13:00');
+await p.fill('#dia-lugar-0', 'Auditorio Principal, Campus Occidental');
+await p.click('button:has-text("Agregar otro día")');
+console.log('día 2 copiado:', await p.inputValue('#dia-lugar-1'));
+await p.fill('#dia-lugar-1', 'Aeropuerto Mariscal Sucre, Tababela');
+await p.click('label:has-text("El lugar del día 2 está")');
+await p.fill('#responsable', 'Secretaría'); await p.fill('#telefono', '0991234567');
+await p.waitForTimeout(500);
+await p.screenshot({ path: shots + '/dos-dias-lugares.png', fullPage: true, caret: 'initial' });
+await p.click('button:has-text("Continuar")'); await p.waitForSelector('#cantidad');
+await p.click('label:has-text("Guía de invitados")'); await p.click('button:has-text("Continuar")');
+const resumen = (await p.locator('section:has-text("04 · Compromisos")').textContent()).replace(/\s+/g, ' ');
+console.log('lugar en resumen:', /Día 1: Auditorio Principal.*Día 2: Aeropuerto Mariscal Sucre, Tababela \(fuera del DMQ \/ aeropuerto\)/.test(resumen));
+console.log('transporte por día:', /Por día: día 1: por su cuenta; día 2: ida y regreso/.test(resumen));
+await p.screenshot({ path: shots + '/dos-dias-compromisos.png', fullPage: true, caret: 'initial' });
+await b.close();

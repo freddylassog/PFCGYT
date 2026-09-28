@@ -1,5 +1,5 @@
 // Texto de las notificaciones (puro, sin dependencias de servidor).
-import { MINIMO_EVENTOS, citaDevolucionTexto, citaEntregaTexto, fechaLarga, fechaLargaDias, horarioTextoDias, horasDias, repartoTexto, tipoLabel } from './reglas';
+import { MINIMO_EVENTOS, citaDevolucionTexto, citaEntregaTexto, fechaLarga, lugarDia, lugaresTexto, fechaLargaDias, horarioTextoDias, horasDias, repartoTexto, tipoLabel } from './reglas';
 import type { CitaUniforme, DiaEvento, Estudiante, Pedido } from './tipos';
 import type { PedidoVista } from './vista';
 
@@ -17,7 +17,7 @@ export function mensajeNuevoPedido(p: Pedido, appUrl: string): Mensaje {
     `Fecha: ${fechaLargaDias(p.dias)} · ${horarioTextoDias(p.dias)} · ${horasDias(p.dias)} h`,
     `Solicita: ${p.nombre}, ${p.cargo} · ${p.institucion}${p.correoSolicitante ? ` · ${p.correoSolicitante}` : ''}`,
     `Estudiantes: ${p.cantidad} · ${repartoTexto(p.reparto, p.actividades)}`,
-    `Lugar: ${p.lugar}${p.lejos ? ' (fuera del DMQ / aeropuerto)' : ''}`,
+    `Lugar: ${lugaresTexto(p, true)}`,
     `Responsable en sitio: ${p.responsable}${p.responsableTelefono ? ` · ${p.responsableTelefono}` : ''}`,
   ];
   const texto = `Nuevo pedido de apoyo protocolario\n\n${lineas.join('\n')}\n\nRevisar en el panel: ${enlace}`;
@@ -41,7 +41,7 @@ export function mensajeConvocatoriaCanal(p: PedidoVista, appUrl: string): string
     `Organiza: ${p.institucion} (${p.tipoLabel.toLowerCase()})`,
     `Fecha: ${p.fechaLarga}`,
     `Horario: ${p.horarioTexto} · ${p.horas} h de protocolo${p.multidia ? ` en ${p.dias.length} días` : ''}`,
-    `Lugar: ${p.lugar}`,
+    `Lugar: ${p.lugarTexto}`,
     `Cupos: ${p.cantidad} estudiantes`,
     `Vestimenta: ${p.vestLabel}. ${p.vestNotaEst}`,
     `Actividades: ${p.actividadesTexto}`,
@@ -65,7 +65,7 @@ export function mensajeRecordatorioCanal(pedidos: PedidoVista[], manana: string)
     return [
       `📌 ${p.evento}`,
       `Horario: ${dia.inicio}–${dia.fin}${p.multidia ? ` (día ${p.dias.indexOf(dia) + 1} de ${p.dias.length})` : ''}`,
-      `Lugar: ${p.lugar}`,
+      `Lugar: ${lugarDia(p, dia)}`,
       `Responsable en sitio: ${p.responsable}${p.responsableTelefono ? ` · ${p.responsableTelefono}` : ''}`,
       `Vestimenta: ${p.vestLabel}. ${p.vestNotaEst}`,
       `Confirmados (${p.confirmadosN}/${p.cantidad}): ${p.confirmados.map((e) => e.nombre).join(', ') || '—'}`,
@@ -103,7 +103,7 @@ export function mensajeEstudianteConfirmado(p: PedidoVista, e: Estudiante, event
     ``,
     `Fecha: ${p.fechaLarga}`,
     `Horario: ${p.horarioTexto}`,
-    `Lugar: ${p.lugar}`,
+    `Lugar: ${p.lugarTexto}`,
     `Responsable en sitio: ${p.responsable}${p.responsableTelefono ? ` · ${p.responsableTelefono}` : ''}`,
     `Vestimenta: ${p.vestLabel}. ${p.vestNotaEst}`,
     `Actividades del evento: ${p.actividadesTexto}`,
@@ -124,7 +124,7 @@ export function mensajeRecordatorioPersonal(p: PedidoVista, dia: DiaEvento, e: E
   return [
     `⏰ ${primerNombre(e)}, mañana ${fechaLarga(dia.fecha)} tienes el evento ${p.evento}.`,
     `Horario: ${dia.inicio}–${dia.fin}`,
-    `Lugar: ${p.lugar}`,
+    `Lugar: ${lugarDia(p, dia)}`,
     `Responsable en sitio: ${p.responsable}${p.responsableTelefono ? ` · ${p.responsableTelefono}` : ''}`,
     `Vestimenta: ${p.vestLabel}. ${p.vestNotaEst}`,
     `Llega 15 minutos antes.`,

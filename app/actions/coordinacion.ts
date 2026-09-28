@@ -206,10 +206,12 @@ export async function editarPedido(id: string, c: CambiosPedido): Promise<Result
     if (!actual) throw new Error('Pedido no encontrado');
     if (!c.evento.trim()) throw new Error('Escribe el nombre del evento');
     if (!c.nombre.trim() || !c.cargo.trim() || !c.institucion.trim()) throw new Error('Nombre, cargo e institución son obligatorios');
-    const dias = ordenarDias(c.dias || []);
+    const dias = ordenarDias(c.dias || []).map((d) => ({ fecha: d.fecha, inicio: d.inicio, fin: d.fin, lugar: (d.lugar ?? '').trim().slice(0, 300), lejos: !!d.lejos }));
+    const lugar = dias[0]?.lugar || (c.lugar || '').trim();
+    const lejos = dias.some((d) => d.lejos);
     const malDias = faltasDias(dias, hoyISO(), false);
     if (malDias.length) throw new Error('Revisa los días: ' + malDias.join(', '));
-    if (!c.lugar.trim() || !c.responsable.trim()) throw new Error('Lugar y responsable son obligatorios');
+    if (dias.some((d) => !d.lugar) || !c.responsable.trim()) throw new Error('Lugar de cada día y responsable son obligatorios');
     if (!telefonoValido(c.responsableTelefono)) throw new Error('Escribe un teléfono válido del responsable');
     const cantidad = Math.round(Number(c.cantidad));
     if (!(cantidad >= 1 && cantidad <= MAX_ESTUDIANTES)) throw new Error(`La cantidad debe estar entre 1 y ${MAX_ESTUDIANTES}`);
@@ -223,7 +225,7 @@ export async function editarPedido(id: string, c: CambiosPedido): Promise<Result
     const correo = normalizarCorreo(c.correoSolicitante) || null;
     await sql`update requests set nombre = ${c.nombre.trim()}, cargo = ${c.cargo.trim()}, institucion = ${c.institucion.trim()}, correo_solicitante = ${correo},
       evento = ${c.evento.trim()}, fecha = ${dias[0].fecha}, inicio = ${dias[0].inicio}, fin = ${dias[0].fin}, dias = ${sql.json(dias as unknown as JSONValue)},
-      lugar = ${c.lugar.trim()}, lejos = ${!!c.lejos}, responsable = ${c.responsable.trim()}, responsable_telefono = ${c.responsableTelefono.trim()},
+      lugar = ${lugar}, lejos = ${lejos}, responsable = ${c.responsable.trim()}, responsable_telefono = ${c.responsableTelefono.trim()},
       cantidad = ${cantidad}, vestimenta = ${c.vestimenta}, actividades = ${actividades}, reparto = ${sql.json(reparto as unknown as JSONValue)} where id = ${id}`;
     // Si cambiaron los días u horarios, los avisos a docentes pendientes se recalculan.
     const antes = JSON.stringify(ordenarDias((Array.isArray(actual.dias) ? actual.dias : []) as DiaEvento[]).map((d) => [d.fecha, String(d.inicio).slice(0, 5), String(d.fin).slice(0, 5)]));

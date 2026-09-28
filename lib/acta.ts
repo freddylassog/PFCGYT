@@ -3,7 +3,7 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { PDFDocument, PDFFont, PDFPage, StandardFonts, rgb } from 'pdf-lib';
-import { fechaCorta, fechaLarga } from './reglas';
+import { fechaCorta, fechaLarga, lugaresTexto } from './reglas';
 import type { PedidoVista } from './vista';
 
 const AZUL = rgb(0.118, 0.302, 0.608);
@@ -104,7 +104,7 @@ export async function generarActa(p: PedidoVista, periodo: string, ahora: Date =
   } else {
     w.parrafo(`${p.fechaLarga} · ${p.horarioTexto} · ${p.horas} h de protocolo`, { etiqueta: 'Fecha y horario:' });
   }
-  w.parrafo(`${p.lugar}${p.lejos ? ' · fuera del Distrito Metropolitano de Quito / aeropuerto' : ''}`, { etiqueta: 'Lugar:' });
+  w.parrafo(lugaresTexto(p, true).replace(/\(fuera del DMQ \/ aeropuerto\)/g, '(fuera del Distrito Metropolitano de Quito / aeropuerto)'), { etiqueta: p.mismoLugar ? 'Lugar:' : 'Lugares:' });
   w.parrafo(`${p.cantidad} · ${p.actividadesTexto || '—'}`, { etiqueta: 'Estudiantes y actividades:' });
   w.parrafo(`${p.vestLabel}. ${p.vestNotaEst}`, { etiqueta: 'Vestimenta:' });
 

@@ -21,11 +21,9 @@ export function EditarPedido({ p, onCerrar }: { p: PedidoVista; onCerrar: () => 
     <form className={`punteado ${pending ? 'pendiente' : ''}`} onSubmit={(e) => { e.preventDefault(); run(() => editarPedido(p.id, c), onCerrar); }}>
       <h6 className="h6-accent">Editar pedido</h6>
       <div className="field"><label>Nombre del evento</label><input className="input" value={c.evento} onChange={(e) => set('evento', e.target.value)} required /></div>
-      <div className="field"><label>Días y horarios de participación</label><EditorDias dias={c.dias} onChange={(d) => set('dias', d)} idPrefijo="edit-dia" /></div>
+      <div className="field"><label>Días y horarios de participación</label><EditorDias dias={c.dias} onChange={(d) => setC((s) => ({ ...s, dias: d, lugar: d[0]?.lugar ?? '', lejos: d.some((x) => !!x.lejos) }))} idPrefijo="edit-dia" /></div>
       <div className="field" style={{ maxWidth: 200 }}><label>Número de estudiantes</label><InputNumero id="edit-cantidad" min={1} max={MAX_ESTUDIANTES} value={c.cantidad} onChange={(n) => setC((s) => ({ ...s, cantidad: n, reparto: ajustarRepartoATotal(s.reparto, n) }))} required /></div>
       <p className="muted fs-12 m-0">Duración: {duracionTextoDias(c.dias)}. Confirmados actuales: {p.confirmadosN} (la cantidad no puede ser menor).</p>
-      <div className="field"><label>Lugar y dirección</label><input className="input" value={c.lugar} onChange={(e) => set('lugar', e.target.value)} required /></div>
-      <label className="radio fs-13"><input type="checkbox" checked={c.lejos} onChange={(e) => set('lejos', e.target.checked)} /><span className="dot cuadro" />El lugar está fuera del Distrito Metropolitano de Quito o es el aeropuerto (Tababela)</label>
       <div className="cols-2" style={{ gap: 'var(--space-2)' }}>
         <div className="field"><label>Responsable en sitio</label><input className="input" value={c.responsable} onChange={(e) => set('responsable', e.target.value)} required /></div>
         <div className="field"><label>Teléfono</label><input className="input" type="tel" value={c.responsableTelefono} onChange={(e) => set('responsableTelefono', e.target.value)} required /></div>

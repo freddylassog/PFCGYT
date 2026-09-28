@@ -70,7 +70,7 @@ export function MisEventos({ datos, yo }: { datos: Datos; yo: Estudiante }) {
             <div className="fs-14" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 'var(--space-3)' }}>
               <div><div className="etiqueta">Fecha</div>{e.fechaLarga}</div>
               <div><div className="etiqueta">Tu horario</div>{e.horarioTexto} · {e.duracion}</div>
-              <div><div className="etiqueta">Lugar</div>{e.lugar}</div>
+              <div><div className="etiqueta">Lugar</div>{e.mismoLugar ? e.lugar : e.dias.map((d, i) => <div key={d.fecha}>Día {i + 1}: {d.lugar || e.lugar}</div>)}</div>
               <div><div className="etiqueta">Responsable en sitio</div>{e.responsable}{e.responsableTelefono && <div className="muted fs-12">{e.responsableTelefono}</div>}</div>
               <div><div className="etiqueta">Vestimenta</div>{e.vestLabel}<div className="muted fs-12">{e.vestNotaEst}</div></div>
               {(e.comidas > 0 || e.transporteTexto) && <div><div className="etiqueta">Alimentación y transporte</div>{e.comidas > 0 ? `${e.comidas} ${e.comidas > 1 ? 'alimentaciones' : 'alimentación'}` : 'Sin alimentación'}{e.transporteTexto ? ` · transporte: ${e.transporteTexto.toLowerCase()}` : ''}<div className="muted fs-12">A cargo del organizador.</div></div>}

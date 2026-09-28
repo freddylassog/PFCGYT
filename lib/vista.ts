@@ -2,7 +2,7 @@
 // reporte Excel y los correos. Todo puro: entra `Datos`, salen vistas.
 import {
   ACTIVIDADES, DEVOLUCION, MINIMO_EVENTOS, VESTIMENTA, convenioLabel, cruceClases, diasHasta, duracionTextoDias, fechaCorta, fechaCortaDias, fechaLargaDias,
-  comidasDias, compromisosPedido, estadoVisible, horarioTextoDias, horasDias, infoUniforme, pasa4hDias, redondear1, repartoTexto, semCorto, semLabel, semanaDe, tagClass, tipoClass, tipoLabel, transporteDias, transporteMotivoDias, transporteTexto, ultimoDia, type Compromiso, type EstadoVisible, type Transporte,
+  comidasDias, compromisosPedido, estadoVisible, lugaresTexto, mismoLugar, horarioTextoDias, horasDias, infoUniforme, pasa4hDias, redondear1, repartoTexto, semCorto, semLabel, semanaDe, tagClass, tipoClass, tipoLabel, transporteDias, transporteMotivoDias, transporteTexto, ultimoDia, type Compromiso, type EstadoVisible, type Transporte,
 } from './reglas';
 import type { Clase, Datos, Docente, Estudiante, Novedad, Pedido, Semestre } from './tipos';
 
@@ -38,6 +38,9 @@ export interface PedidoVista extends Pedido {
   transporteInfo: Transporte;
   /** 'Ida y regreso' · 'Regreso a casa' · null. */
   transporteTexto: string | null;
+  /** Lugar (o 'Día 1: X · Día 2: Y' si cambia por día). */
+  lugarTexto: string;
+  mismoLugar: boolean;
   /** Compromisos del organizador con cantidades. */
   compromisosLista: Compromiso[];
   /** Resumen corto: 'Alimentación ×2 · Transporte ida y regreso' o '—'. */
@@ -109,6 +112,7 @@ export function vistaPedido(d: Datos, p: Pedido): PedidoVista {
     vestLabel: v.label, vestCorta: v.corta, vestNotaEst: v.est,
     pasa4h: p4, transporteMotivo: tm, transporte: !!tm,
     comidas: comidasDias(p.dias), transporteInfo: transporteDias(p), transporteTexto: transporteTexto(transporteDias(p)),
+    lugarTexto: lugaresTexto(p), mismoLugar: mismoLugar(p),
     compromisosLista: compromisos, compromisos: compromisos.map((c) => c.corto).filter(Boolean).join(' · ') || '—',
     actaUrl: p.actaToken ? `${d.appUrl}/api/acta/${p.id}?t=${p.actaToken}` : null,
     convLabel: convenioLabel(p), convTag: p.tipo === 'externo' && p.convenio === 'no' ? 'tag-alerta' : 'tag-neutral',
