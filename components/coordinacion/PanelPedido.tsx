@@ -1,7 +1,7 @@
 'use client';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
-  cambiarEstado, confirmarDirecto, crearAviso, decidirInscripcion, eliminarPedido, finalizarEvento, marcarAviso, marcarConvenio, publicarConvocatoriaCanal, quitarNovedad, regenerarClave, registrarNovedad, reportarNovedades,
+  cambiarEstado, confirmarDirecto, crearAviso, decidirInscripcion, eliminarPedido, finalizarEvento, guardarActaFirmada, marcarAviso, marcarConvenio, prepararActaFirmada, publicarConvocatoriaCanal, quitarActaFirmada, quitarNovedad, regenerarClave, registrarNovedad, reportarNovedades,
 } from '@/app/actions/coordinacion';
 import { CorreoBox } from '@/components/CorreoBox';
 import { IconoCalendario, IconoCerrar } from '@/components/Iconos';
@@ -21,6 +21,20 @@ export function PanelPedido({ p, datos, pedidos, cruceEvento, onCerrar }: { p: P
   const [verDecanato, setVerDecanato] = useState(false);
   const [agregarId, setAgregarId] = useState('');
   const [editando, setEditando] = useState(false);
+  const [subiendoActa, setSubiendoActa] = useState(false);
+  const [errorActa, setErrorActa] = useState<string | null>(null);
+  const actaRef = useRef<HTMLInputElement>(null);
+  async function subirActa(archivo: File) {
+    setErrorActa(null); setSubiendoActa(true);
+    try {
+      const prep = await prepararActaFirmada(p.id, archivo.name, archivo.type, archivo.size);
+      if (!prep.ok || !prep.datos) throw new Error(prep.error || 'No se pudo preparar la subida.');
+      const resp = await fetch(prep.datos.url, { method: 'PUT', headers: { 'content-type': archivo.type || 'application/octet-stream', 'x-upsert': 'false' }, body: archivo });
+      if (!resp.ok) throw new Error('La subida falló (' + resp.status + '). Intenta de nuevo.');
+      const r = await guardarActaFirmada(p.id, prep.datos.path, archivo.name);
+      if (!r.ok) throw new Error(r.error || 'No se pudo guardar el acta.');
+    } catch (e) { setErrorActa((e as Error).message); } finally { setSubiendoActa(false); if (actaRef.current) actaRef.current.value = ''; }
+  }
   const nEstudiantes = datos.estudiantes.filter((e) => e.activo).length;
   const eventosPor = (id: string) => pedidos.filter((x) => x.estado === 'Aprobado' && x.confirmados.some((e) => e.id === id)).length;
   const uniformeIncompleto = (e: Estudiante) => p.vestimenta === 'uniforme' && !infoUniforme(e.genero, datos.prendas.filter((x) => x.studentId === e.id).map((x) => x.item)).completo;
@@ -69,12 +83,19 @@ export function PanelPedido({ p, datos, pedidos, cruceEvento, onCerrar }: { p: P
         <dt className="muted">Pedido</dt><dd>{p.fechaPedido} · {p.evidenciaPath ? <a href={`/api/evidencia/${p.id}`} target="_blank" rel="noopener">{p.evidenciaTexto}</a> : p.evidenciaTexto}</dd>
       </dl>
       <div><h6 style={{ margin: '0 0 4px' }}>Actividades</h6><div className="row" style={{ gap: 4 }}>{p.actividadesEtiquetas.map((a) => <span key={a} className="tag tag-neutral">{a}</span>)}</div></div>
-      {(p.pasa4h || p.transporte) && (
-        <div className="stack-2 fs-13" style={{ gap: 4 }}>
-          {p.pasa4h && <div style={{ display: 'flex', gap: 6 }}><span className="tag tag-accent" style={{ flex: 'none' }}>Alimentación</span><span>Más de 4 h: el organizador cubre alimentación.</span></div>}
-          {p.transporte && <div style={{ display: 'flex', gap: 6 }}><span className="tag tag-accent" style={{ flex: 'none' }}>Transporte</span><span>{p.transporteMotivo}: transporte de regreso obligatorio.</span></div>}
+      <div className="stack-2 fs-13" style={{ gap: 4 }}>
+        <div className="between"><h6 className="m-0">Compromisos del organizador</h6>{p.actaUrl && <a className="btn btn-secondary btn-sm" href={p.actaUrl} target="_blank" rel="noopener">Acta de compromiso (PDF)</a>}</div>
+        {p.compromisosLista.map((c) => (
+          <div key={c.clave} style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}><span className={`tag ${c.aplica ? 'tag-accent' : 'tag-neutral'}`} style={{ flex: 'none' }}>{c.titulo}</span><span className={c.aplica ? '' : 'muted'}>{c.texto}</span></div>
+        ))}
+        <p className="muted fs-12 m-0">Aceptados en la app por {p.nombre} ({p.correoSolicitante || 'sin correo'}) el {p.fechaPedido}. El acta en PDF lleva esa aceptación; la firma manuscrita es opcional.</p>
+        <div className="row" style={{ gap: 6 }}>
+          {p.actaFirmadaPath
+            ? <><a className="tag tag-verde" href={`/api/acta-firmada/${p.id}`} target="_blank" rel="noopener" style={{ textDecoration: 'none' }}>Acta firmada · {p.actaFirmadaAt ? fechaCorta(p.actaFirmadaAt.slice(0, 10)) : ''} · {p.actaFirmadaNombre}</a><button className="btn btn-ghost btn-sm" type="button" onClick={() => { if (confirm('¿Quitar el acta firmada?')) run(() => quitarActaFirmada(p.id)); }}>Quitar</button></>
+            : <><button className="btn btn-ghost btn-sm" type="button" disabled={subiendoActa} onClick={() => actaRef.current?.click()}>{subiendoActa ? 'Subiendo…' : 'Subir acta firmada (opcional)'}</button><input ref={actaRef} type="file" accept="image/*,.pdf,application/pdf" style={{ display: 'none' }} onChange={(e) => { const a = e.target.files?.[0]; if (a) subirActa(a); }} /></>}
         </div>
-      )}
+        {errorActa && <p className="error">{errorActa}</p>}
+      </div>
       {cruceEvento && (
         <div className="alerta" role="status"><IconoCalendario /><span><strong>Hay otro evento en esa hora.</strong> El {fechaCorta(cruceEvento.dia.fecha)} se cruza con <em>{cruceEvento.pedido.codigo} · {cruceEvento.pedido.evento}</em> ({cruceEvento.dia.inicio}–{cruceEvento.dia.fin}, {cruceEvento.pedido.estado}). Revisa los cupos antes de aprobar.</span></div>
       )}

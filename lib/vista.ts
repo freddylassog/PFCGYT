@@ -2,7 +2,7 @@
 // reporte Excel y los correos. Todo puro: entra `Datos`, salen vistas.
 import {
   ACTIVIDADES, DEVOLUCION, MINIMO_EVENTOS, VESTIMENTA, convenioLabel, cruceClases, diasHasta, duracionTextoDias, fechaCorta, fechaCortaDias, fechaLargaDias,
-  estadoVisible, horarioTextoDias, horasDias, infoUniforme, pasa4hDias, redondear1, repartoTexto, semCorto, semLabel, semanaDe, tagClass, tipoClass, tipoLabel, transporteMotivoDias, ultimoDia, type EstadoVisible,
+  comidasDias, compromisosPedido, estadoVisible, horarioTextoDias, horasDias, infoUniforme, pasa4hDias, redondear1, repartoTexto, semCorto, semLabel, semanaDe, tagClass, tipoClass, tipoLabel, transporteDias, transporteMotivoDias, transporteTexto, ultimoDia, type Compromiso, type EstadoVisible, type Transporte,
 } from './reglas';
 import type { Clase, Datos, Docente, Estudiante, Novedad, Pedido, Semestre } from './tipos';
 
@@ -33,7 +33,17 @@ export interface PedidoVista extends Pedido {
   pasa4h: boolean;
   transporteMotivo: string | null;
   transporte: boolean;
+  /** Alimentaciones por estudiante (una por cada 4 h de participación). */
+  comidas: number;
+  transporteInfo: Transporte;
+  /** 'Ida y regreso' · 'Regreso a casa' · null. */
+  transporteTexto: string | null;
+  /** Compromisos del organizador con cantidades. */
+  compromisosLista: Compromiso[];
+  /** Resumen corto: 'Alimentación ×2 · Transporte ida y regreso' o '—'. */
   compromisos: string;
+  /** Enlace al acta de compromiso (solo en el panel de coordinación). */
+  actaUrl: string | null;
   convLabel: string;
   convTag: string;
   tagClass: string;
@@ -87,6 +97,7 @@ export function vistaPedido(d: Datos, p: Pedido): PedidoVista {
   const v = VESTIMENTA[p.vestimenta] ?? VESTIMENTA.uniforme;
   const tm = transporteMotivoDias(p);
   const p4 = pasa4hDias(p.dias);
+  const compromisos = compromisosPedido(p);
   return {
     ...p,
     actividadesTexto: repartoTexto(p.reparto, p.actividades),
@@ -97,7 +108,9 @@ export function vistaPedido(d: Datos, p: Pedido): PedidoVista {
     tipoLabel: tipoLabel(p.tipo), tipoClass: tipoClass(p.tipo), estadoLabel: estadoVisible(p), finalizado: estadoVisible(p) === 'Finalizado', terminado: (ultimoDia(p.dias)?.fecha ?? p.fecha) <= d.hoy,
     vestLabel: v.label, vestCorta: v.corta, vestNotaEst: v.est,
     pasa4h: p4, transporteMotivo: tm, transporte: !!tm,
-    compromisos: [p4 ? 'Alimentación' : null, tm ? 'Transporte' : null].filter(Boolean).join(' · ') || '—',
+    comidas: comidasDias(p.dias), transporteInfo: transporteDias(p), transporteTexto: transporteTexto(transporteDias(p)),
+    compromisosLista: compromisos, compromisos: compromisos.map((c) => c.corto).filter(Boolean).join(' · ') || '—',
+    actaUrl: p.actaToken ? `${d.appUrl}/api/acta/${p.id}?t=${p.actaToken}` : null,
     convLabel: convenioLabel(p), convTag: p.tipo === 'externo' && p.convenio === 'no' ? 'tag-alerta' : 'tag-neutral',
     tagClass: tagClass(estadoVisible(p)),
     bloqueo: p.tipo === 'externo' && p.convenio === 'no' ? 'No se puede aprobar: la institución no tiene convenio vigente con la UTE.' : null,

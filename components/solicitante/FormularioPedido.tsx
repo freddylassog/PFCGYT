@@ -9,7 +9,7 @@ import { InputNumero } from '@/components/InputNumero';
 import { EditorReparto } from '@/components/EditorReparto';
 import {
   BLOQUEAR_CRUCE_EVENTOS, FORM_INICIAL, MAX_ESTUDIANTES, VESTIMENTA, ajustarRepartoATotal, cumple72h, duracionTextoDias, esFechaISO, esHora, faltasPedido, fechaCorta, fechaLarga,
-  fechaLargaDias, horarioTextoDias, ordenarDias, pasa4hDias, plazoTexto, primerDia, repartoTexto, transporteMotivoDias, type FormPedido,
+  compromisosPedido, fechaLargaDias, horarioTextoDias, ordenarDias, plazoTexto, primerDia, repartoTexto, type FormPedido,
 } from '@/lib/reglas';
 
 const PASOS = ['Solicitante', 'Evento', 'Estudiantes', 'Compromisos'];
@@ -42,8 +42,7 @@ export function FormularioPedido({ hoy }: { hoy: string }) {
   const faltas = faltasPedido(f, hoy, cruceActual);
   const noPuedeEnviar = faltas.some((x) => x.length);
   const durTexto = duracionTextoDias(f.dias);
-  const p4 = pasa4hDias(f.dias);
-  const tm = transporteMotivoDias(f);
+  const compromisos = compromisosPedido({ ...f, dias: ordenarDias(f.dias), actividades: [] });
   const primero = primerDia(f.dias);
   const error72 = !!primero?.fecha && esFechaISO(primero.fecha) && !cumple72h(primero.fecha, hoy);
 
@@ -95,8 +94,10 @@ export function FormularioPedido({ hoy }: { hoy: string }) {
         <h2 className="mt-2">{enviado.codigo}</h2>
         <p>{enviado.evento} · {enviado.fechaLarga} · {enviado.horario}</p>
         <p className="muted fs-14">Anota este código. La coordinación de protocolo revisará el pedido y te responderá al correo indicado. El pedido queda <strong>pendiente</strong> hasta la revisión de la facultad.</p>
+        <p className="fs-14">Tu <strong>acta de compromiso</strong> (PDF) quedó lista con los datos del evento, los compromisos de la organización y tu aceptación. Descárgala para tu respaldo; la firma manuscrita es opcional.</p>
         <div className="row mt-4">
-          <button className="btn btn-primary" type="button" onClick={nuevoPedido}>Nuevo pedido</button>
+          <a className="btn btn-primary" href={enviado.actaUrl} target="_blank" rel="noopener">Descargar acta de compromiso (PDF)</a>
+          <button className="btn btn-secondary" type="button" onClick={nuevoPedido}>Nuevo pedido</button>
           <Link className="btn btn-secondary" href={`/coordinacion?sel=${enviado.id}`}>Ver en el panel</Link>
         </div>
       </Marco>
@@ -236,12 +237,16 @@ export function FormularioPedido({ hoy }: { hoy: string }) {
               <dt className="muted">Responsable</dt><dd>{f.responsable} · {f.responsableTelefono}</dd>
               <dt className="muted">Evidencia</dt><dd>{f.evidenciaNombre}</dd>
             </dl>
+            <p className="muted fs-13 m-0">Reglas de la facultad: alimentación por cada 4 horas de participación; transporte de ida y regreso si el lugar es lejano, y de regreso a casa si el evento termina después de las 18:00; los estudiantes solo realizan las actividades marcadas. Con los datos de este pedido, la organización se compromete a:</p>
             <div className="stack-3 fs-14">
-              <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'flex-start' }}><span className={`tag ${p4 ? 'tag-solid' : 'tag-neutral'}`} style={{ flex: 'none' }}>Alimentación</span><span>Pasadas las <strong>4 horas</strong> de participación el organizador debe contemplar la alimentación de los estudiantes.{p4 && <> <strong style={{ color: 'var(--color-accent-700)' }}>Aplica a este pedido ({durTexto}).</strong></>}</span></div>
-              <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'flex-start' }}><span className={`tag ${tm ? 'tag-solid' : 'tag-neutral'}`} style={{ flex: 'none' }}>Transporte</span><span>Si el evento termina después de las <strong>18:00</strong> o el lugar es lejano, el organizador debe garantizar el transporte de regreso de cada estudiante hasta su casa, por seguridad.{tm && <> <strong style={{ color: 'var(--color-accent-700)' }}>Aplica a este pedido.</strong></>}</span></div>
-              <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'flex-start' }}><span className="tag tag-neutral" style={{ flex: 'none' }}>Actividades</span><span>Los estudiantes realizan únicamente las actividades marcadas y se retiran a la hora de salida indicada, aunque el evento continúe.</span></div>
+              {compromisos.map((c) => (
+                <div key={c.clave} style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'flex-start' }}>
+                  <span className={`tag ${c.aplica ? 'tag-solid' : 'tag-neutral'}`} style={{ flex: 'none', minWidth: 96, justifyContent: 'center' }}>{c.titulo}</span>
+                  <span className={c.aplica ? '' : 'muted'}>{c.texto}</span>
+                </div>
+              ))}
             </div>
-            <label className="radio arriba fs-14"><input type="checkbox" checked={f.acepta} onChange={(e) => set('acepta', e.target.checked)} /><span className="dot cuadro" />Acepto estos compromisos en nombre de la organización del evento.</label>
+            <label className="radio arriba fs-14"><input type="checkbox" checked={f.acepta} onChange={(e) => set('acepta', e.target.checked)} /><span className="dot cuadro" />Acepto estos compromisos en nombre de la organización del evento. Al registrar el pedido se genera un acta de compromiso en PDF con estos datos y mi aceptación (nombre, correo, fecha y hora).</label>
             {errorEnvio && <p className="error">{errorEnvio}</p>}
             <div className="between">
               <button className="btn btn-secondary" type="button" onClick={anterior}>Atrás</button>

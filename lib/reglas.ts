@@ -137,6 +137,80 @@ export function pasa4hDias(dias: DiaEvento[]): boolean {
   return dias.some((d) => pasa4h(d.inicio, d.fin));
 }
 
+/** Alimentaciones de un día: ninguna hasta 4 h; a partir de ahí una por cada 4 h completas (5 h → 1, 8 h → 2, 12 h → 3). */
+export function comidasDia(d: DiaEvento): number {
+  if (!esHora(d.inicio) || !esHora(d.fin)) return 0;
+  const m = min(d.fin) - min(d.inicio);
+  return m > 240 ? Math.floor(m / 240) : 0;
+}
+
+/** Alimentaciones por estudiante en todo el evento (suma de los días). */
+export function comidasDias(dias: DiaEvento[]): number {
+  return dias.reduce((a, d) => a + comidasDia(d), 0);
+}
+
+export interface Transporte {
+  /** Ida desde la universidad: cuando el lugar es lejano o fuera del campus. */
+  ida: boolean;
+  /** Regreso a casa: cuando el lugar es lejano o algún día termina después de las 18:00. */
+  regreso: boolean;
+  motivos: string[];
+}
+
+export function transporteDias(e: { dias: DiaEvento[]; lejos: boolean }): Transporte {
+  const tarde = e.dias.some((d) => !!d.fin && min(d.fin) > 18 * 60);
+  return { ida: !!e.lejos, regreso: !!e.lejos || tarde, motivos: [e.lejos ? 'lugar lejano o fuera del campus' : '', tarde ? 'termina después de las 18:00' : ''].filter(Boolean) };
+}
+
+/** 'Ida y regreso' · 'Regreso a casa' · null si no aplica. */
+export function transporteTexto(t: Transporte): string | null {
+  return t.regreso ? (t.ida ? 'Ida y regreso' : 'Regreso a casa') : null;
+}
+
+export interface Compromiso {
+  clave: 'alimentacion' | 'transporte' | 'actividades' | 'responsable';
+  titulo: string;
+  aplica: boolean;
+  /** Frase completa con las cantidades del pedido. */
+  texto: string;
+  /** Versión corta para tablas y etiquetas ('Alimentación ×2'). */
+  corto: string | null;
+}
+
+/** Compromisos del organizador con las cantidades concretas del pedido. */
+export function compromisosPedido(p: { dias: DiaEvento[]; lejos: boolean; cantidad: number; reparto: RepartoActividad[]; actividades: string[]; responsable: string; responsableTelefono: string }): Compromiso[] {
+  const n = Math.max(0, Math.round(Number(p.cantidad) || 0));
+  const comidas = comidasDias(p.dias);
+  const porDia = p.dias.length > 1 ? ` (${p.dias.map((d, i) => `día ${i + 1}: ${comidasDia(d)}`).join(', ')})` : '';
+  const t = transporteDias(p);
+  const motivos = t.motivos.join(' y ');
+  const tel = (p.responsableTelefono || '').trim();
+  return [
+    {
+      clave: 'alimentacion', titulo: 'Alimentación', aplica: comidas > 0, corto: comidas > 0 ? `Alimentación ×${comidas}` : null,
+      texto: comidas > 0
+        ? `${comidas} ${comidas > 1 ? 'alimentaciones' : 'alimentación'} por estudiante, una por cada 4 horas de participación${porDia}: ${comidas * n} en total para ${n} estudiante${n === 1 ? '' : 's'}.`
+        : 'No aplica: ningún día pasa de 4 horas de participación.',
+    },
+    {
+      clave: 'transporte', titulo: 'Transporte', aplica: t.regreso, corto: t.regreso ? `Transporte ${t.ida ? 'ida y regreso' : 'de regreso'}` : null,
+      texto: t.regreso
+        ? (t.ida
+          ? `Ida y regreso para los ${n} estudiante${n === 1 ? '' : 's'}: los lleva desde la universidad y los regresa a su casa (${motivos}).`
+          : `Regreso a casa para los ${n} estudiante${n === 1 ? '' : 's'} (${motivos}).`)
+        : 'No aplica: el evento termina antes de las 18:00 y el lugar es cercano.',
+    },
+    {
+      clave: 'actividades', titulo: 'Actividades', aplica: true, corto: null,
+      texto: `Los ${n} estudiante${n === 1 ? '' : 's'} realizan únicamente las actividades marcadas: ${repartoTexto(p.reparto, p.actividades) || '—'}. Se retiran a la hora de salida indicada, aunque el evento continúe.`,
+    },
+    {
+      clave: 'responsable', titulo: 'Responsable en sitio', aplica: true, corto: null,
+      texto: `${(p.responsable || '').trim() || '—'}${tel ? ` · ${tel}` : ''} recibe a los estudiantes, los acompaña durante el evento y es el contacto de la coordinación.`,
+    },
+  ];
+}
+
 /** Transporte: algún día termina después de las 18:00, o el lugar es lejano. */
 export function transporteMotivoDias(e: { dias: DiaEvento[]; lejos: boolean }): string | null {
   const tarde = e.dias.some((d) => !!d.fin && min(d.fin) > 18 * 60);

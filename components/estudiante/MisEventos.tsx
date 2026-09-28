@@ -73,6 +73,7 @@ export function MisEventos({ datos, yo }: { datos: Datos; yo: Estudiante }) {
               <div><div className="etiqueta">Lugar</div>{e.lugar}</div>
               <div><div className="etiqueta">Responsable en sitio</div>{e.responsable}{e.responsableTelefono && <div className="muted fs-12">{e.responsableTelefono}</div>}</div>
               <div><div className="etiqueta">Vestimenta</div>{e.vestLabel}<div className="muted fs-12">{e.vestNotaEst}</div></div>
+              {(e.comidas > 0 || e.transporteTexto) && <div><div className="etiqueta">Alimentación y transporte</div>{e.comidas > 0 ? `${e.comidas} ${e.comidas > 1 ? 'alimentaciones' : 'alimentación'}` : 'Sin alimentación'}{e.transporteTexto ? ` · transporte: ${e.transporteTexto.toLowerCase()}` : ''}<div className="muted fs-12">A cargo del organizador.</div></div>}
               {e.vestimenta === 'uniforme' && citaEntregaTexto(e.uniformeCita) && <div><div className="etiqueta">Entrega del uniforme</div>{citaEntregaTexto(e.uniformeCita)}{e.uniformeCita?.lugar && <div className="muted fs-12">{e.uniformeCita.lugar}</div>}</div>}
               {e.vestimenta === 'uniforme' && citaDevolucionTexto(e.uniformeCita) && <div><div className="etiqueta">Devolución del uniforme (lavado)</div>{citaDevolucionTexto(e.uniformeCita)}{e.uniformeCita?.lugar && <div className="muted fs-12">{e.uniformeCita.lugar}</div>}</div>}
             </div>

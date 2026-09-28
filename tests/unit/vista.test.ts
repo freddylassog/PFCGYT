@@ -14,7 +14,7 @@ test('vista de pedidos: horas, cupos, cruces, bloqueo', () => {
   assert.equal(p1.cruces.length, 1, 'viernes 15–18 choca con Lenguaje 14–16');
   assert.equal(p1.cruces[0].docente?.correo, 'mcobo@ute.edu.ec');
   assert.equal(p1.compromisos, '—');
-  assert.equal(p2.compromisos, 'Transporte');
+  assert.equal(p2.compromisos, 'Transporte ida y regreso');
   assert.equal(p2.horas, 7, 'dos días: 4 h + 3 h');
   assert.equal(p2.multidia, true);
   assert.equal(p2.fechaLarga, '18 y 19 sep 2026');

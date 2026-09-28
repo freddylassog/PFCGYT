@@ -55,8 +55,8 @@ export function correoConvocatoria(d: Datos, p: PedidoVista): Correo {
     `Vestimenta: ${p.vestLabel}. ${p.vestNotaEst}`,
     `Actividades:`,
     lista(p.actividadesEtiquetas),
-    p.pasa4h ? `Alimentación: el organizador cubre la alimentación (más de 4 h).` : '',
-    p.transporte ? `Transporte: el organizador garantiza el transporte de regreso (${p.transporteMotivo?.toLowerCase()}).` : '',
+    p.comidas > 0 ? `Alimentación: ${p.comidas} por estudiante (una por cada 4 h de participación), a cargo del organizador.` : '',
+    p.transporteTexto ? `Transporte: ${p.transporteTexto.toLowerCase()} a cargo del organizador (${p.transporteInfo.motivos.join(' y ')}).` : '',
     ``,
     `Para inscribirte entra a ${link}`,
     `con tu correo institucional y la clave del evento: ${p.clave ?? '—'}`,
@@ -218,17 +218,14 @@ export function correoSolicitante(p: PedidoVista): Correo {
     Rechazado: `Lamentamos informar que su pedido ${p.codigo} para el evento ${p.evento} (${p.fechaLarga}) NO fue aprobado.`,
     Pendiente: `Su pedido ${p.codigo} para el evento ${p.evento} (${p.fechaLarga}) fue recibido y está en revisión.`,
   };
-  const compromisos = [
-    p.pasa4h ? 'Alimentación: pasadas las 4 horas de participación el organizador contempla la alimentación de los estudiantes.' : '',
-    p.transporte ? 'Transporte: el organizador garantiza el transporte de regreso de cada estudiante hasta su casa.' : '',
-    'Los estudiantes realizan únicamente las actividades marcadas y se retiran a la hora de salida indicada.',
-  ].filter(Boolean);
+  const compromisos = p.compromisosLista.filter((c) => c.aplica).map((c) => `${c.titulo}: ${c.texto}`);
   const cuerpo = [
     `Estimado/a ${p.nombre}:`,
     ``,
     estado[p.estado],
     ``,
     p.estado === 'Aprobado' ? `Compromisos del organizador:\n${lista(compromisos)}\n` : '',
+    p.actaUrl ? `Acta de compromiso (PDF) para su respaldo, con los datos y compromisos del pedido: ${p.actaUrl}\n` : '',
     FIRMA,
   ].filter((l) => l !== '').join('\n');
   return { para: p.correoSolicitante ? [p.correoSolicitante] : [], asunto: `Pedido ${p.codigo} · ${p.evento} · ${p.estado}`, cuerpo };

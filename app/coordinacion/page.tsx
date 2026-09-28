@@ -1,5 +1,5 @@
 import { cargarDatos } from '@/lib/datos';
-import { sesionCoordinacion } from '@/lib/sesion';
+import { sesionCoordinacion, tokenActa } from '@/lib/sesion';
 import { LoginCoordinacion } from '@/components/coordinacion/LoginCoordinacion';
 import { Panel } from '@/components/coordinacion/Panel';
 
@@ -18,5 +18,6 @@ export default async function Page({ searchParams }: { searchParams: Params }) {
     return <LoginCoordinacion destino={'/coordinacion' + (q.size ? '?' + q.toString() : '')} />;
   }
   const datos = await cargarDatos();
+  datos.pedidos = datos.pedidos.map((p) => ({ ...p, actaToken: tokenActa(p.id) })); // enlaces al acta para el panel y los correos
   return <Panel datos={datos} tab={uno('tab') ?? 'pedidos'} selInicial={uno('sel') ?? null} />;
 }

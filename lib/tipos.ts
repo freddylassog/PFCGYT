@@ -69,6 +69,12 @@ export interface Pedido {
   finalizadoAt: string | null;
   /** Entrega y devolución de uniformes (solo eventos con uniforme institucional). */
   uniformeCita: CitaUniforme | null;
+  /** Token del enlace al acta (solo se rellena para coordinación). */
+  actaToken: string;
+  /** Acta firmada subida por coordinación (opcional). */
+  actaFirmadaPath: string | null;
+  actaFirmadaNombre: string | null;
+  actaFirmadaAt: string | null;
   createdAt: string;
 }
 

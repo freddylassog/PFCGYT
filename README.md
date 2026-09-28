@@ -21,13 +21,17 @@ No se necesita acceso de TI ni servicios de correo. En cada punto donde hace fal
 
 Coordinación lo envía desde su propia cuenta y luego marca **"Marcar como enviado"** para que quede registrado. Para las convocatorias, en *Resumen → Ajustes* se puede fijar el **grupo de Outlook de estudiantes**; si no hay grupo, el correo pone a todos los estudiantes activos en copia oculta (y hay un botón para copiar la lista).
 
+### Acta de compromiso (PDF)
+
+Al registrar el pedido, el solicitante acepta los compromisos en la app (queda registrado su nombre, correo, fecha y hora) y la app genera un **acta de compromiso en PDF** con los datos del evento, el responsable en sitio, los compromisos con sus cantidades y esa aceptación electrónica, más dos líneas de firma por si la organización quiere imprimirla y firmarla. El solicitante la descarga desde la pantalla de "Pedido registrado" (enlace privado con clave, no requiere sesión) y vuelve a recibir el enlace en el correo de respuesta de coordinación. Coordinación la abre desde el panel del pedido (**Acta de compromiso (PDF)**) y, si la organización devuelve una copia firmada, puede subirla con **Subir acta firmada (opcional)**; queda guardada en el bucket privado y enlazada al pedido. No es obligatorio firmar a mano: la aceptación electrónica es el respaldo.
+
 ### Reglas implementadas (en el navegador y en el servidor)
 
 1. **72 horas**: no se registra un pedido a menos de 3 días.
 2. **Cruce de horarios entre eventos**: si ya hay un evento (no rechazado) en esa fecha y hora se muestra el aviso *"Horario ocupado. Ya hay un evento en esa hora…"* y **no se puede registrar el pedido**. Sí se permiten eventos distintos el mismo día en horas distintas. (Para que solo avise sin bloquear, cambia `BLOQUEAR_CRUCE_EVENTOS` a `false` en `lib/reglas.ts`.)
 3. **Eventos de varios días**: el pedido puede tener varios días, cada uno con su propio horario ("+ Agregar otro día"). Cuenta como **un solo evento** por estudiante; las horas de protocolo son la suma de todos los días; la regla de 72 h se aplica al primer día; el cruce se revisa día por día; la clave vence al terminar el último día. Coordinación puede cambiar los días desde *Editar pedido*.
 4. **Externo sin convenio**: se registra para revisión, pero no se puede aprobar hasta marcar el convenio como vigente.
-5. **Alimentación** si algún día de participación pasa de 4 h; **transporte** si termina después de las 18:00 o el lugar es lejano.
+5. **Alimentación por cada 4 horas**: ninguna hasta 4 h de participación en el día; a partir de ahí una por cada 4 h completas (5 h → 1, 8 h → 2, 12 h → 3), por estudiante, y la app calcula el total (p. ej. 21 estudiantes × 2 = 42). **Transporte**: si el lugar es lejano o fuera del campus, la organización lleva y regresa a los estudiantes (ida y regreso); si algún día termina después de las 18:00, garantiza el regreso a casa; siempre para la cantidad de estudiantes pedida. **Actividades**: los estudiantes realizan únicamente las marcadas en el pedido. Estos compromisos se muestran con las cantidades concretas en el paso 4 del pedido, en el panel, en los correos, en el reporte y en el portal del estudiante.
 6. **Horas por evento** = suma de (salida − inicio) de cada día (1 decimal). Presupuesto del semestre = horas por semana × 16 semanas.
 7. Estudiantes de 1.º a 3.º; **mínimo 2 eventos** confirmados. La app **no pone notas**: solo muestra el texto de la regla y permite enviar la matriz de cada semestre al docente correspondiente (Lenguaje, Investigación y Cultura Gastronómica, fijas en la base de datos; el docente se toma del horario cargado).
 8. **Cruce con clases**: clases del mismo día de la semana que chocan con el horario del evento, filtradas al semestre y paralelo de los estudiantes confirmados (un estudiante sin paralelo cuenta para todos los paralelos de su semestre). Al confirmar a un estudiante se prepara el correo al docente automáticamente.
@@ -149,7 +153,7 @@ npm test                     # pruebas unitarias (reglas, importación, vistas, 
 npm run lint && npm run typecheck && npm run build
 ```
 
-Sin `SUPABASE_SERVICE_ROLE_KEY` las evidencias se guardan en `.data/evidencias/` (solo para desarrollo). Para una prueba completa con navegador: `node tests/e2e/crear-pedido.mjs`, luego `node tests/e2e/flujo.mjs` `node tests/e2e/reparto.mjs` (reparto por actividad), `node tests/e2e/fin-evento.mjs` (fin de evento y colores), `node tests/e2e/uniformes.mjs` (citas de uniformes) y, para el bot, `node tests/e2e/telegram.mjs` (requieren la app corriendo y Chromium de Playwright).
+Sin `SUPABASE_SERVICE_ROLE_KEY` las evidencias se guardan en `.data/evidencias/` (solo para desarrollo). Para una prueba completa con navegador: `node tests/e2e/crear-pedido.mjs`, luego `node tests/e2e/flujo.mjs` `node tests/e2e/reparto.mjs` (reparto por actividad), `node tests/e2e/fin-evento.mjs` (fin de evento y colores), `node tests/e2e/uniformes.mjs` (citas de uniformes), `node tests/e2e/acta.mjs` (compromisos y acta en PDF) y, para el bot, `node tests/e2e/telegram.mjs` (requieren la app corriendo y Chromium de Playwright).
 
 ## Estructura
 
@@ -159,7 +163,7 @@ app/                 Páginas (App Router) y acciones de servidor
   coordinacion/      Panel de coordinación
   horarios/          Horarios, docentes y correos a docentes
   estudiante/        Acceso y portal del estudiante
-  api/               Reporte .xlsx, matriz por semestre, evidencias, calendario .ics, cron de recordatorios y webhook de Telegram
+  api/               Reporte .xlsx, matriz por semestre, evidencias, acta de compromiso (PDF), calendario .ics, cron de recordatorios y webhook de Telegram
   actions/           Acciones de servidor (pedidos, coordinación, estudiante, sesión)
 components/          Interfaz (formulario, panel, pestañas, correos)
 lib/

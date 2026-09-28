@@ -13,6 +13,17 @@ function secreto(): string {
   return createHash('sha256').update('protocolo-fcgt:' + (process.env.COORDINACION_PASSWORD ?? '')).digest('hex');
 }
 
+/** Token del enlace público al acta de un pedido (sin sesión): HMAC del id con el secreto de la app. */
+export function tokenActa(id: string): string {
+  return createHmac('sha256', secreto()).update('acta:' + id).digest('base64url').slice(0, 32);
+}
+
+export function tokenActaValido(id: string, t: string | null | undefined): boolean {
+  if (!t) return false;
+  const a = Buffer.from(tokenActa(id)), b = Buffer.from(t);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
 function firmar(payload: object): string {
   const data = Buffer.from(JSON.stringify(payload)).toString('base64url');
   const sig = createHmac('sha256', secreto()).update(data).digest('base64url');

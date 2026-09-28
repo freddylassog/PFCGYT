@@ -11,7 +11,7 @@ import { mensajeConvocatoriaCanal, mensajeEstudianteConfirmado, mensajeEstudiant
 import { appUrl } from '@/lib/app-url';
 import { avanceEstudiante, vistaPedido } from '@/lib/vista';
 import { leerTabla, parseDocentes, parseEstudiantes, parseHorarios } from '@/lib/excel';
-import { borrarEvidencia } from '@/lib/storage';
+import { borrarEvidencia, evidenciaExiste, prepararSubida } from '@/lib/storage';
 import {
   ACTIVIDADES, MAX_ESTUDIANTES, UNIFORME, TIPOS_NOVEDAD, VESTIMENTA, claseAplica, claveNombre, cruceClases, esFechaISO, faltasDias, genClave, hoyISO, normalizarCorreo, normalizarParalelo, ordenarDias, telefonoValido, faltasReparto, faltasCitaUniforme,
 } from '@/lib/reglas';
@@ -84,12 +84,50 @@ export async function eliminarPedido(id: string): Promise<Resultado<{ codigo: st
   try {
     await exigir();
     const sql = db();
-    const [p] = await sql`select codigo, evidencia_path from requests where id = ${id}`;
+    const [p] = await sql`select codigo, evidencia_path, acta_firmada_path from requests where id = ${id}`;
     if (!p) throw new Error('Pedido no encontrado');
     await sql`delete from requests where id = ${id}`; // inscripciones, novedades y avisos se borran en cascada
-    if (p.evidencia_path) await borrarEvidencia(String(p.evidencia_path)).catch((e) => console.error('[evidencia] no se pudo borrar', (e as Error).message));
+    for (const ruta of [p.evidencia_path, p.acta_firmada_path]) if (ruta) await borrarEvidencia(String(ruta)).catch((e) => console.error('[archivo] no se pudo borrar', (e as Error).message));
     refrescar();
     return { ok: true, datos: { codigo: String(p.codigo) } };
+  } catch (e) { return fallo(e); }
+}
+
+/** Prepara la subida del acta firmada (PDF o imagen) de un pedido. */
+export async function prepararActaFirmada(id: string, nombre: string, tipo: string, tamano: number): Promise<Resultado<{ path: string; url: string }>> {
+  try {
+    await exigir();
+    if (!nombre) throw new Error('Archivo sin nombre.');
+    if (tamano > 15 * 1024 * 1024) throw new Error('El archivo supera 15 MB.');
+    if (!/\.pdf$/i.test(nombre) && !tipo.startsWith('image/') && tipo !== 'application/pdf') throw new Error('Solo se acepta PDF o imagen.');
+    const [p] = await db()`select periodo from requests where id = ${id}`;
+    if (!p) throw new Error('Pedido no encontrado');
+    return { ok: true, datos: await prepararSubida(`${String(p.periodo)}/actas`, nombre) };
+  } catch (e) { return fallo(e); }
+}
+
+export async function guardarActaFirmada(id: string, ruta: string, nombre: string): Promise<Resultado> {
+  try {
+    await exigir();
+    if (!(await evidenciaExiste(ruta))) throw new Error('El archivo no terminó de subirse. Intenta de nuevo.');
+    const sql = db();
+    const [ant] = await sql`select acta_firmada_path from requests where id = ${id}`;
+    await sql`update requests set acta_firmada_path = ${ruta}, acta_firmada_nombre = ${nombre.slice(0, 200)}, acta_firmada_at = now() where id = ${id}`;
+    if (ant?.acta_firmada_path && ant.acta_firmada_path !== ruta) await borrarEvidencia(String(ant.acta_firmada_path)).catch(() => undefined);
+    refrescar();
+    return { ok: true };
+  } catch (e) { return fallo(e); }
+}
+
+export async function quitarActaFirmada(id: string): Promise<Resultado> {
+  try {
+    await exigir();
+    const sql = db();
+    const [p] = await sql`select acta_firmada_path from requests where id = ${id}`;
+    await sql`update requests set acta_firmada_path = null, acta_firmada_nombre = null, acta_firmada_at = null where id = ${id}`;
+    if (p?.acta_firmada_path) await borrarEvidencia(String(p.acta_firmada_path)).catch(() => undefined);
+    refrescar();
+    return { ok: true };
   } catch (e) { return fallo(e); }
 }
 

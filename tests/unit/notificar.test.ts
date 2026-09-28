@@ -10,7 +10,7 @@ const pedido: Pedido = {
   tipo: 'externo', convenio: 'no', evento: 'Feria <de> empleo', fecha: '2026-09-22', inicio: '08:00', fin: '12:00',
   dias: [{ fecha: '2026-09-22', inicio: '08:00', fin: '12:00' }, { fecha: '2026-09-23', inicio: '08:00', fin: '12:00' }],
   lugar: 'Centro de Convenciones', lejos: true, responsable: 'J. Andrade', responsableTelefono: '098 777 8899', cantidad: 10,
-  actividades: ['Recepción y registro de invitados'], reparto: [{ actividad: 'Recepción y registro de invitados', cantidad: 10 }], vestimenta: 'ninguna', evidenciaPath: null, evidenciaNombre: null, estado: 'Pendiente', convocadaAt: null, clave: null, telegramPostAt: null, finalizadoAt: null, uniformeCita: null, createdAt: '2026-09-15T10:00:00Z',
+  actividades: ['Recepción y registro de invitados'], reparto: [{ actividad: 'Recepción y registro de invitados', cantidad: 10 }], vestimenta: 'ninguna', evidenciaPath: null, evidenciaNombre: null, estado: 'Pendiente', convocadaAt: null, clave: null, telegramPostAt: null, finalizadoAt: null, uniformeCita: null, actaToken: '', actaFirmadaPath: null, actaFirmadaNombre: null, actaFirmadaAt: null, createdAt: '2026-09-15T10:00:00Z',
 };
 
 test('mensaje de pedido nuevo', () => {
@@ -44,7 +44,7 @@ test('convocatoria y recordatorio para el canal', () => {
   assert.match(conv, /CONVOCATORIA/);
   assert.match(conv, /22 y 23 sep 2026/);
   assert.match(conv, /estudiante\?clave=SOL-2026-005/);
-  assert.match(conv, /Transporte de regreso/);
+  assert.match(conv, /Transporte \(ida y regreso\): lo garantiza el organizador/);
   const rec = mensajeRecordatorioCanal([pv], '2026-09-23');
   assert.match(rec ?? '', /RECORDATORIO · MAÑANA MIÉRCOLES 23 SEP 2026/);
   assert.match(rec ?? '', /día 2 de 2/);

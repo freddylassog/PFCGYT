@@ -4,6 +4,8 @@ import { db } from '@/lib/db';
 import { ajustesActuales, mapPedido, pedidosDelPeriodo } from '@/lib/datos';
 import { evidenciaExiste, prepararSubida } from '@/lib/storage';
 import { notificarNuevoPedido } from '@/lib/notificar';
+import { appUrl } from '@/lib/app-url';
+import { tokenActa } from '@/lib/sesion';
 import {
   ACTIVIDADES, codigoPedido, cruceEventos, esFechaISO, esHora, faltasPedido, fechaLargaDias, hoyISO, normalizarCorreo, ordenarDias, type FormPedido,
 } from '@/lib/reglas';
@@ -41,7 +43,7 @@ export async function verificarCruce(dias: DiaEvento[], excluirId?: string): Pro
   return c ? { evento: c.pedido.evento, codigo: c.pedido.codigo, estado: c.pedido.estado, fecha: c.dia.fecha, inicio: c.dia.inicio, fin: c.dia.fin } : null;
 }
 
-export interface PedidoCreado { id: string; codigo: string; evento: string; fechaLarga: string; horario: string }
+export interface PedidoCreado { id: string; codigo: string; evento: string; fechaLarga: string; horario: string; actaUrl: string }
 
 export async function crearPedido(f: FormPedido): Promise<Resultado<PedidoCreado>> {
   const hoy = hoyISO();
@@ -72,7 +74,7 @@ export async function crearPedido(f: FormPedido): Promise<Resultado<PedidoCreado
         returning *`;
       const p = mapPedido(fila);
       await notificarNuevoPedido(p, await ajustesActuales());
-      return { ok: true, datos: { id: p.id, codigo: p.codigo, evento: p.evento, fechaLarga: fechaLargaDias(p.dias), horario: p.dias.length > 1 ? `${p.dias.length} días` : `${p.inicio}–${p.fin}` } };
+      return { ok: true, datos: { id: p.id, codigo: p.codigo, evento: p.evento, fechaLarga: fechaLargaDias(p.dias), horario: p.dias.length > 1 ? `${p.dias.length} días` : `${p.inicio}–${p.fin}`, actaUrl: `${appUrl()}/api/acta/${p.id}?t=${tokenActa(p.id)}` } };
     } catch (e) {
       const msg = (e as Error).message || '';
       if (!/duplicate|unique/i.test(msg) || intento === 2) return { ok: false, error: 'No se pudo registrar el pedido: ' + msg };
