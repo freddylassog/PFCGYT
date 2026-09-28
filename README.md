@@ -27,7 +27,7 @@ Al registrar el pedido, el solicitante acepta los compromisos en la app (queda r
 
 ### Reglas implementadas (en el navegador y en el servidor)
 
-1. **72 horas**: no se registra un pedido a menos de 3 días.
+1. **72 horas**: no se registra un pedido a menos de 3 días. En *Resumen → Ajustes* se puede fijar otra anticipación temporal (p. ej. 24 h) con una fecha límite; pasado ese día la app vuelve sola a 72 h, y el formulario avisa al solicitante mientras rige la excepción.
 2. **Cruce de horarios entre eventos**: si ya hay un evento (no rechazado) en esa fecha y hora se muestra el aviso *"Horario ocupado. Ya hay un evento en esa hora…"* y **no se puede registrar el pedido**. Sí se permiten eventos distintos el mismo día en horas distintas. (Para que solo avise sin bloquear, cambia `BLOQUEAR_CRUCE_EVENTOS` a `false` en `lib/reglas.ts`.)
 3. **Eventos de varios días**: el pedido puede tener varios días, cada uno con su propio horario y su propio lugar ("+ Agregar otro día" copia el horario y el lugar del día anterior; si el segundo día es en otro sitio, se cambia ahí mismo). El transporte se evalúa día por día (p. ej. día 1 en Quito por su cuenta, día 2 en el aeropuerto con ida y regreso). Cuenta como **un solo evento** por estudiante; las horas de protocolo son la suma de todos los días; la regla de 72 h se aplica al primer día; el cruce se revisa día por día; la clave vence al terminar el último día. Coordinación puede cambiar los días desde *Editar pedido*.
 4. **Externo sin convenio**: se registra para revisión, pero no se puede aprobar hasta marcar el convenio como vigente.

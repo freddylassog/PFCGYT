@@ -372,17 +372,28 @@ export function diasHasta(fecha: string, hoy: string): number {
   return Math.round((toDate(fecha).getTime() - toDate(hoy).getTime()) / 86400000);
 }
 
-export function plazoTexto(fecha: string, hoy: string): string {
+export function plazoTexto(fecha: string, hoy: string, horas = HORAS_ANTICIPACION): string {
   if (!fecha) return 'Elige la fecha';
   const dias = diasHasta(fecha, hoy);
   if (dias < 0) return 'Fecha pasada';
-  if (dias < 3) return `${dias * 24} h · menos de 72 h`;
-  return `${dias} días de anticipación`;
+  if (dias < diasMinimos(horas)) return `${dias * 24} h · menos de ${horas} h`;
+  return `${dias} día${dias === 1 ? '' : 's'} de anticipación`;
 }
 
-/** Regla 72 h: el evento debe estar al menos a 3 días de hoy. */
-export function cumple72h(fecha: string, hoy: string): boolean {
-  return diasHasta(fecha, hoy) >= 3;
+/** Días completos que exige una anticipación en horas (72 h → 3 días, 24 h → 1 día). */
+export function diasMinimos(horas: number): number {
+  return Math.max(0, Math.ceil((Number(horas) || HORAS_ANTICIPACION) / 24));
+}
+
+/** Regla de anticipación (72 h normalmente): el evento debe estar al menos a esos días de hoy. */
+export function cumple72h(fecha: string, hoy: string, horas = HORAS_ANTICIPACION): boolean {
+  return diasHasta(fecha, hoy) >= diasMinimos(horas);
+}
+
+/** Anticipación que rige hoy: la configurada, salvo que su fecha límite ya pasó (entonces vuelve a 72 h). */
+export function anticipacionVigente(a: { anticipacionHoras: number; anticipacionHasta: string }, hoy: string): number {
+  if (a.anticipacionHasta && hoy > a.anticipacionHasta) return HORAS_ANTICIPACION;
+  return Math.max(1, Number(a.anticipacionHoras) || HORAS_ANTICIPACION);
 }
 
 /** Semana del semestre (1..N) en la que cae una fecha. */
@@ -609,7 +620,7 @@ export function correoValido(s: string): boolean {
 }
 
 /** Problemas de la lista de días (vacío = correcta). `soloFuturo` exige la regla de 72 h. */
-export function faltasDias(dias: DiaEvento[], hoy: string, soloFuturo = true): string[] {
+export function faltasDias(dias: DiaEvento[], hoy: string, soloFuturo = true, horas = HORAS_ANTICIPACION): string[] {
   const f: string[] = [];
   if (!dias.length) f.push('al menos un día');
   if (dias.length > MAX_DIAS_EVENTO) f.push(`máximo ${MAX_DIAS_EVENTO} días`);
@@ -619,7 +630,7 @@ export function faltasDias(dias: DiaEvento[], hoy: string, soloFuturo = true): s
     const fechas = dias.map((d) => d.fecha);
     if (new Set(fechas).size !== fechas.length) f.push('fechas sin repetir');
     const primera = [...fechas].sort()[0];
-    if (soloFuturo && !cumple72h(primera, hoy)) f.push('fecha con al menos 72 h');
+    if (soloFuturo && !cumple72h(primera, hoy, horas)) f.push(`fecha con al menos ${horas} h`);
   }
   if (dias.some((d) => !(duracionMin(d.inicio, d.fin) > 0))) f.push('horario válido en cada día');
   return f;
@@ -674,7 +685,7 @@ export function repartoTexto(reparto: RepartoActividad[], actividades: string[])
 }
 
 /** Devuelve, por paso, la lista de lo que falta (vacía = paso completo). */
-export function faltasPedido(f: FormPedido, hoy: string, cruce: { evento: string } | null): string[][] {
+export function faltasPedido(f: FormPedido, hoy: string, cruce: { evento: string } | null, horas = HORAS_ANTICIPACION): string[][] {
   const f1: string[] = [];
   if (!f.nombre.trim()) f1.push('nombre');
   if (!f.cargo.trim()) f1.push('cargo');
@@ -685,7 +696,7 @@ export function faltasPedido(f: FormPedido, hoy: string, cruce: { evento: string
   const f2: string[] = [];
   if (!f.evento.trim()) f2.push('nombre del evento');
   if (!f.evidenciaPath) f2.push('evidencia del pedido');
-  f2.push(...faltasDias(f.dias, hoy));
+  f2.push(...faltasDias(f.dias, hoy, true, horas));
   if (cruce && BLOQUEAR_CRUCE_EVENTOS) f2.push('horario sin cruce');
   if (f.dias.some((d) => !(d.lugar ?? '').trim())) f2.push(f.dias.length > 1 ? 'lugar de cada día' : 'lugar');
   if (!f.responsable.trim()) f2.push('nombre del responsable');

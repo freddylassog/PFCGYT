@@ -185,6 +185,10 @@ export interface Ajustes {
   uniformeLugar: string;
   /** Enlace privado del calendario suscrito (vacío hasta crearlo en Resumen). */
   calendarioToken: string;
+  /** Horas mínimas de anticipación para registrar un pedido (normal: 72). */
+  anticipacionHoras: number;
+  /** Si tiene fecha, la anticipación anterior vale solo hasta ese día; después vuelve a 72 h. */
+  anticipacionHasta: string;
 }
 
 /** Todo lo que necesita el panel de coordinación, cargado en una sola pasada. */

@@ -14,7 +14,8 @@ import {
 
 const PASOS = ['Solicitante', 'Evento', 'Estudiantes', 'Compromisos'];
 
-export function FormularioPedido({ hoy }: { hoy: string }) {
+export function FormularioPedido({ hoy, anticipacion = { horas: 72, hasta: '' } }: { hoy: string; anticipacion?: { horas: number; hasta: string } }) {
+  const horasMin = anticipacion.horas;
   const [f, setF] = useState<FormPedido>(FORM_INICIAL);
   const [paso, setPaso] = useState(1);
   const [subiendo, setSubiendo] = useState(false);
@@ -39,12 +40,12 @@ export function FormularioPedido({ hoy }: { hoy: string }) {
   }, [horarioCompleto, diasClave]);
 
   const cruceActual = horarioCompleto ? cruce : null;
-  const faltas = faltasPedido(f, hoy, cruceActual);
+  const faltas = faltasPedido(f, hoy, cruceActual, horasMin);
   const noPuedeEnviar = faltas.some((x) => x.length);
   const durTexto = duracionTextoDias(f.dias);
   const compromisos = compromisosPedido({ ...f, dias: ordenarDias(f.dias), actividades: [] });
   const primero = primerDia(f.dias);
-  const error72 = !!primero?.fecha && esFechaISO(primero.fecha) && !cumple72h(primero.fecha, hoy);
+  const error72 = !!primero?.fecha && esFechaISO(primero.fecha) && !cumple72h(primero.fecha, hoy, horasMin);
 
   async function subirEvidencia(archivo: File) {
     setErrorArchivo(null);
@@ -182,9 +183,10 @@ export function FormularioPedido({ hoy }: { hoy: string }) {
               <label>Días y horarios de participación de los estudiantes</label>
               <EditorDias dias={f.dias} onChange={(d) => setF((s) => ({ ...s, dias: d, lugar: d[0]?.lugar ?? '', lejos: d.some((x) => !!x.lejos) }))} min={hoy} idPrefijo="dia" />
             </div>
-            <p className="muted fs-12 m-0">Plazo: <strong style={{ color: 'var(--color-text)' }}>{primero?.fecha ? plazoTexto(primero.fecha, hoy) : 'Elige la fecha'}</strong> · Duración: <strong style={{ color: 'var(--color-text)' }}>{durTexto}</strong>.</p>
+            {horasMin !== 72 && <p className="aviso-info m-0 fs-12" style={{ display: 'block' }}>Anticipación mínima temporal: <strong>{horasMin} horas</strong>{anticipacion.hasta ? ` hasta el ${fechaCorta(anticipacion.hasta)}` : ''}. Después vuelve a la regla normal de 72 horas.</p>}
+            <p className="muted fs-12 m-0">Plazo: <strong style={{ color: 'var(--color-text)' }}>{primero?.fecha ? plazoTexto(primero.fecha, hoy, horasMin) : 'Elige la fecha'}</strong> · Duración: <strong style={{ color: 'var(--color-text)' }}>{durTexto}</strong>.</p>
             {error72 && (
-              <div className="alerta" role="alert"><IconoAlerta /><span><strong>No se puede registrar el pedido.</strong> El evento está a menos de 72 horas. Los pedidos deben ingresar con al menos 3 días de anticipación.</span></div>
+              <div className="alerta" role="alert"><IconoAlerta /><span><strong>No se puede registrar el pedido.</strong> El evento está a menos de {horasMin} horas. Los pedidos deben ingresar con al menos {Math.ceil(horasMin / 24)} día{Math.ceil(horasMin / 24) === 1 ? '' : 's'} de anticipación.</span></div>
             )}
             {cruceActual && (
               <div className="alerta" role="alert"><IconoCalendario /><span><strong>Horario ocupado.</strong> Ya hay un evento en esa hora el {fechaCorta(cruceActual.fecha)}: se cruza con <em>{cruceActual.evento}</em> ({cruceActual.inicio}–{cruceActual.fin}, {cruceActual.estado}). {BLOQUEAR_CRUCE_EVENTOS ? 'No se puede registrar otro evento en esa hora: elige otro horario el mismo día u otra fecha.' : 'Puedes continuar; la coordinación revisará el cruce antes de aprobar.'}</span></div>

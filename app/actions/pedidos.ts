@@ -7,7 +7,7 @@ import { notificarNuevoPedido } from '@/lib/notificar';
 import { appUrl } from '@/lib/app-url';
 import { tokenActa } from '@/lib/sesion';
 import {
-  ACTIVIDADES, codigoPedido, cruceEventos, esFechaISO, esHora, faltasPedido, fechaLargaDias, hoyISO, normalizarCorreo, ordenarDias, type FormPedido,
+  ACTIVIDADES, anticipacionVigente, codigoPedido, cruceEventos, esFechaISO, esHora, faltasPedido, fechaLargaDias, hoyISO, normalizarCorreo, ordenarDias, type FormPedido,
 } from '@/lib/reglas';
 import type { RepartoActividad } from '@/lib/tipos';
 import type { DiaEvento, Resultado } from '@/lib/tipos';
@@ -47,12 +47,13 @@ export interface PedidoCreado { id: string; codigo: string; evento: string; fech
 
 export async function crearPedido(f: FormPedido): Promise<Resultado<PedidoCreado>> {
   const hoy = hoyISO();
+  const horasMin = anticipacionVigente(await ajustesActuales(), hoy);
   const pedidos = await pedidosDelPeriodo();
   const dias = ordenarDias(f.dias || []).map((d) => ({ fecha: d.fecha, inicio: d.inicio, fin: d.fin, lugar: (d.lugar ?? '').trim().slice(0, 300), lejos: !!d.lejos }));
   const lugar = dias[0]?.lugar || f.lugar.trim();
   const lejos = dias.some((d) => d.lejos);
   const cruce = cruceEventos({ dias }, pedidos);
-  const faltas = faltasPedido({ ...f, dias }, hoy, cruce ? { evento: cruce.pedido.evento } : null).flat();
+  const faltas = faltasPedido({ ...f, dias }, hoy, cruce ? { evento: cruce.pedido.evento } : null, horasMin).flat();
   if (faltas.length) return { ok: false, error: 'Falta: ' + faltas.join(', ') };
   const primero = dias[0];
   const reparto: RepartoActividad[] = (f.reparto || []).filter((x) => ACTIVIDADES.includes(x.actividad)).map((x) => ({ actividad: x.actividad, cantidad: Math.round(Number(x.cantidad)) }));

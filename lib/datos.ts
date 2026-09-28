@@ -70,6 +70,7 @@ function mapAjustes(r: Fila): Ajustes {
     telegramChatId: s(r.telegram_chat_id), telegramChatNombre: s(r.telegram_chat_nombre),
     telegramCanalId: s(r.telegram_canal_id), telegramCanalNombre: s(r.telegram_canal_nombre), ultimoRecordatorio: s(r.ultimo_recordatorio),
     telegramBotUsername: s(r.telegram_bot_username), telegramWebhookUrl: s(r.telegram_webhook_url), uniformeLugar: s(r.uniforme_lugar), calendarioToken: s(r.calendario_token),
+    anticipacionHoras: Number(r.anticipacion_horas ?? 72) || 72, anticipacionHasta: s(r.anticipacion_hasta).slice(0, 10),
   };
 }
 

@@ -4,7 +4,7 @@ import { activarMensajesPersonales, desactivarMensajesPersonales, detectarCanal,
 import { IconoDescargar } from '@/components/Iconos';
 import { Marco } from '@/components/Marco';
 import { useAccion } from '@/components/useAccion';
-import { ESTADOS_VISIBLES, ESTADO_PLURAL, fechaLarga } from '@/lib/reglas';
+import { ESTADOS_VISIBLES, ESTADO_PLURAL, anticipacionVigente, fechaLarga } from '@/lib/reglas';
 import type { Datos } from '@/lib/tipos';
 import { resumenHoras, type PedidoVista } from '@/lib/vista';
 
@@ -13,7 +13,7 @@ export function Resumen({ datos, pedidos }: { datos: Datos; pedidos: PedidoVista
   const h = resumenHoras(datos, pedidos);
   const [horas, setHoras] = useState(String(h.horasSemana));
   const a = datos.ajustes;
-  const [aj, setAj] = useState({ correoDecanato: a.correoDecanato, correoGrupoEstudiantes: a.correoGrupoEstudiantes, correoCoordinacion: a.correoCoordinacion, inicioSemestre: a.inicioSemestre, uniformeLugar: a.uniformeLugar });
+  const [aj, setAj] = useState({ correoDecanato: a.correoDecanato, correoGrupoEstudiantes: a.correoGrupoEstudiantes, correoCoordinacion: a.correoCoordinacion, inicioSemestre: a.inicioSemestre, uniformeLugar: a.uniformeLugar, anticipacionHoras: a.anticipacionHoras, anticipacionHasta: a.anticipacionHasta });
   const [np, setNp] = useState({ periodo: '', inicio: '' });
   const [prueba, setPrueba] = useState<string | null>(null);
   const [copiado, setCopiado] = useState(false);
@@ -130,6 +130,11 @@ export function Resumen({ datos, pedidos }: { datos: Datos; pedidos: PedidoVista
           <div className="field"><label>Grupo de Outlook de estudiantes (convocatorias)</label><input className="input" type="email" value={aj.correoGrupoEstudiantes} onChange={(e) => setAj({ ...aj, correoGrupoEstudiantes: e.target.value })} placeholder="protocolo.estudiantes@ute.edu.ec" /><div className="muted fs-12 mt-2">Si lo dejas vacío, el correo de convocatoria pone a todos los estudiantes activos en copia oculta.</div></div>
           <div className="field"><label>Correo de coordinación (para copia)</label><input className="input" type="email" value={aj.correoCoordinacion} onChange={(e) => setAj({ ...aj, correoCoordinacion: e.target.value })} /></div>
           <div className="field"><label>Lugar habitual de entrega de uniformes</label><input className="input" value={aj.uniformeLugar} onChange={(e) => setAj({ ...aj, uniformeLugar: e.target.value })} placeholder="ej. Oficina de coordinación de protocolo" /><div className="muted fs-12 mt-2">Se propone al fijar la entrega y devolución de cada evento (pestaña Uniformes).</div></div>
+          <div className="cols-2">
+            <div className="field"><label>Anticipación mínima de los pedidos (horas)</label><input className="input" type="number" min={1} max={720} value={aj.anticipacionHoras} onChange={(e) => setAj({ ...aj, anticipacionHoras: Number(e.target.value) })} /></div>
+            <div className="field"><label>Esa anticipación vale hasta (opcional)</label><input className="input" type="date" value={aj.anticipacionHasta} onChange={(e) => setAj({ ...aj, anticipacionHasta: e.target.value })} /></div>
+          </div>
+          <p className="muted fs-12 m-0">Regla normal: 72 horas (3 días). Para una excepción temporal, pon por ejemplo 24 y la fecha del último día en que aplica; pasado ese día la app vuelve sola a 72 horas. Hoy rige: <strong>{anticipacionVigente(aj, datos.hoy)} h</strong>.</p>
           {error && <p className="error">{error}</p>}
           <button className="btn btn-primary" type="submit" style={{ justifySelf: 'start' }}>Guardar ajustes</button>
         </Marco>

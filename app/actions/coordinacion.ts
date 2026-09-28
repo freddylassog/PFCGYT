@@ -412,7 +412,7 @@ export async function fijarDevolucion(studentId: string, estado: 'lavado' | 'rec
 
 // ---------------------------------------------------------------- ajustes
 
-export async function guardarAjustes(a: { horasSemana?: number; inicioSemestre?: string; correoDecanato?: string; correoGrupoEstudiantes?: string; correoCoordinacion?: string; uniformeLugar?: string }): Promise<Resultado> {
+export async function guardarAjustes(a: { horasSemana?: number; inicioSemestre?: string; correoDecanato?: string; correoGrupoEstudiantes?: string; correoCoordinacion?: string; uniformeLugar?: string; anticipacionHoras?: number; anticipacionHasta?: string }): Promise<Resultado> {
   try {
     await exigir();
     const sql = db();
@@ -426,6 +426,15 @@ export async function guardarAjustes(a: { horasSemana?: number; inicioSemestre?:
     if (a.correoGrupoEstudiantes != null) await sql`update settings set correo_grupo_estudiantes = ${a.correoGrupoEstudiantes.trim()} where periodo = ${periodo}`;
     if (a.correoCoordinacion != null) await sql`update settings set correo_coordinacion = ${a.correoCoordinacion.trim()} where periodo = ${periodo}`;
     if (a.uniformeLugar != null) await sql`update settings set uniforme_lugar = ${a.uniformeLugar.trim().slice(0, 200)} where periodo = ${periodo}`;
+    if (a.anticipacionHoras != null) {
+      const h = Math.round(Number(a.anticipacionHoras));
+      if (!(h >= 1 && h <= 720)) throw new Error('La anticipación debe estar entre 1 y 720 horas');
+      await sql`update settings set anticipacion_horas = ${h} where periodo = ${periodo}`;
+    }
+    if (a.anticipacionHasta != null) {
+      if (a.anticipacionHasta && !esFechaISO(a.anticipacionHasta)) throw new Error('Fecha límite de la anticipación inválida');
+      await sql`update settings set anticipacion_hasta = ${a.anticipacionHasta || null} where periodo = ${periodo}`;
+    }
     refrescar();
     return { ok: true };
   } catch (e) { return fallo(e); }
