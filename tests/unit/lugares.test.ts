@@ -21,7 +21,7 @@ test('transporte por día: ida solo el día que es fuera del DMQ', () => {
   const p = { lugar: 'Auditorio UTE', lejos: true, dias: [d1, d2] };
   assert.deepEqual(transporteDias(p), { ida: true, regreso: true, motivos: ['lugar fuera del Distrito Metropolitano de Quito o aeropuerto'] });
   assert.equal(transporteDetallePorDia(p), 'día 1: por su cuenta; día 2: ida y regreso (lugar fuera del Distrito Metropolitano de Quito o aeropuerto)');
-  assert.equal(transporteDetallePorDia({ lugar: 'X', lejos: false, dias: [d1, { ...d2, lugar: 'X', lejos: false }] }), null);
+  assert.equal(transporteDetallePorDia({ lejos: false, dias: [d1, { ...d2, lugar: 'X', lejos: false }] }), null);
   const c = compromisosPedido({ ...p, cantidad: 4, reparto: [], actividades: ['Guía de invitados'], responsable: 'R', responsableTelefono: '' });
   assert.match(c[1].texto, /Ida y regreso para los 4 estudiantes/);
   assert.match(c[1].texto, /Por día: día 1: por su cuenta; día 2: ida y regreso/);
