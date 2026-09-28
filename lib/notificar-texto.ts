@@ -17,7 +17,7 @@ export function mensajeNuevoPedido(p: Pedido, appUrl: string): Mensaje {
     `Fecha: ${fechaLargaDias(p.dias)} · ${horarioTextoDias(p.dias)} · ${horasDias(p.dias)} h`,
     `Solicita: ${p.nombre}, ${p.cargo} · ${p.institucion}${p.correoSolicitante ? ` · ${p.correoSolicitante}` : ''}`,
     `Estudiantes: ${p.cantidad} · ${repartoTexto(p.reparto, p.actividades)}`,
-    `Lugar: ${p.lugar}${p.lejos ? ' (lejos)' : ''}`,
+    `Lugar: ${p.lugar}${p.lejos ? ' (fuera del DMQ / aeropuerto)' : ''}`,
     `Responsable en sitio: ${p.responsable}${p.responsableTelefono ? ` · ${p.responsableTelefono}` : ''}`,
   ];
   const texto = `Nuevo pedido de apoyo protocolario\n\n${lineas.join('\n')}\n\nRevisar en el panel: ${enlace}`;

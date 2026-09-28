@@ -15,11 +15,11 @@ test('alimentación: una por cada 4 horas de participación, ninguna hasta 4 h',
   assert.equal(comidasDias([dia('09:00', '17:00'), { fecha: '2026-10-21', inicio: '09:00', fin: '12:00' }]), 2);
 });
 
-test('transporte: ida y regreso si es lejano; solo regreso si termina después de las 18:00', () => {
+test('transporte: ida y regreso si está fuera del DMQ o es el aeropuerto; solo regreso si termina después de las 18:00', () => {
   assert.deepEqual(transporteDias({ dias: [dia('09:00', '12:00')], lejos: false }), { ida: false, regreso: false, motivos: [] });
   assert.equal(transporteTexto(transporteDias({ dias: [dia('15:00', '21:00')], lejos: false })), 'Regreso a casa');
   assert.equal(transporteTexto(transporteDias({ dias: [dia('09:00', '12:00')], lejos: true })), 'Ida y regreso');
-  assert.deepEqual(transporteDias({ dias: [dia('15:00', '21:00')], lejos: true }).motivos, ['lugar lejano o fuera del campus', 'termina después de las 18:00']);
+  assert.deepEqual(transporteDias({ dias: [dia('15:00', '21:00')], lejos: true }).motivos, ['lugar fuera del Distrito Metropolitano de Quito o aeropuerto', 'termina después de las 18:00']);
 });
 
 test('compromisos con cantidades: 21 estudiantes, 8 h, lejos', () => {

@@ -104,7 +104,7 @@ export async function generarActa(p: PedidoVista, periodo: string, ahora: Date =
   } else {
     w.parrafo(`${p.fechaLarga} · ${p.horarioTexto} · ${p.horas} h de protocolo`, { etiqueta: 'Fecha y horario:' });
   }
-  w.parrafo(`${p.lugar}${p.lejos ? ' · fuera del campus / lejano' : ''}`, { etiqueta: 'Lugar:' });
+  w.parrafo(`${p.lugar}${p.lejos ? ' · fuera del Distrito Metropolitano de Quito / aeropuerto' : ''}`, { etiqueta: 'Lugar:' });
   w.parrafo(`${p.cantidad} · ${p.actividadesTexto || '—'}`, { etiqueta: 'Estudiantes y actividades:' });
   w.parrafo(`${p.vestLabel}. ${p.vestNotaEst}`, { etiqueta: 'Vestimenta:' });
 
@@ -113,7 +113,7 @@ export async function generarActa(p: PedidoVista, periodo: string, ahora: Date =
   w.parrafo(`${p.responsable}${p.responsableTelefono ? ` · ${p.responsableTelefono}` : ''} (recibe y acompaña a los estudiantes; contacto de la coordinación durante el evento)`, { etiqueta: 'Responsable en sitio:' });
 
   w.titulo('3. Compromisos de la organización');
-  w.parrafo('Según las reglas de la Facultad: alimentación por cada 4 horas de participación; transporte de ida y regreso si el lugar es lejano y de regreso a casa si el evento termina después de las 18:00; los estudiantes realizan únicamente las actividades marcadas. Con los datos de este pedido, la organización se compromete a:', { color: GRIS, tamano: 9 });
+  w.parrafo('Según las reglas de la Facultad: alimentación por cada 4 horas de participación; transporte de ida y regreso si el lugar está fuera del Distrito Metropolitano de Quito o es el aeropuerto, y de regreso a casa si el evento termina después de las 18:00; los estudiantes realizan únicamente las actividades marcadas. Con los datos de este pedido, la organización se compromete a:', { color: GRIS, tamano: 9 });
   const letras = 'abcdefgh';
   p.compromisosLista.forEach((c, i) => w.parrafo(`${c.titulo}${c.aplica ? '' : ' (no aplica)'}: ${c.texto}`, { sangria: 14, etiqueta: `${letras[i]})` }));
   w.parrafo('Trato respetuoso y condiciones seguras para los estudiantes durante toda su participación. Cualquier novedad se comunica de inmediato a la Coordinación de Protocolo.', { sangria: 14, etiqueta: `${letras[p.compromisosLista.length]})` });

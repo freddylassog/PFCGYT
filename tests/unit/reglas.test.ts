@@ -28,8 +28,8 @@ test('alimentación y transporte', () => {
   assert.equal(pasa4h('09:00', '13:01'), true);
   assert.equal(transporteMotivo({ fin: '17:00', lejos: false }), null);
   assert.equal(transporteMotivo({ fin: '18:30', lejos: false }), 'Termina después de las 18:00');
-  assert.equal(transporteMotivo({ fin: '12:00', lejos: true }), 'Lugar lejano');
-  assert.equal(transporteMotivo({ fin: '22:00', lejos: true }), 'Termina después de las 18:00 y el lugar es lejano');
+  assert.equal(transporteMotivo({ fin: '12:00', lejos: true }), 'Lugar fuera del DMQ o aeropuerto');
+  assert.equal(transporteMotivo({ fin: '22:00', lejos: true }), 'Termina después de las 18:00 y el lugar está fuera del DMQ o es el aeropuerto');
 });
 
 test('cruce de eventos (por día y hora)', () => {

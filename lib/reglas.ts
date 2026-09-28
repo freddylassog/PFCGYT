@@ -113,9 +113,9 @@ export function pasa4h(inicio: string, fin: string): boolean {
 
 export function transporteMotivo(e: { fin: string; lejos: boolean }): string | null {
   const tarde = !!e.fin && min(e.fin) > 18 * 60;
-  if (tarde && e.lejos) return 'Termina después de las 18:00 y el lugar es lejano';
+  if (tarde && e.lejos) return 'Termina después de las 18:00 y el lugar está fuera del DMQ o es el aeropuerto';
   if (tarde) return 'Termina después de las 18:00';
-  if (e.lejos) return 'Lugar lejano';
+  if (e.lejos) return 'Lugar fuera del DMQ o aeropuerto';
   return null;
 }
 
@@ -150,16 +150,16 @@ export function comidasDias(dias: DiaEvento[]): number {
 }
 
 export interface Transporte {
-  /** Ida desde la universidad: cuando el lugar es lejano o fuera del campus. */
+  /** Ida desde la universidad: cuando el lugar está fuera del Distrito Metropolitano de Quito o es el aeropuerto. */
   ida: boolean;
-  /** Regreso a casa: cuando el lugar es lejano o algún día termina después de las 18:00. */
+  /** Regreso a casa: cuando el lugar está fuera del DMQ (o aeropuerto) o algún día termina después de las 18:00. */
   regreso: boolean;
   motivos: string[];
 }
 
 export function transporteDias(e: { dias: DiaEvento[]; lejos: boolean }): Transporte {
   const tarde = e.dias.some((d) => !!d.fin && min(d.fin) > 18 * 60);
-  return { ida: !!e.lejos, regreso: !!e.lejos || tarde, motivos: [e.lejos ? 'lugar lejano o fuera del campus' : '', tarde ? 'termina después de las 18:00' : ''].filter(Boolean) };
+  return { ida: !!e.lejos, regreso: !!e.lejos || tarde, motivos: [e.lejos ? 'lugar fuera del Distrito Metropolitano de Quito o aeropuerto' : '', tarde ? 'termina después de las 18:00' : ''].filter(Boolean) };
 }
 
 /** 'Ida y regreso' · 'Regreso a casa' · null si no aplica. */
@@ -198,7 +198,7 @@ export function compromisosPedido(p: { dias: DiaEvento[]; lejos: boolean; cantid
         ? (t.ida
           ? `Ida y regreso para los ${n} estudiante${n === 1 ? '' : 's'}: los lleva desde la universidad y los regresa a su casa (${motivos}).`
           : `Regreso a casa para los ${n} estudiante${n === 1 ? '' : 's'} (${motivos}).`)
-        : 'No aplica: el evento termina antes de las 18:00 y el lugar es cercano.',
+        : 'No aplica: el lugar está dentro de Quito y el evento termina antes de las 18:00; los estudiantes llegan y regresan por su cuenta.',
     },
     {
       clave: 'actividades', titulo: 'Actividades', aplica: true, corto: null,
@@ -211,12 +211,12 @@ export function compromisosPedido(p: { dias: DiaEvento[]; lejos: boolean; cantid
   ];
 }
 
-/** Transporte: algún día termina después de las 18:00, o el lugar es lejano. */
+/** Transporte: algún día termina después de las 18:00, o el lugar está fuera del DMQ / aeropuerto. */
 export function transporteMotivoDias(e: { dias: DiaEvento[]; lejos: boolean }): string | null {
   const tarde = e.dias.some((d) => !!d.fin && min(d.fin) > 18 * 60);
-  if (tarde && e.lejos) return 'Termina después de las 18:00 y el lugar es lejano';
+  if (tarde && e.lejos) return 'Termina después de las 18:00 y el lugar está fuera del DMQ o es el aeropuerto';
   if (tarde) return 'Termina después de las 18:00';
-  if (e.lejos) return 'Lugar lejano';
+  if (e.lejos) return 'Lugar fuera del DMQ o aeropuerto';
   return null;
 }
 

@@ -190,7 +190,8 @@ export function FormularioPedido({ hoy }: { hoy: string }) {
               <div className="alerta" role="alert"><IconoCalendario /><span><strong>Horario ocupado.</strong> Ya hay un evento en esa hora el {fechaCorta(cruceActual.fecha)}: se cruza con <em>{cruceActual.evento}</em> ({cruceActual.inicio}–{cruceActual.fin}, {cruceActual.estado}). {BLOQUEAR_CRUCE_EVENTOS ? 'No se puede registrar otro evento en esa hora: elige otro horario el mismo día u otra fecha.' : 'Puedes continuar; la coordinación revisará el cruce antes de aprobar.'}</span></div>
             )}
             <div className="field"><label htmlFor="lugar">Lugar y dirección</label><input id="lugar" className="input" value={f.lugar} onChange={(e) => set('lugar', e.target.value)} placeholder="Salón, edificio, calle" /></div>
-            <label className="radio fs-13"><input type="checkbox" checked={f.lejos} onChange={(e) => set('lejos', e.target.checked)} /><span className="dot cuadro" />El lugar está fuera del campus / lejos</label>
+            <label className="radio fs-13"><input type="checkbox" checked={f.lejos} onChange={(e) => set('lejos', e.target.checked)} /><span className="dot cuadro" />El lugar está fuera del Distrito Metropolitano de Quito o es el aeropuerto (Tababela)</label>
+            <p className="muted fs-12 m-0">Dentro de Quito los estudiantes llegan por su cuenta. Fuera del Distrito Metropolitano o en el aeropuerto, la organización los lleva y los regresa; si el evento termina después de las 18:00, garantiza el regreso a casa.</p>
             <div className="field">
               <label>Responsable en sitio durante el evento (contacto para coordinar)</label>
               <div className="cols-2">
@@ -237,7 +238,7 @@ export function FormularioPedido({ hoy }: { hoy: string }) {
               <dt className="muted">Responsable</dt><dd>{f.responsable} · {f.responsableTelefono}</dd>
               <dt className="muted">Evidencia</dt><dd>{f.evidenciaNombre}</dd>
             </dl>
-            <p className="muted fs-13 m-0">Reglas de la facultad: alimentación por cada 4 horas de participación; transporte de ida y regreso si el lugar es lejano, y de regreso a casa si el evento termina después de las 18:00; los estudiantes solo realizan las actividades marcadas. Con los datos de este pedido, la organización se compromete a:</p>
+            <p className="muted fs-13 m-0">Reglas de la facultad: alimentación por cada 4 horas de participación; transporte de ida y regreso si el lugar está fuera del Distrito Metropolitano de Quito o es el aeropuerto, y de regreso a casa si el evento termina después de las 18:00; los estudiantes solo realizan las actividades marcadas. Con los datos de este pedido, la organización se compromete a:</p>
             <div className="stack-3 fs-14">
               {compromisos.map((c) => (
                 <div key={c.clave} style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'flex-start' }}>
