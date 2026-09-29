@@ -7,7 +7,7 @@ import { notificarNuevoPedido } from '@/lib/notificar';
 import { appUrl } from '@/lib/app-url';
 import { tokenActa } from '@/lib/sesion';
 import {
-  ACTIVIDADES, anticipacionVigente, codigoPedido, cruceEventos, esFechaISO, esHora, faltasPedido, fechaLargaDias, hoyISO, normalizarCorreo, ordenarDias, type FormPedido,
+  ACTIVIDADES, anticipacionVigente, codigoPedido, cruceEventos, unirRepartos, esFechaISO, esHora, faltasPedido, fechaLargaDias, hoyISO, normalizarCorreo, ordenarDias, type FormPedido,
 } from '@/lib/reglas';
 import type { RepartoActividad } from '@/lib/tipos';
 import type { DiaEvento, Resultado } from '@/lib/tipos';
@@ -27,6 +27,10 @@ export async function prepararEvidencia(nombre: string, tipo: string, tamano: nu
   } catch (e) {
     return { ok: false, error: (e as Error).message };
   }
+}
+
+function limpiarReparto(r: RepartoActividad[] | undefined): RepartoActividad[] {
+  return (r || []).filter((x) => ACTIVIDADES.includes(x.actividad)).map((x) => ({ actividad: x.actividad, cantidad: Math.round(Number(x.cantidad)) }));
 }
 
 export interface CruceInfo { evento: string; codigo: string; estado: string; fecha: string; inicio: string; fin: string }
@@ -49,14 +53,14 @@ export async function crearPedido(f: FormPedido): Promise<Resultado<PedidoCreado
   const hoy = hoyISO();
   const horasMin = anticipacionVigente(await ajustesActuales(), hoy);
   const pedidos = await pedidosDelPeriodo();
-  const dias = ordenarDias(f.dias || []).map((d) => ({ fecha: d.fecha, inicio: d.inicio, fin: d.fin, lugar: (d.lugar ?? '').trim().slice(0, 300), lejos: !!d.lejos, ...(Number(d.cantidad) > 0 ? { cantidad: Math.round(Number(d.cantidad)) } : {}) }));
+  const dias = ordenarDias(f.dias || []).map((d) => ({ fecha: d.fecha, inicio: d.inicio, fin: d.fin, lugar: (d.lugar ?? '').trim().slice(0, 300), lejos: !!d.lejos, ...(Number(d.cantidad) > 0 ? { cantidad: Math.round(Number(d.cantidad)) } : {}), ...(d.reparto?.length ? { reparto: limpiarReparto(d.reparto) } : {}) }));
   const lugar = dias[0]?.lugar || f.lugar.trim();
   const lejos = dias.some((d) => d.lejos);
   const cruce = cruceEventos({ dias }, pedidos);
   const faltas = faltasPedido({ ...f, dias }, hoy, cruce ? { evento: cruce.pedido.evento } : null, horasMin).flat();
   if (faltas.length) return { ok: false, error: 'Falta: ' + faltas.join(', ') };
   const primero = dias[0];
-  const reparto: RepartoActividad[] = (f.reparto || []).filter((x) => ACTIVIDADES.includes(x.actividad)).map((x) => ({ actividad: x.actividad, cantidad: Math.round(Number(x.cantidad)) }));
+  const reparto: RepartoActividad[] = dias.length > 1 ? unirRepartos(dias) : limpiarReparto(f.reparto);
   const actividades = reparto.map((x) => x.actividad);
   if (!actividades.length) return { ok: false, error: 'Elige al menos una actividad.' };
   if (!(await evidenciaExiste(f.evidenciaPath))) return { ok: false, error: 'La evidencia no terminó de subirse. Adjúntala de nuevo.' };

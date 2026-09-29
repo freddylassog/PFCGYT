@@ -24,8 +24,9 @@ await p.waitForSelector('h1:has-text("Coordinación")');
 await p.click(`table tbody tr:has-text("${codigo}")`);
 await p.waitForSelector('aside');
 const panel = (await p.locator('aside').textContent()).replace(/\s+/g, ' ');
-if (!/3 estudiantes \(día 1: 3 · día 2: 1\)/.test(panel) && !/Por día: día 1 \(14 dic\): 0\/3 · día 2 \(15 dic\): 0\/1/.test(panel)) throw new Error('el panel no muestra los cupos por día: ' + panel.slice(0, 400));
-paso('panel: cupos por día 3 y 1');
+if (!/Por día: día 1 \(14 dic\): 0\/2 · día 2 \(15 dic\): 0\/1/.test(panel)) throw new Error('el panel no muestra los cupos por día: ' + panel.slice(0, 400));
+if (!/D1 · Recepción y registro de invitados · 2/.test(panel) || !/D2 · Ubicación de autoridades · 1/.test(panel)) throw new Error('el panel no muestra las actividades por día: ' + panel.slice(0, 400));
+paso('panel: cupos por día 2 y 1, actividades por día');
 await p.click('button:has-text("Aprobar y convocar estudiantes")');
 await p.waitForSelector('text=Convocatoria abierta', { timeout: 20000 });
 
@@ -49,12 +50,12 @@ await p.waitForSelector('aside button:has-text("Aceptar")');
 const fila = p.locator('aside .linea-item:has-text("Camila")').first();
 if ((await fila.locator('button[aria-pressed="true"]').allTextContents()).join() !== 'D2') throw new Error('los chips no muestran solo D2: ' + (await fila.textContent()));
 await fila.locator('button:has-text("Aceptar")').click();
-await p.waitForSelector('text=/día 1 \\(14 dic\\): 0\\/3 · día 2 \\(15 dic\\): 1\\/1/', { timeout: 15000 });
-paso('confirmada: día 1 0/3 · día 2 1/1');
+await p.waitForSelector('text=/día 1 \\(14 dic\\): 0\\/2 · día 2 \\(15 dic\\): 1\\/1/', { timeout: 15000 });
+paso('confirmada: día 1 0/2 · día 2 1/1');
 // La coordinación le agrega el día 1 con el chip
 await p.locator('aside .linea-item:has-text("Camila") button:has-text("D1")').first().click();
-await p.waitForSelector('text=/día 1 \\(14 dic\\): 1\\/3 · día 2 \\(15 dic\\): 1\\/1/', { timeout: 15000 });
-paso('chip D1: ahora va los dos días (1/3 · 1/1)');
+await p.waitForSelector('text=/día 1 \\(14 dic\\): 1\\/2 · día 2 \\(15 dic\\): 1\\/1/', { timeout: 15000 });
+paso('chip D1: ahora va los dos días (1/2 · 1/1)');
 await p.screenshot({ path: shots + '/dos-dias-panel.png', fullPage: false, caret: 'initial' });
 // Portal: sus días y horas
 await est.reload();

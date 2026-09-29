@@ -38,6 +38,8 @@ export interface DiaEvento {
   lejos?: boolean;
   /** Estudiantes necesarios ese día (si falta, todos los del pedido). */
   cantidad?: number;
+  /** Actividades de ese día con cuántos estudiantes en cada una (si falta, las del pedido). */
+  reparto?: RepartoActividad[];
 }
 
 export interface Pedido {

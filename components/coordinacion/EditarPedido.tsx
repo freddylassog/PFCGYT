@@ -6,7 +6,7 @@ import { EditorDias } from '@/components/EditorDias';
 import { InputNumero } from '@/components/InputNumero';
 import { EditorReparto } from '@/components/EditorReparto';
 import { CantidadesPorDia } from '@/components/CantidadesPorDia';
-import { MAX_ESTUDIANTES, VESTIMENTA, ajustarRepartoATotal, duracionTextoDias, ajustarCantidadesDias } from '@/lib/reglas';
+import { MAX_ESTUDIANTES, VESTIMENTA, ajustarRepartoATotal, duracionTextoDias, sincronizarDias, cantidadDia, fechaCorta } from '@/lib/reglas';
 import type { Vestimenta } from '@/lib/tipos';
 import type { PedidoVista } from '@/lib/vista';
 
@@ -14,7 +14,7 @@ export function EditarPedido({ p, onCerrar }: { p: PedidoVista; onCerrar: () => 
   const { pending, error, run } = useAccion();
   const [c, setC] = useState<CambiosPedido>({
     nombre: p.nombre, cargo: p.cargo, institucion: p.institucion, correoSolicitante: p.correoSolicitante ?? '',
-    evento: p.evento, dias: p.dias.map((d) => ({ ...d })), lugar: p.lugar, lejos: p.lejos, responsable: p.responsable, responsableTelefono: p.responsableTelefono,
+    evento: p.evento, dias: sincronizarDias(p.dias.map((d) => ({ ...d, reparto: d.reparto?.length ? d.reparto.map((x) => ({ ...x })) : ajustarRepartoATotal(p.reparto, cantidadDia(p, d)) })), p.cantidad), lugar: p.lugar, lejos: p.lejos, responsable: p.responsable, responsableTelefono: p.responsableTelefono,
     cantidad: p.cantidad, vestimenta: p.vestimenta, reparto: p.reparto.length ? p.reparto.map((x) => ({ ...x })) : p.actividades.map((a, i) => ({ actividad: a, cantidad: i === 0 ? Math.max(1, p.cantidad - (p.actividades.length - 1)) : 1 })),
   });
   const set = <K extends keyof CambiosPedido>(k: K, v: CambiosPedido[K]) => setC((s) => ({ ...s, [k]: v }));
@@ -22,17 +22,26 @@ export function EditarPedido({ p, onCerrar }: { p: PedidoVista; onCerrar: () => 
     <form className={`punteado ${pending ? 'pendiente' : ''}`} onSubmit={(e) => { e.preventDefault(); run(() => editarPedido(p.id, c), onCerrar); }}>
       <h6 className="h6-accent">Editar pedido</h6>
       <div className="field"><label>Nombre del evento</label><input className="input" value={c.evento} onChange={(e) => set('evento', e.target.value)} required /></div>
-      <div className="field"><label>Días y horarios de participación</label><EditorDias dias={c.dias} onChange={(d) => setC((s) => ({ ...s, dias: d, lugar: d[0]?.lugar ?? '', lejos: d.some((x) => !!x.lejos) }))} idPrefijo="edit-dia" /></div>
-      <div className="field" style={{ maxWidth: 200 }}><label>Número de estudiantes</label><InputNumero id="edit-cantidad" min={1} max={MAX_ESTUDIANTES} value={c.cantidad} onChange={(n) => setC((s) => ({ ...s, cantidad: n, reparto: ajustarRepartoATotal(s.reparto, n), dias: ajustarCantidadesDias(s.dias, n, s.cantidad) }))} required /></div>
+      <div className="field"><label>Días y horarios de participación</label><EditorDias dias={c.dias} onChange={(d) => setC((s) => ({ ...s, dias: sincronizarDias(d, s.cantidad), lugar: d[0]?.lugar ?? '', lejos: d.some((x) => !!x.lejos) }))} idPrefijo="edit-dia" /></div>
+      <div className="field" style={{ maxWidth: 200 }}><label>Número de estudiantes</label><InputNumero id="edit-cantidad" min={1} max={MAX_ESTUDIANTES} value={c.cantidad} onChange={(n) => setC((s) => ({ ...s, cantidad: n, reparto: ajustarRepartoATotal(s.reparto, n), dias: sincronizarDias(s.dias, n) }))} required /></div>
       <p className="muted fs-12 m-0">Duración: {duracionTextoDias(c.dias)}. Confirmados actuales: {p.confirmadosN} (la cantidad no puede ser menor).</p>
-      <CantidadesPorDia dias={c.dias} cantidad={c.cantidad} onChange={(d) => set('dias', d)} idPrefijo="edit-cant" />
+      <CantidadesPorDia dias={c.dias} cantidad={c.cantidad} onChange={(d) => set('dias', sincronizarDias(d, c.cantidad))} idPrefijo="edit-cant" />
       <div className="cols-2" style={{ gap: 'var(--space-2)' }}>
         <div className="field"><label>Responsable en sitio</label><input className="input" value={c.responsable} onChange={(e) => set('responsable', e.target.value)} required /></div>
         <div className="field"><label>Teléfono</label><input className="input" type="tel" value={c.responsableTelefono} onChange={(e) => set('responsableTelefono', e.target.value)} required /></div>
       </div>
       <div className="field"><label>Vestimenta</label><select className="input" value={c.vestimenta} onChange={(e) => set('vestimenta', e.target.value)}>{(Object.keys(VESTIMENTA) as Vestimenta[]).map((k) => <option key={k} value={k}>{VESTIMENTA[k].label}</option>)}</select></div>
       <div className="field"><label>Actividades y estudiantes en cada una</label>
-        <EditorReparto reparto={c.reparto} cantidad={c.cantidad} onChange={(r) => set('reparto', r)} idPrefijo="edit-act" />
+        {c.dias.length > 1 ? (
+          <div className="stack-3">
+            {c.dias.map((d, i) => { const n = cantidadDia(c, d); return (
+              <div key={i} className="field" style={{ borderLeft: '3px solid var(--color-accent-200)', paddingLeft: 'var(--space-3)' }}>
+                <label>Día {i + 1}{d.fecha ? ` · ${fechaCorta(d.fecha)}` : ''} · {n} estudiante{n === 1 ? '' : 's'}</label>
+                <EditorReparto reparto={d.reparto ?? []} cantidad={n} onChange={(r) => set('dias', c.dias.map((x, j) => (j === i ? { ...x, reparto: r } : x)))} idPrefijo={`edit-d${i}-act`} />
+              </div>
+            ); })}
+          </div>
+        ) : <EditorReparto reparto={c.reparto} cantidad={c.cantidad} onChange={(r) => set('reparto', r)} idPrefijo="edit-act" />}
       </div>
       <details>
         <summary className="muted fs-12" style={{ cursor: 'pointer' }}>Datos del solicitante</summary>

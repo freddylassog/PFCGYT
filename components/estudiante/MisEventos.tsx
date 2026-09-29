@@ -4,7 +4,7 @@ import { inscribirme, retirarme } from '@/app/actions/estudiante';
 import { Marco } from '@/components/Marco';
 import { useAccion } from '@/components/useAccion';
 import { MINIMO_EVENTOS, citaDevolucionTexto, citaEntregaTexto, fechaCorta, horarioTextoDias, horasDias, infoUniforme, redondear1, semLabel } from '@/lib/reglas';
-import { diasDeEstudiante } from '@/lib/vista';
+import { actividadesDeEstudiante, diasDeEstudiante } from '@/lib/vista';
 import type { Datos, Estudiante } from '@/lib/tipos';
 import { avanceEstudiante, vistaPedidos } from '@/lib/vista';
 
@@ -88,7 +88,7 @@ export function MisEventos({ datos, yo }: { datos: Datos; yo: Estudiante }) {
               {e.vestimenta === 'uniforme' && citaEntregaTexto(e.uniformeCita) && <div><div className="etiqueta">Entrega del uniforme</div>{citaEntregaTexto(e.uniformeCita)}{e.uniformeCita?.lugar && <div className="muted fs-12">{e.uniformeCita.lugar}</div>}</div>}
               {e.vestimenta === 'uniforme' && citaDevolucionTexto(e.uniformeCita) && <div><div className="etiqueta">Devolución del uniforme (lavado)</div>{citaDevolucionTexto(e.uniformeCita)}{e.uniformeCita?.lugar && <div className="muted fs-12">{e.uniformeCita.lugar}</div>}</div>}
             </div>
-            <div><div className="etiqueta" style={{ marginBottom: 4 }}>Actividades del evento</div><div className="row" style={{ gap: 4 }}>{e.actividadesEtiquetas.map((a) => <span key={a} className="tag tag-neutral">{a}</span>)}</div></div>
+            <div><div className="etiqueta" style={{ marginBottom: 4 }}>{e.repartoPorDia ? 'Tus actividades' : 'Actividades del evento'}</div><div className="row" style={{ gap: 4 }}>{(e.repartoPorDia ? actividadesDeEstudiante(e, yo.id) : e.actividadesEtiquetas).map((a) => <span key={a} className="tag tag-neutral">{a}</span>)}</div></div>
           </Marco>
         ))}
       </div>

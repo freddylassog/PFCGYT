@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ajustarCantidadesDias, cantidadDia, compromisosPedido, cuposTexto, diasEstudiante, faltasCantidadesDias, horasEstudiante } from '../../lib/reglas';
+import { actividadesTextoPedido, ajustarCantidadesDias, cantidadDia, compromisosPedido, cuposTexto, diasEstudiante, faltasCantidadesDias, faltasPedido, FORM_INICIAL, horasEstudiante, repartirCantidad, unirRepartos } from '../../lib/reglas';
 import { confirmadosEnDia, vistaPedido } from '../../lib/vista';
 import { datosDemo } from './datos-demo';
 
@@ -20,10 +20,14 @@ test('validación de cantidades por día', () => {
   assert.deepEqual(faltasCantidadesDias(20, [d1, d2]), []);
   assert.deepEqual(faltasCantidadesDias(20, [d1]), [], 'un solo día no valida cantidades por día');
   assert.deepEqual(faltasCantidadesDias(20, [{ ...d1, cantidad: 0 }, d2]), ['estudiantes por día entre 1 y 20']);
-  assert.deepEqual(faltasCantidadesDias(20, [{ ...d1, cantidad: 10 }, d2]), ['las cantidades por día deben cubrir a los 20 estudiantes (suman 16)']);
+  assert.deepEqual(faltasCantidadesDias(20, [{ ...d1, cantidad: 10 }, d2]), ['las cantidades por día deben sumar 20 (suman 16)']);
+  assert.deepEqual(faltasCantidadesDias(20, [{ ...d1, cantidad: 14 }, { ...d2, cantidad: 8 }]), ['las cantidades por día deben sumar 20 (suman 22)']);
   const ajustados = ajustarCantidadesDias([{ ...d1, cantidad: 20 }, d2], 10, 20);
-  assert.equal(ajustados[0].cantidad, undefined, 'el día que iba con todos sigue al nuevo total');
-  assert.equal(ajustados[1].cantidad, 6, 'el día con cantidad propia se conserva si cabe');
+  assert.deepEqual(ajustados.map((d) => d.cantidad), [5, 5], 'si no suman el total se reparten parejo');
+  assert.deepEqual(ajustarCantidadesDias([d1, d2], 20).map((d) => d.cantidad), [14, 6], 'si ya suman el total se conservan');
+  assert.deepEqual(repartirCantidad(4, 2), [2, 2]);
+  assert.deepEqual(repartirCantidad(5, 2), [3, 2]);
+  assert.deepEqual(repartirCantidad(20, 3), [7, 7, 6]);
 });
 
 test('días y horas de cada estudiante', () => {
@@ -55,4 +59,17 @@ test('vista: cupos por día, lleno por días y confirmados de cada día', () => 
   assert.equal(p.lleno, true);
   assert.deepEqual(confirmadosEnDia(p, '2026-10-21').map((e) => e.id), ['s2']);
   assert.equal(p.cuposTexto, '2 estudiantes (día 1: 2 · día 2: 1)');
+});
+
+test('actividades por día: texto, unión y validación del paso 3', () => {
+  const dias = [
+    { ...d1, cantidad: 2, reparto: [{ actividad: 'Guía de invitados', cantidad: 2 }] },
+    { ...d2, cantidad: 2, reparto: [{ actividad: 'Recepción y registro de invitados', cantidad: 1 }, { actividad: 'Guía de invitados', cantidad: 1 }] },
+  ];
+  assert.equal(actividadesTextoPedido({ reparto: [], actividades: [], dias }), 'Día 1: Guía de invitados (2) · Día 2: Recepción y registro de invitados (1), Guía de invitados (1)');
+  assert.deepEqual(unirRepartos(dias), [{ actividad: 'Recepción y registro de invitados', cantidad: 1 }, { actividad: 'Guía de invitados', cantidad: 3 }]);
+  const f = { ...FORM_INICIAL, nombre: 'A', cargo: 'B', institucion: 'C', correoSolicitante: 'a@b.co', evento: 'E', evidenciaPath: 'x', responsable: 'R', responsableTelefono: '0991234567', acepta: true, cantidad: 4, dias };
+  assert.deepEqual(faltasPedido(f, '2026-09-08', null)[2], []);
+  const mal = { ...f, dias: [dias[0], { ...dias[1], reparto: [{ actividad: 'Guía de invitados', cantidad: 1 }] }] };
+  assert.deepEqual(faltasPedido(mal, '2026-09-08', null)[2], ['día 2: repartir los 2 estudiantes entre las actividades (asignados: 1)']);
 });

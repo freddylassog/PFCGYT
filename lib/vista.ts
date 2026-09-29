@@ -2,15 +2,16 @@
 // reporte Excel y los correos. Todo puro: entra `Datos`, salen vistas.
 import {
   ACTIVIDADES, DEVOLUCION, MINIMO_EVENTOS, VESTIMENTA, convenioLabel, cruceClases, diasHasta, duracionTextoDias, fechaCorta, fechaCortaDias, fechaLargaDias,
-  cantidadDia, cantidadesDistintas, comidasDias, compromisosPedido, cuposTexto, diasEstudiante, estadoVisible, horasEstudiante, lugaresTexto, mismoLugar, horarioTextoDias, horasDias, infoUniforme, pasa4hDias, redondear1, repartoTexto, semCorto, semLabel, semanaDe, tagClass, tipoClass, tipoLabel, transporteDias, transporteMotivoDias, transporteTexto, ultimoDia, type Compromiso, type EstadoVisible, type Transporte,
+  actividadesEtiquetasPedido, actividadesTextoPedido, cantidadDia, cantidadesDistintas, comidasDias, compromisosPedido, cuposTexto, diasEstudiante, estadoVisible, horasEstudiante, lugaresTexto, mismoLugar, repartoDia, tieneRepartoPorDia, horarioTextoDias, horasDias, infoUniforme, pasa4hDias, redondear1, semCorto, semLabel, semanaDe, tagClass, tipoClass, tipoLabel, transporteDias, transporteMotivoDias, transporteTexto, ultimoDia, type Compromiso, type EstadoVisible, type Transporte,
 } from './reglas';
 import type { Clase, Datos, DiaEvento, Docente, Estudiante, Novedad, Pedido, Semestre } from './tipos';
 
 export interface PedidoVista extends Pedido {
   /** 'Guía de invitados (2), Acompañamiento en recorridos (2)' */
   actividadesTexto: string;
-  /** Etiquetas por actividad, con cantidad si el pedido la trae. */
+  /** Etiquetas por actividad, con cantidad si el pedido la trae (con prefijo D1, D2… si cambian por día). */
   actividadesEtiquetas: string[];
+  repartoPorDia: boolean;
   horas: number;
   duracion: string;
   horarioTexto: string;
@@ -113,8 +114,9 @@ export function vistaPedido(d: Datos, p: Pedido): PedidoVista {
   const compromisos = compromisosPedido(p);
   return {
     ...p,
-    actividadesTexto: repartoTexto(p.reparto, p.actividades),
-    actividadesEtiquetas: p.reparto.length ? p.reparto.map((x) => `${x.actividad} · ${x.cantidad}`) : p.actividades,
+    actividadesTexto: actividadesTextoPedido(p),
+    actividadesEtiquetas: actividadesEtiquetasPedido(p),
+    repartoPorDia: tieneRepartoPorDia(p),
     horas: horasDias(p.dias), duracion: duracionTextoDias(p.dias), horarioTexto: horarioTextoDias(p.dias), multidia: p.dias.length > 1,
     ultimaFecha: ultimoDia(p.dias)?.fecha ?? p.fecha,
     fechaCorta: fechaCortaDias(p.dias), fechaLarga: fechaLargaDias(p.dias), fechaPedido: fechaCorta(p.createdAt.slice(0, 10)),
@@ -140,6 +142,13 @@ export function vistaPedido(d: Datos, p: Pedido): PedidoVista {
 export function confirmadosEnDia(p: PedidoVista, fecha: string): Estudiante[] {
   return p.confirmados.filter((e) => diasEstudiante(p, p.asistencia[e.id]).some((d) => d.fecha === fecha));
 }
+
+/** Etiquetas de actividades solo de los días a los que asiste un estudiante. */
+export function actividadesDeEstudiante(p: PedidoVista, studentId: string): string[] {
+  return actividadesEtiquetasPedido(p, diasEstudiante(p, p.asistencia[studentId]));
+}
+
+export { repartoDia };
 
 /** Días a los que asiste un estudiante en el evento. */
 export function diasDeEstudiante(p: PedidoVista, studentId: string): DiaEvento[] {

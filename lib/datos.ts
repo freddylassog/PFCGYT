@@ -11,7 +11,11 @@ import type {
  CitaUniforme } from './tipos';
 
 function mapReparto(r: Fila): RepartoActividad[] {
-  let valor: unknown = r.reparto;
+  return parseReparto(r.reparto);
+}
+
+function parseReparto(v: unknown): RepartoActividad[] {
+  let valor: unknown = v;
   if (typeof valor === 'string') { try { valor = JSON.parse(valor); } catch { valor = []; } }
   if (!Array.isArray(valor)) return [];
   return (valor as { actividad?: unknown; cantidad?: unknown }[]).map((x) => ({ actividad: s(x.actividad), cantidad: Number(x.cantidad) || 0 })).filter((x) => x.actividad);
@@ -20,8 +24,8 @@ function mapReparto(r: Fila): RepartoActividad[] {
 function mapDias(r: Fila): DiaEvento[] {
   let valor: unknown = r.dias;
   if (typeof valor === 'string') { try { valor = JSON.parse(valor); } catch { valor = []; } }
-  const crudo = Array.isArray(valor) ? (valor as { fecha?: unknown; inicio?: unknown; fin?: unknown; lugar?: unknown; lejos?: unknown; cantidad?: unknown }[]) : [];
-  const dias = crudo.map((d) => ({ fecha: s(d.fecha).slice(0, 10), inicio: hhmm(s(d.inicio)), fin: hhmm(s(d.fin)), lugar: d.lugar != null && s(d.lugar) ? s(d.lugar) : s(r.lugar), lejos: d.lejos == null ? !!r.lejos : !!d.lejos, ...(Number(d.cantidad) > 0 ? { cantidad: Math.round(Number(d.cantidad)) } : {}) })).filter((d) => d.fecha).sort((a, b) => a.fecha.localeCompare(b.fecha));
+  const crudo = Array.isArray(valor) ? (valor as { fecha?: unknown; inicio?: unknown; fin?: unknown; lugar?: unknown; lejos?: unknown; cantidad?: unknown; reparto?: unknown }[]) : [];
+  const dias = crudo.map((d) => ({ fecha: s(d.fecha).slice(0, 10), inicio: hhmm(s(d.inicio)), fin: hhmm(s(d.fin)), lugar: d.lugar != null && s(d.lugar) ? s(d.lugar) : s(r.lugar), lejos: d.lejos == null ? !!r.lejos : !!d.lejos, ...(Number(d.cantidad) > 0 ? { cantidad: Math.round(Number(d.cantidad)) } : {}), ...(Array.isArray(d.reparto) && d.reparto.length ? { reparto: parseReparto(d.reparto) } : {}) })).filter((d) => d.fecha).sort((a, b) => a.fecha.localeCompare(b.fecha));
   return dias.length ? dias : [{ fecha: s(r.fecha), inicio: hhmm(s(r.inicio)), fin: hhmm(s(r.fin)), lugar: s(r.lugar), lejos: !!r.lejos }];
 }
 

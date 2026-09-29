@@ -175,23 +175,71 @@ export function cuposTexto(p: { cantidad: number; dias: DiaEvento[] }): string {
   return cantidadesDistintas(p) ? `${base} (${p.dias.map((d, i) => `día ${i + 1}: ${cantidadDia(p, d)}`).join(' · ')})` : base;
 }
 
-/** Problemas de las cantidades por día (vacío = correctas). Solo aplica a eventos de varios días. */
+/** Reparte el total entre n días lo más parejo posible (4 → 2 y 2; 5 → 3 y 2; 20 en 3 días → 7, 7 y 6). */
+export function repartirCantidad(total: number, n: number): number[] {
+  const t = Math.max(0, Math.round(Number(total) || 0));
+  if (n <= 0) return [];
+  const base = Math.floor(t / n), resto = t - base * n;
+  return Array.from({ length: n }, (_, i) => base + (i < resto ? 1 : 0));
+}
+
+/** Problemas de las cantidades por día (vacío = correctas). Solo aplica a eventos de varios días: se reparten el total. */
 export function faltasCantidadesDias(cantidad: number, dias: DiaEvento[]): string[] {
   if (dias.length <= 1) return [];
   const total = Math.round(Number(cantidad) || 0);
-  const f: string[] = [];
-  const porDia = dias.map((d) => (d.cantidad == null ? total : Math.round(Number(d.cantidad) || 0)));
-  if (porDia.some((n) => !(n >= 1 && n <= total))) f.push(`estudiantes por día entre 1 y ${total}`);
-  else if (porDia.reduce((a, n) => a + n, 0) < total) f.push(`las cantidades por día deben cubrir a los ${total} estudiantes (suman ${porDia.reduce((a, n) => a + n, 0)})`);
-  return f;
+  const porDia = dias.map((d) => Math.round(Number(d.cantidad) || 0));
+  if (porDia.some((n) => !(n >= 1 && n <= total))) return [`estudiantes por día entre 1 y ${total}`];
+  const suma = porDia.reduce((a, n) => a + n, 0);
+  return suma === total ? [] : [`las cantidades por día deben sumar ${total} (suman ${suma})`];
 }
 
-/** Al cambiar el total, los días que iban "todos" siguen al nuevo total y los demás se acotan. */
-export function ajustarCantidadesDias(dias: DiaEvento[], nuevoTotal: number, viejoTotal: number): DiaEvento[] {
-  return dias.map((d) => {
-    if (d.cantidad == null || d.cantidad === viejoTotal || d.cantidad > nuevoTotal) { const { cantidad: _c, ...resto } = d; void _c; return resto; }
-    return d;
-  });
+/** Al cambiar el total o los días: si las cantidades ya suman el total se conservan; si no, se reparten parejo. */
+export function ajustarCantidadesDias(dias: DiaEvento[], nuevoTotal: number, _viejoTotal?: number): DiaEvento[] {
+  void _viejoTotal;
+  if (dias.length <= 1) return dias.map((d) => { const { cantidad: _c, ...resto } = d; void _c; return resto; });
+  const total = Math.round(Number(nuevoTotal) || 0);
+  const actuales = dias.map((d) => Math.round(Number(d.cantidad) || 0));
+  if (actuales.every((n) => n >= 1) && actuales.reduce((a, n) => a + n, 0) === total) return dias;
+  const nuevos = repartirCantidad(total, dias.length);
+  return dias.map((d, i) => ({ ...d, cantidad: Math.max(1, nuevos[i]) }));
+}
+
+/** Actividades de un día: las suyas o, si el pedido es de un solo día o es antiguo, las del pedido. */
+export function repartoDia(p: { reparto: RepartoActividad[]; dias: DiaEvento[] }, d: DiaEvento): RepartoActividad[] {
+  return d.reparto?.length ? d.reparto : p.reparto;
+}
+
+/** ¿El pedido tiene actividades propias en cada día? */
+export function tieneRepartoPorDia(p: { dias: DiaEvento[] }): boolean {
+  return p.dias.length > 1 && p.dias.every((d) => !!d.reparto?.length);
+}
+
+/** Suma los repartos de todos los días por actividad (para el total del pedido y el reporte). */
+export function unirRepartos(dias: DiaEvento[]): RepartoActividad[] {
+  const suma = new Map<string, number>();
+  for (const d of dias) for (const x of d.reparto ?? []) suma.set(x.actividad, (suma.get(x.actividad) ?? 0) + (Number(x.cantidad) || 0));
+  return ACTIVIDADES.filter((a) => suma.has(a)).map((a) => ({ actividad: a, cantidad: suma.get(a)! }));
+}
+
+/** 'Guía de invitados (4)' o, con actividades por día, 'Día 1: Guía (2) · Día 2: Recepción (1), Ubicación (1)'. */
+export function actividadesTextoPedido(p: { reparto: RepartoActividad[]; actividades: string[]; dias: DiaEvento[] }): string {
+  if (tieneRepartoPorDia(p)) return p.dias.map((d, i) => `Día ${i + 1}: ${repartoTexto(d.reparto ?? [], [])}`).join(' · ');
+  return repartoTexto(p.reparto, p.actividades);
+}
+
+/** Etiquetas por actividad; con actividades por día llevan el prefijo D1, D2… */
+export function actividadesEtiquetasPedido(p: { reparto: RepartoActividad[]; actividades: string[]; dias: DiaEvento[] }, soloDias?: DiaEvento[]): string[] {
+  if (tieneRepartoPorDia(p)) {
+    return p.dias.flatMap((d, i) => (soloDias && !soloDias.some((x) => x.fecha === d.fecha) ? [] : (d.reparto ?? []).map((x) => `D${i + 1} · ${x.actividad} · ${x.cantidad}`)));
+  }
+  return p.reparto.length ? p.reparto.map((x) => `${x.actividad} · ${x.cantidad}`) : p.actividades;
+}
+
+/** Mantiene coherentes las cantidades y los repartos por día al cambiar el total o los días. */
+export function sincronizarDias(dias: DiaEvento[], total: number): DiaEvento[] {
+  const ajustados = ajustarCantidadesDias(dias, total);
+  if (ajustados.length <= 1) return ajustados;
+  return ajustados.map((d) => ({ ...d, reparto: ajustarRepartoATotal(d.reparto ?? [], cantidadDia({ cantidad: total }, d)) }));
 }
 
 /** Días a los que asiste un estudiante según su inscripción (null o sin coincidencias = todos). */
@@ -292,7 +340,7 @@ export function compromisosPedido(p: { dias: DiaEvento[]; lejos: boolean; cantid
     },
     {
       clave: 'actividades', titulo: 'Actividades', aplica: true, corto: null,
-      texto: `Los ${n} estudiante${n === 1 ? '' : 's'} realizan únicamente las actividades marcadas: ${repartoTexto(p.reparto, p.actividades) || '—'}. Se retiran a la hora de salida indicada, aunque el evento continúe.`,
+      texto: `Los ${n} estudiante${n === 1 ? '' : 's'} realizan únicamente las actividades marcadas: ${actividadesTextoPedido(p) || '—'}. Se retiran a la hora de salida indicada, aunque el evento continúe.`,
     },
     {
       clave: 'responsable', titulo: 'Responsable en sitio', aplica: true, corto: null,
@@ -754,8 +802,10 @@ export function faltasPedido(f: FormPedido, hoy: string, cruce: { evento: string
 
   const f3: string[] = [];
   if (!(f.cantidad >= 1 && f.cantidad <= MAX_ESTUDIANTES)) f3.push('número de estudiantes (1–20)');
-  f3.push(...faltasReparto(f.reparto, f.cantidad));
-  f3.push(...faltasCantidadesDias(f.cantidad, f.dias));
+  if (f.dias.length > 1) {
+    f3.push(...faltasCantidadesDias(f.cantidad, f.dias));
+    f.dias.forEach((d, i) => f3.push(...faltasReparto(d.reparto ?? [], cantidadDia(f, d)).map((m) => `día ${i + 1}: ${m}`)));
+  } else f3.push(...faltasReparto(f.reparto, f.cantidad));
   if (!VESTIMENTA[f.vestimenta]) f3.push('vestimenta');
 
   const f4: string[] = [];

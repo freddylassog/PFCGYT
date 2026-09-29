@@ -13,7 +13,7 @@ import { avanceEstudiante, vistaPedido } from '@/lib/vista';
 import { leerTabla, parseDocentes, parseEstudiantes, parseHorarios } from '@/lib/excel';
 import { borrarEvidencia, evidenciaExiste, prepararSubida } from '@/lib/storage';
 import {
-  ACTIVIDADES, MAX_ESTUDIANTES, UNIFORME, TIPOS_NOVEDAD, VESTIMENTA, claseAplica, claveNombre, cruceClases, esFechaISO, faltasDias, genClave, hoyISO, normalizarCorreo, normalizarParalelo, ordenarDias, telefonoValido, faltasReparto, faltasCitaUniforme, faltasCantidadesDias, cantidadDia, diasEstudiante,
+  ACTIVIDADES, MAX_ESTUDIANTES, UNIFORME, TIPOS_NOVEDAD, VESTIMENTA, claseAplica, claveNombre, cruceClases, esFechaISO, faltasDias, genClave, hoyISO, normalizarCorreo, normalizarParalelo, ordenarDias, telefonoValido, faltasReparto, faltasCitaUniforme, faltasCantidadesDias, cantidadDia, diasEstudiante, unirRepartos,
 } from '@/lib/reglas';
 import { iniciarSesionCoordinacion, passwordCoordinacionOk, sesionCoordinacion } from '@/lib/sesion';
 import type { CitaUniforme, DiaEvento, Estado, RepartoActividad, Resultado, Semestre } from '@/lib/tipos';
@@ -206,7 +206,7 @@ export async function editarPedido(id: string, c: CambiosPedido): Promise<Result
     if (!actual) throw new Error('Pedido no encontrado');
     if (!c.evento.trim()) throw new Error('Escribe el nombre del evento');
     if (!c.nombre.trim() || !c.cargo.trim() || !c.institucion.trim()) throw new Error('Nombre, cargo e institución son obligatorios');
-    const dias = ordenarDias(c.dias || []).map((d) => ({ fecha: d.fecha, inicio: d.inicio, fin: d.fin, lugar: (d.lugar ?? '').trim().slice(0, 300), lejos: !!d.lejos, ...(Number(d.cantidad) > 0 ? { cantidad: Math.round(Number(d.cantidad)) } : {}) }));
+    const dias = ordenarDias(c.dias || []).map((d) => ({ fecha: d.fecha, inicio: d.inicio, fin: d.fin, lugar: (d.lugar ?? '').trim().slice(0, 300), lejos: !!d.lejos, ...(Number(d.cantidad) > 0 ? { cantidad: Math.round(Number(d.cantidad)) } : {}), ...(d.reparto?.length ? { reparto: (d.reparto || []).filter((x) => ACTIVIDADES.includes(x.actividad)).map((x) => ({ actividad: x.actividad, cantidad: Math.round(Number(x.cantidad)) })) } : {}) }));
     const lugar = dias[0]?.lugar || (c.lugar || '').trim();
     const lejos = dias.some((d) => d.lejos);
     const malDias = faltasDias(dias, hoyISO(), false);
@@ -220,9 +220,16 @@ export async function editarPedido(id: string, c: CambiosPedido): Promise<Result
     const [conf] = await sql`select count(*)::int as n from enrollments where request_id = ${id} and estado = 'confirmado'`;
     if (cantidad < Number(conf.n)) throw new Error(`Ya hay ${conf.n} estudiantes confirmados; quita alguno antes de bajar la cantidad.`);
     if (!(c.vestimenta in VESTIMENTA)) throw new Error('Vestimenta inválida');
-    const reparto: RepartoActividad[] = (c.reparto || []).filter((x) => ACTIVIDADES.includes(x.actividad)).map((x) => ({ actividad: x.actividad, cantidad: Math.round(Number(x.cantidad)) }));
-    const malReparto = faltasReparto(reparto, cantidad);
-    if (malReparto.length) throw new Error('Actividades: ' + malReparto.join(', '));
+    let reparto: RepartoActividad[];
+    if (dias.length > 1) {
+      const malPorDia = dias.flatMap((d, i) => faltasReparto(d.reparto ?? [], cantidadDia({ cantidad }, d)).map((x) => `día ${i + 1}: ${x}`));
+      if (malPorDia.length) throw new Error('Actividades: ' + malPorDia.join(', '));
+      reparto = unirRepartos(dias);
+    } else {
+      reparto = (c.reparto || []).filter((x) => ACTIVIDADES.includes(x.actividad)).map((x) => ({ actividad: x.actividad, cantidad: Math.round(Number(x.cantidad)) }));
+      const malReparto = faltasReparto(reparto, cantidad);
+      if (malReparto.length) throw new Error('Actividades: ' + malReparto.join(', '));
+    }
     const actividades = reparto.map((x) => x.actividad);
     const correo = normalizarCorreo(c.correoSolicitante) || null;
     await sql`update requests set nombre = ${c.nombre.trim()}, cargo = ${c.cargo.trim()}, institucion = ${c.institucion.trim()}, correo_solicitante = ${correo},

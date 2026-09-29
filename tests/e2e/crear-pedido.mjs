@@ -49,10 +49,18 @@ if (segundoDia) {
   await p.fill('#cant-dia-1', '1'); // día 2 solo necesita 1 estudiante
   await p.keyboard.press('Tab');
 }
-await p.click('label:has-text("Recepción y registro de invitados")');
-await p.click('label:has-text("Ubicación de autoridades")');
-const asignados = await p.locator('text=Asignados:').textContent();
-if (!/Asignados: 3 de 3/.test(asignados || '')) { console.log('REPARTO INESPERADO:', asignados); }
+if (segundoDia) {
+  await p.click('label:has(#d0-act-0)'); // día 1 (2 estudiantes): Recepción
+  await p.click('label:has(#d1-act-1)'); // día 2 (1 estudiante): Ubicación
+  const a0 = await p.locator('p:has-text("Asignados:")').nth(0).textContent();
+  const a1 = await p.locator('p:has-text("Asignados:")').nth(1).textContent();
+  if (!/Asignados: 2 de 2/.test(a0 || '') || !/Asignados: 1 de 1/.test(a1 || '')) console.log('REPARTO POR DÍA INESPERADO:', a0, a1);
+} else {
+  await p.click('label:has-text("Recepción y registro de invitados")');
+  await p.click('label:has-text("Ubicación de autoridades")');
+  const asignados = await p.locator('text=Asignados:').textContent();
+  if (!/Asignados: 3 de 3/.test(asignados || '')) { console.log('REPARTO INESPERADO:', asignados); }
+}
 await p.click('button:has-text("Continuar")');
 await p.click('label:has-text("Acepto estos compromisos")');
 await p.click('button:has-text("Registrar pedido")');
