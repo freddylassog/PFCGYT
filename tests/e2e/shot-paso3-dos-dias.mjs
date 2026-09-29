@@ -1,0 +1,23 @@
+// Captura el paso 3 de un pedido de dos días (debe mostrar "Estudiantes por día"). Uso: node tests/e2e/shot-paso3-dos-dias.mjs
+import { chromium } from '@playwright/test';
+import { writeFileSync } from 'node:fs';
+const base = process.env.BASE_URL || 'http://localhost:3000';
+const shots = process.env.SHOTS || '/tmp/claude-0/-home-user-PFCGYT/5a10c32a-d366-574f-b48c-ac6051283a90/scratchpad/shots';
+const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
+const p = await b.newPage({ viewport: { width: 1280, height: 1000 } });
+const tmp = '/tmp/evidencia-prueba.pdf'; writeFileSync(tmp, '%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF');
+await p.goto(base + '/');
+await p.fill('#nombre', 'Carla Espinosa'); await p.fill('#cargo', 'Directora'); await p.fill('#institucion', 'Universidad UTE'); await p.fill('#correo', 'carla@ejemplo.com');
+await p.click('button:has-text("Continuar")');
+await p.fill('#evento', 'Congreso en dos días'); await p.setInputFiles('input[type=file]', tmp); await p.waitForSelector('.tag-accent', { timeout: 15000 });
+await p.fill('#dia-fecha-0', '2026-12-10'); await p.fill('#dia-inicio-0', '09:00'); await p.fill('#dia-fin-0', '13:00');
+await p.fill('#dia-lugar-0', 'Auditorio Principal');
+await p.click('button:has-text("Agregar otro día")');
+await p.fill('#responsable', 'Secretaría'); await p.fill('#telefono', '0991234567');
+await p.waitForTimeout(500);
+await p.click('button:has-text("Continuar")'); await p.waitForSelector('#cantidad');
+await p.fill('#cantidad', '20');
+await p.fill('#cant-dia-0', '14'); await p.fill('#cant-dia-1', '6'); await p.keyboard.press('Tab');
+console.log('por día visible:', await p.locator('text=Estudiantes por día').count(), '·', (await p.locator('label:has-text("Estudiantes por día")').locator('..').textContent()).replace(/\s+/g, ' ').slice(0, 200));
+await p.screenshot({ path: shots + '/paso3-dos-dias.png', fullPage: true, caret: 'initial' });
+await b.close();
