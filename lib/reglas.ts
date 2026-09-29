@@ -157,6 +157,53 @@ export interface Transporte {
   motivos: string[];
 }
 
+/** Estudiantes necesarios un día: los suyos o, si no tiene, todos los del pedido. */
+export function cantidadDia(p: { cantidad: number }, d: DiaEvento): number {
+  const n = Math.round(Number(d.cantidad) || 0);
+  return n > 0 ? Math.min(n, Math.round(Number(p.cantidad) || 0)) : Math.round(Number(p.cantidad) || 0);
+}
+
+/** ¿Algún día necesita menos estudiantes que el total? (solo en eventos de varios días) */
+export function cantidadesDistintas(p: { cantidad: number; dias: DiaEvento[] }): boolean {
+  return p.dias.length > 1 && p.dias.some((d) => cantidadDia(p, d) !== Math.round(Number(p.cantidad) || 0));
+}
+
+/** '20 estudiantes' o '20 estudiantes (día 1: 14 · día 2: 6)'. */
+export function cuposTexto(p: { cantidad: number; dias: DiaEvento[] }): string {
+  const n = Math.round(Number(p.cantidad) || 0);
+  const base = `${n} estudiante${n === 1 ? '' : 's'}`;
+  return cantidadesDistintas(p) ? `${base} (${p.dias.map((d, i) => `día ${i + 1}: ${cantidadDia(p, d)}`).join(' · ')})` : base;
+}
+
+/** Problemas de las cantidades por día (vacío = correctas). Solo aplica a eventos de varios días. */
+export function faltasCantidadesDias(cantidad: number, dias: DiaEvento[]): string[] {
+  if (dias.length <= 1) return [];
+  const total = Math.round(Number(cantidad) || 0);
+  const f: string[] = [];
+  const porDia = dias.map((d) => (d.cantidad == null ? total : Math.round(Number(d.cantidad) || 0)));
+  if (porDia.some((n) => !(n >= 1 && n <= total))) f.push(`estudiantes por día entre 1 y ${total}`);
+  else if (porDia.reduce((a, n) => a + n, 0) < total) f.push(`las cantidades por día deben cubrir a los ${total} estudiantes (suman ${porDia.reduce((a, n) => a + n, 0)})`);
+  return f;
+}
+
+/** Al cambiar el total, los días que iban "todos" siguen al nuevo total y los demás se acotan. */
+export function ajustarCantidadesDias(dias: DiaEvento[], nuevoTotal: number, viejoTotal: number): DiaEvento[] {
+  return dias.map((d) => {
+    if (d.cantidad == null || d.cantidad === viejoTotal || d.cantidad > nuevoTotal) { const { cantidad: _c, ...resto } = d; void _c; return resto; }
+    return d;
+  });
+}
+
+/** Días a los que asiste un estudiante según su inscripción (null o sin coincidencias = todos). */
+export function diasEstudiante(p: { dias: DiaEvento[] }, dias: string[] | null | undefined): DiaEvento[] {
+  const sel = dias?.length ? p.dias.filter((d) => dias.includes(d.fecha)) : [];
+  return sel.length ? sel : p.dias;
+}
+
+export function horasEstudiante(p: { dias: DiaEvento[] }, dias: string[] | null | undefined): number {
+  return horasDias(diasEstudiante(p, dias));
+}
+
 /** Lugar de un día: el suyo o, si no tiene, el del pedido. */
 export function lugarDia(p: { lugar: string }, d: DiaEvento): string {
   return (d.lugar ?? '').trim() || p.lugar;
@@ -220,6 +267,9 @@ export function compromisosPedido(p: { dias: DiaEvento[]; lejos: boolean; cantid
   const n = Math.max(0, Math.round(Number(p.cantidad) || 0));
   const comidas = comidasDias(p.dias);
   const porDia = p.dias.length > 1 ? ` (${p.dias.map((d, i) => `día ${i + 1}: ${comidasDia(d)}`).join(', ')})` : '';
+  const distintas = cantidadesDistintas(p);
+  const totalComidas = p.dias.reduce((a, d) => a + comidasDia(d) * cantidadDia(p, d), 0);
+  const paraQuienes = distintas ? `para los estudiantes de cada día (${p.dias.map((d, i) => `día ${i + 1}: ${cantidadDia(p, d)}`).join(' · ')})` : `para los ${n} estudiante${n === 1 ? '' : 's'}`;
   const t = transporteDias(p);
   const motivos = t.motivos.join(' y ');
   const detalle = transporteDetallePorDia(p);
@@ -229,15 +279,15 @@ export function compromisosPedido(p: { dias: DiaEvento[]; lejos: boolean; cantid
     {
       clave: 'alimentacion', titulo: 'Alimentación', aplica: comidas > 0, corto: comidas > 0 ? `Alimentación ×${comidas}` : null,
       texto: comidas > 0
-        ? `${comidas} ${comidas > 1 ? 'alimentaciones' : 'alimentación'} por estudiante, una por cada 4 horas de participación${porDia}: ${comidas * n} en total para ${n} estudiante${n === 1 ? '' : 's'}.`
+        ? `${comidas} ${comidas > 1 ? 'alimentaciones' : 'alimentación'} por estudiante, una por cada 4 horas de participación${porDia}: ${totalComidas} en total ${distintas ? `(${p.dias.map((d, i) => `día ${i + 1}: ${cantidadDia(p, d)} × ${comidasDia(d)}`).join(', ')})` : `para ${n} estudiante${n === 1 ? '' : 's'}`}.`
         : 'No aplica: ningún día pasa de 4 horas de participación.',
     },
     {
       clave: 'transporte', titulo: 'Transporte', aplica: t.regreso, corto: t.regreso ? `Transporte ${t.ida ? 'ida y regreso' : 'de regreso'}` : null,
       texto: t.regreso
         ? (t.ida
-          ? `Ida y regreso para los ${n} estudiante${n === 1 ? '' : 's'}: los lleva desde la universidad y los regresa a su casa (${motivos}).${porDiaTexto}`
-          : `Regreso a casa para los ${n} estudiante${n === 1 ? '' : 's'} (${motivos}).${porDiaTexto}`)
+          ? `Ida y regreso ${paraQuienes}: los lleva desde la universidad y los regresa a su casa (${motivos}).${porDiaTexto}`
+          : `Regreso a casa ${paraQuienes} (${motivos}).${porDiaTexto}`)
         : 'No aplica: el lugar está dentro de Quito y el evento termina antes de las 18:00; los estudiantes llegan y regresan por su cuenta.',
     },
     {
@@ -705,6 +755,7 @@ export function faltasPedido(f: FormPedido, hoy: string, cruce: { evento: string
   const f3: string[] = [];
   if (!(f.cantidad >= 1 && f.cantidad <= MAX_ESTUDIANTES)) f3.push('número de estudiantes (1–20)');
   f3.push(...faltasReparto(f.reparto, f.cantidad));
+  f3.push(...faltasCantidadesDias(f.cantidad, f.dias));
   if (!VESTIMENTA[f.vestimenta]) f3.push('vestimenta');
 
   const f4: string[] = [];

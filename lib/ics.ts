@@ -1,9 +1,9 @@
 // Calendario iCalendar (.ics) de coordinación: un evento por cada día de cada pedido
 // (menos los rechazados) y las citas de entrega y devolución de uniformes.
 // Puro: entra `Datos`, sale el texto del calendario.
-import { lugarDia } from './reglas';
+import { cantidadDia, lugarDia } from './reglas';
 import type { Datos } from './tipos';
-import { vistaPedidos, type PedidoVista } from './vista';
+import { confirmadosEnDia, vistaPedidos, type PedidoVista } from './vista';
 
 /** Ecuador continental: UTC-5 todo el año (sin horario de verano). */
 const DESFASE_HORAS = 5;
@@ -59,17 +59,19 @@ export function eventosCalendario(d: Datos, appUrl: string): Evento[] {
       `${p.codigo} · ${p.tipoLabel} · ${p.institucion}`,
       `Estado: ${p.estadoLabel}`,
       `Solicita: ${p.nombre}, ${p.cargo}`,
-      `Estudiantes: ${p.confirmadosN}/${p.cantidad} confirmados${p.confirmadosN ? ` (${p.confirmados.map((e) => e.nombre).join(', ')})` : ''}`,
+      '__ESTUDIANTES__',
       `Actividades: ${p.actividadesTexto || '—'}`,
       `Vestimenta: ${p.vestLabel}`,
       `Responsable en sitio: ${p.responsable}${p.responsableTelefono ? ` · ${p.responsableTelefono}` : ''}`,
       `Ver en la app: ${appUrl}/coordinacion?sel=${p.id}`,
     ].join('\n');
     for (const dia of p.dias) {
+      const asisten = confirmadosEnDia(p, dia.fecha);
+      const descripcionDia = descripcion.replace('__ESTUDIANTES__', `Estudiantes: ${asisten.length}/${cantidadDia(p, dia)} confirmados${p.multidia ? ' ese día' : ''}${asisten.length ? ` (${asisten.map((e) => e.nombre).join(', ')})` : ''}`);
       eventos.push({
         uid: `${p.id}-${dia.fecha}@protocolo-fcgt`, inicio: aUTC(dia.fecha, dia.inicio), fin: aUTC(dia.fecha, dia.fin),
         titulo: `${prefijo(p)}${p.evento}${p.multidia ? ` (día ${p.dias.indexOf(dia) + 1} de ${p.dias.length})` : ''}`,
-        lugar: lugarDia(p, dia), descripcion, estado: p.estado === 'Aprobado' ? 'CONFIRMED' : 'TENTATIVE', categoria: `Evento ${p.tipoLabel.toLowerCase()}`,
+        lugar: lugarDia(p, dia), descripcion: descripcionDia, estado: p.estado === 'Aprobado' ? 'CONFIRMED' : 'TENTATIVE', categoria: `Evento ${p.tipoLabel.toLowerCase()}`,
       });
     }
     const c = p.uniformeCita;

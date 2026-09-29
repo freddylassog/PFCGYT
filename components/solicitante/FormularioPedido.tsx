@@ -7,9 +7,10 @@ import { IconoAlerta, IconoCalendario, IconoInfo } from '@/components/Iconos';
 import { EditorDias } from '@/components/EditorDias';
 import { InputNumero } from '@/components/InputNumero';
 import { EditorReparto } from '@/components/EditorReparto';
+import { CantidadesPorDia } from '@/components/CantidadesPorDia';
 import {
   BLOQUEAR_CRUCE_EVENTOS, FORM_INICIAL, MAX_ESTUDIANTES, VESTIMENTA, ajustarRepartoATotal, cumple72h, duracionTextoDias, esFechaISO, esHora, faltasPedido, fechaCorta, fechaLarga,
-  compromisosPedido, fechaLargaDias, horarioTextoDias, lugaresTexto, ordenarDias, plazoTexto, primerDia, repartoTexto, type FormPedido,
+  ajustarCantidadesDias, compromisosPedido, cuposTexto, fechaLargaDias, horarioTextoDias, lugaresTexto, ordenarDias, plazoTexto, primerDia, repartoTexto, type FormPedido,
 } from '@/lib/reglas';
 
 const PASOS = ['Solicitante', 'Evento', 'Estudiantes', 'Compromisos'];
@@ -206,7 +207,8 @@ export function FormularioPedido({ hoy, anticipacion = { horas: 72, hasta: '' } 
         {paso === 3 && (
           <Marco as="section" className="p-6 stack">
             <h6 className="h6-accent">03 · Estudiantes</h6>
-            <div className="field" style={{ maxWidth: 180 }}><label htmlFor="cantidad">Número de estudiantes</label><InputNumero id="cantidad" min={1} max={MAX_ESTUDIANTES} value={f.cantidad} onChange={(n) => setF((s) => ({ ...s, cantidad: n, reparto: ajustarRepartoATotal(s.reparto, n) }))} /></div>
+            <div className="field" style={{ maxWidth: 180 }}><label htmlFor="cantidad">Número de estudiantes</label><InputNumero id="cantidad" min={1} max={MAX_ESTUDIANTES} value={f.cantidad} onChange={(n) => setF((s) => ({ ...s, cantidad: n, reparto: ajustarRepartoATotal(s.reparto, n), dias: ajustarCantidadesDias(s.dias, n, s.cantidad) }))} /></div>
+            <CantidadesPorDia dias={f.dias} cantidad={f.cantidad} onChange={(d) => set('dias', d)} />
             <div className="field">
               <label>Actividades protocolarias que realizarán y cuántos estudiantes en cada una</label>
               <EditorReparto reparto={f.reparto} cantidad={f.cantidad} onChange={(r) => set('reparto', r)} />
@@ -231,7 +233,7 @@ export function FormularioPedido({ hoy, anticipacion = { horas: 72, hasta: '' } 
             <dl className="dl" style={{ paddingBottom: 'var(--space-3)', borderBottom: '1px solid var(--color-divider)' }}>
               <dt className="muted">Evento</dt><dd>{f.evento} · {resumenTipo}</dd>
               <dt className="muted">Fecha</dt><dd>{fechaLargaDias(f.dias)} · {horarioTextoDias(ordenarDias(f.dias))} ({durTexto})</dd>
-              <dt className="muted">Estudiantes</dt><dd>{f.cantidad} · {repartoTexto(f.reparto, [])}</dd>
+              <dt className="muted">Estudiantes</dt><dd>{cuposTexto({ cantidad: f.cantidad, dias: ordenarDias(f.dias) })} · {repartoTexto(f.reparto, [])}</dd>
               <dt className="muted">Vestimenta</dt><dd>{VESTIMENTA[f.vestimenta].label}</dd>
               <dt className="muted">Lugar</dt><dd>{lugaresTexto({ ...f, dias: ordenarDias(f.dias) }, true)}</dd>
               <dt className="muted">Responsable</dt><dd>{f.responsable} · {f.responsableTelefono}</dd>

@@ -17,7 +17,7 @@ export function datosDemo(): Datos {
     docentes: [{ id: 'd1', nombre: 'Lic. María Cobo', correo: 'mcobo@ute.edu.ec', activo: true }],
     clases: [{ id: 'c1', semestre: 1, paralelo: null, dia: 5, inicio: '14:00', fin: '16:00', materia: 'Lenguaje', teacherId: 'd1', activo: true }],
     materias: [{ semestre: 1, materia: 'Lenguaje', teacherId: null }, { semestre: 2, materia: 'Investigación', teacherId: null }, { semestre: 3, materia: 'Cultura Gastronómica', teacherId: null }],
-    inscripciones: [{ id: 'i1', requestId: 'p1', studentId: 's1', estado: 'confirmado', createdAt: '' }, { id: 'i2', requestId: 'p1', studentId: 's2', estado: 'inscrito', createdAt: '' }],
+    inscripciones: [{ id: 'i1', requestId: 'p1', studentId: 's1', estado: 'confirmado', createdAt: '', dias: null }, { id: 'i2', requestId: 'p1', studentId: 's2', estado: 'inscrito', createdAt: '', dias: null }],
     avisos: [], prendas: [], devoluciones: [],
     novedades: [{ id: 'n1', requestId: 'p1', studentId: 's1', tipo: 'Llegó tarde', nota: '', fecha: '2026-09-11', reportadoAt: null }],
   };

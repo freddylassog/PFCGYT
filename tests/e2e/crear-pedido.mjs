@@ -45,6 +45,10 @@ if (await p.locator('button:has-text("Continuar")').isDisabled()) {
 }
 await p.click('button:has-text("Continuar")');
 await p.fill('#cantidad', '3');
+if (segundoDia) {
+  await p.fill('#cant-dia-1', '1'); // día 2 solo necesita 1 estudiante
+  await p.keyboard.press('Tab');
+}
 await p.click('label:has-text("Recepción y registro de invitados")');
 await p.click('label:has-text("Ubicación de autoridades")');
 const asignados = await p.locator('text=Asignados:').textContent();

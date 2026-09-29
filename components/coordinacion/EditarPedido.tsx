@@ -5,7 +5,8 @@ import { useAccion } from '@/components/useAccion';
 import { EditorDias } from '@/components/EditorDias';
 import { InputNumero } from '@/components/InputNumero';
 import { EditorReparto } from '@/components/EditorReparto';
-import { MAX_ESTUDIANTES, VESTIMENTA, ajustarRepartoATotal, duracionTextoDias } from '@/lib/reglas';
+import { CantidadesPorDia } from '@/components/CantidadesPorDia';
+import { MAX_ESTUDIANTES, VESTIMENTA, ajustarRepartoATotal, duracionTextoDias, ajustarCantidadesDias } from '@/lib/reglas';
 import type { Vestimenta } from '@/lib/tipos';
 import type { PedidoVista } from '@/lib/vista';
 
@@ -22,8 +23,9 @@ export function EditarPedido({ p, onCerrar }: { p: PedidoVista; onCerrar: () => 
       <h6 className="h6-accent">Editar pedido</h6>
       <div className="field"><label>Nombre del evento</label><input className="input" value={c.evento} onChange={(e) => set('evento', e.target.value)} required /></div>
       <div className="field"><label>Días y horarios de participación</label><EditorDias dias={c.dias} onChange={(d) => setC((s) => ({ ...s, dias: d, lugar: d[0]?.lugar ?? '', lejos: d.some((x) => !!x.lejos) }))} idPrefijo="edit-dia" /></div>
-      <div className="field" style={{ maxWidth: 200 }}><label>Número de estudiantes</label><InputNumero id="edit-cantidad" min={1} max={MAX_ESTUDIANTES} value={c.cantidad} onChange={(n) => setC((s) => ({ ...s, cantidad: n, reparto: ajustarRepartoATotal(s.reparto, n) }))} required /></div>
+      <div className="field" style={{ maxWidth: 200 }}><label>Número de estudiantes</label><InputNumero id="edit-cantidad" min={1} max={MAX_ESTUDIANTES} value={c.cantidad} onChange={(n) => setC((s) => ({ ...s, cantidad: n, reparto: ajustarRepartoATotal(s.reparto, n), dias: ajustarCantidadesDias(s.dias, n, s.cantidad) }))} required /></div>
       <p className="muted fs-12 m-0">Duración: {duracionTextoDias(c.dias)}. Confirmados actuales: {p.confirmadosN} (la cantidad no puede ser menor).</p>
+      <CantidadesPorDia dias={c.dias} cantidad={c.cantidad} onChange={(d) => set('dias', d)} idPrefijo="edit-cant" />
       <div className="cols-2" style={{ gap: 'var(--space-2)' }}>
         <div className="field"><label>Responsable en sitio</label><input className="input" value={c.responsable} onChange={(e) => set('responsable', e.target.value)} required /></div>
         <div className="field"><label>Teléfono</label><input className="input" type="tel" value={c.responsableTelefono} onChange={(e) => set('responsableTelefono', e.target.value)} required /></div>

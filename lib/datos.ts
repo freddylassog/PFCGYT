@@ -20,8 +20,8 @@ function mapReparto(r: Fila): RepartoActividad[] {
 function mapDias(r: Fila): DiaEvento[] {
   let valor: unknown = r.dias;
   if (typeof valor === 'string') { try { valor = JSON.parse(valor); } catch { valor = []; } }
-  const crudo = Array.isArray(valor) ? (valor as { fecha?: unknown; inicio?: unknown; fin?: unknown; lugar?: unknown; lejos?: unknown }[]) : [];
-  const dias = crudo.map((d) => ({ fecha: s(d.fecha).slice(0, 10), inicio: hhmm(s(d.inicio)), fin: hhmm(s(d.fin)), lugar: d.lugar != null && s(d.lugar) ? s(d.lugar) : s(r.lugar), lejos: d.lejos == null ? !!r.lejos : !!d.lejos })).filter((d) => d.fecha).sort((a, b) => a.fecha.localeCompare(b.fecha));
+  const crudo = Array.isArray(valor) ? (valor as { fecha?: unknown; inicio?: unknown; fin?: unknown; lugar?: unknown; lejos?: unknown; cantidad?: unknown }[]) : [];
+  const dias = crudo.map((d) => ({ fecha: s(d.fecha).slice(0, 10), inicio: hhmm(s(d.inicio)), fin: hhmm(s(d.fin)), lugar: d.lugar != null && s(d.lugar) ? s(d.lugar) : s(r.lugar), lejos: d.lejos == null ? !!r.lejos : !!d.lejos, ...(Number(d.cantidad) > 0 ? { cantidad: Math.round(Number(d.cantidad)) } : {}) })).filter((d) => d.fecha).sort((a, b) => a.fecha.localeCompare(b.fecha));
   return dias.length ? dias : [{ fecha: s(r.fecha), inicio: hhmm(s(r.inicio)), fin: hhmm(s(r.fin)), lugar: s(r.lugar), lejos: !!r.lejos }];
 }
 
@@ -29,6 +29,14 @@ type Fila = Record<string, unknown>;
 const s = (v: unknown) => (v == null ? '' : String(v));
 const sn = (v: unknown) => (v == null ? null : String(v));
 const iso = (v: unknown) => (v instanceof Date ? v.toISOString() : s(v));
+
+function mapDiasInscripcion(v: unknown): string[] | null {
+  let x = v;
+  if (typeof x === 'string') { try { x = JSON.parse(x); } catch { return null; } }
+  if (!Array.isArray(x)) return null;
+  const fechas = x.map((f) => s(f).slice(0, 10)).filter(Boolean);
+  return fechas.length ? fechas : null;
+}
 
 export function mapCita(r: Fila): CitaUniforme | null {
   let c = r.uniforme_cita as unknown;
@@ -110,7 +118,7 @@ export async function cargarDatos(): Promise<Datos> {
     docentes: docentes.map(mapDocente),
     clases: clases.map(mapClase),
     materias: materias.map((r): MateriaNota => ({ semestre: Number(r.semestre) as Semestre, materia: s(r.materia), teacherId: sn(r.teacher_id) })),
-    inscripciones: inscripciones.map((r): Inscripcion => ({ id: s(r.id), requestId: s(r.request_id), studentId: s(r.student_id), estado: r.estado as Inscripcion['estado'], createdAt: iso(r.created_at) })),
+    inscripciones: inscripciones.map((r): Inscripcion => ({ id: s(r.id), requestId: s(r.request_id), studentId: s(r.student_id), estado: r.estado as Inscripcion['estado'], dias: mapDiasInscripcion(r.dias), createdAt: iso(r.created_at) })),
     avisos: avisos.map((r): Aviso => ({ id: s(r.id), requestId: s(r.request_id), classId: s(r.class_id), studentIds: (r.student_ids as string[]) ?? [], sentAt: sn(r.sent_at), createdAt: iso(r.created_at) })),
     prendas: prendas.map((r): PrendaEntregada => ({ studentId: s(r.student_id), item: s(r.item), entregadoAt: s(r.entregado_at) })),
     devoluciones: devoluciones.map((r): Devolucion => ({ studentId: s(r.student_id), estado: r.estado as Devolucion['estado'], at: s(r.at) })),

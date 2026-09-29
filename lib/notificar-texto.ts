@@ -1,7 +1,7 @@
 // Texto de las notificaciones (puro, sin dependencias de servidor).
-import { MINIMO_EVENTOS, citaDevolucionTexto, citaEntregaTexto, fechaLarga, lugarDia, lugaresTexto, fechaLargaDias, horarioTextoDias, horasDias, repartoTexto, tipoLabel } from './reglas';
+import { MINIMO_EVENTOS, cantidadDia, citaDevolucionTexto, citaEntregaTexto, fechaLarga, lugarDia, lugaresTexto, fechaLargaDias, horarioTextoDias, horasDias, repartoTexto, tipoLabel } from './reglas';
 import type { CitaUniforme, DiaEvento, Estudiante, Pedido } from './tipos';
-import type { PedidoVista } from './vista';
+import { confirmadosEnDia, type PedidoVista } from './vista';
 
 export interface Mensaje { asunto: string; texto: string; html: string }
 
@@ -42,7 +42,7 @@ export function mensajeConvocatoriaCanal(p: PedidoVista, appUrl: string): string
     `Fecha: ${p.fechaLarga}`,
     `Horario: ${p.horarioTexto} · ${p.horas} h de protocolo${p.multidia ? ` en ${p.dias.length} días` : ''}`,
     `Lugar: ${p.lugarTexto}`,
-    `Cupos: ${p.cantidad} estudiantes`,
+    `Cupos: ${p.cuposTexto}`,
     `Vestimenta: ${p.vestLabel}. ${p.vestNotaEst}`,
     `Actividades: ${p.actividadesTexto}`,
     p.comidas > 0 ? `Alimentación: ${p.comidas} por estudiante, la cubre el organizador.` : '',
@@ -68,7 +68,7 @@ export function mensajeRecordatorioCanal(pedidos: PedidoVista[], manana: string)
       `Lugar: ${lugarDia(p, dia)}`,
       `Responsable en sitio: ${p.responsable}${p.responsableTelefono ? ` · ${p.responsableTelefono}` : ''}`,
       `Vestimenta: ${p.vestLabel}. ${p.vestNotaEst}`,
-      `Confirmados (${p.confirmadosN}/${p.cantidad}): ${p.confirmados.map((e) => e.nombre).join(', ') || '—'}`,
+      `Confirmados${p.multidia ? ' ese día' : ''} (${confirmadosEnDia(p, dia.fecha).length}/${cantidadDia(p, dia)}): ${confirmadosEnDia(p, dia.fecha).map((e) => e.nombre).join(', ') || '—'}`,
     ].join('\n');
   }).filter((b): b is string => !!b);
   if (!bloques.length) return null;

@@ -36,6 +36,8 @@ export interface DiaEvento {
   lugar?: string;
   /** Fuera del DMQ o aeropuerto ese día (si falta, se usa el del pedido). */
   lejos?: boolean;
+  /** Estudiantes necesarios ese día (si falta, todos los del pedido). */
+  cantidad?: number;
 }
 
 export interface Pedido {
@@ -124,6 +126,8 @@ export interface Inscripcion {
   requestId: string;
   studentId: string;
   estado: EstadoInscripcion;
+  /** Fechas a las que asiste en un evento de varios días (null = todos los días). */
+  dias: string[] | null;
   createdAt: string;
 }
 

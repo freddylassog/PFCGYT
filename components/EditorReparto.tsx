@@ -16,7 +16,7 @@ export function EditorReparto({ reparto, cantidad, onChange, idPrefijo = 'act' }
             <label className="radio fs-14" style={{ flex: 1 }}><input type="checkbox" id={`${idPrefijo}-${i}`} checked={!!item} onChange={() => onChange(alternarActividad(reparto, a, cantidad))} /><span className="dot cuadro" />{a}</label>
             {item && (
               <span className="row" style={{ gap: 6, flex: 'none' }}>
-                <InputNumero min={1} max={Math.max(1, cantidad)} value={item.cantidad} aria-label={`Estudiantes en ${a}`} onChange={(n) => setCantidad(a, n)} style={{ width: 70, textAlign: 'center' }} />
+                <InputNumero min={0} max={Math.max(1, cantidad)} value={item.cantidad} aria-label={`Estudiantes en ${a}`} onChange={(n) => setCantidad(a, n)} style={{ width: 70, textAlign: 'center' }} />
                 <span className="muted fs-12">estudiantes</span>
               </span>
             )}

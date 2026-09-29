@@ -49,7 +49,7 @@ export async function crearPedido(f: FormPedido): Promise<Resultado<PedidoCreado
   const hoy = hoyISO();
   const horasMin = anticipacionVigente(await ajustesActuales(), hoy);
   const pedidos = await pedidosDelPeriodo();
-  const dias = ordenarDias(f.dias || []).map((d) => ({ fecha: d.fecha, inicio: d.inicio, fin: d.fin, lugar: (d.lugar ?? '').trim().slice(0, 300), lejos: !!d.lejos }));
+  const dias = ordenarDias(f.dias || []).map((d) => ({ fecha: d.fecha, inicio: d.inicio, fin: d.fin, lugar: (d.lugar ?? '').trim().slice(0, 300), lejos: !!d.lejos, ...(Number(d.cantidad) > 0 ? { cantidad: Math.round(Number(d.cantidad)) } : {}) }));
   const lugar = dias[0]?.lugar || f.lugar.trim();
   const lejos = dias.some((d) => d.lejos);
   const cruce = cruceEventos({ dias }, pedidos);

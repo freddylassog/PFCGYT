@@ -2,9 +2,9 @@
 // reporte Excel y los correos. Todo puro: entra `Datos`, salen vistas.
 import {
   ACTIVIDADES, DEVOLUCION, MINIMO_EVENTOS, VESTIMENTA, convenioLabel, cruceClases, diasHasta, duracionTextoDias, fechaCorta, fechaCortaDias, fechaLargaDias,
-  comidasDias, compromisosPedido, estadoVisible, lugaresTexto, mismoLugar, horarioTextoDias, horasDias, infoUniforme, pasa4hDias, redondear1, repartoTexto, semCorto, semLabel, semanaDe, tagClass, tipoClass, tipoLabel, transporteDias, transporteMotivoDias, transporteTexto, ultimoDia, type Compromiso, type EstadoVisible, type Transporte,
+  cantidadDia, cantidadesDistintas, comidasDias, compromisosPedido, cuposTexto, diasEstudiante, estadoVisible, horasEstudiante, lugaresTexto, mismoLugar, horarioTextoDias, horasDias, infoUniforme, pasa4hDias, redondear1, repartoTexto, semCorto, semLabel, semanaDe, tagClass, tipoClass, tipoLabel, transporteDias, transporteMotivoDias, transporteTexto, ultimoDia, type Compromiso, type EstadoVisible, type Transporte,
 } from './reglas';
-import type { Clase, Datos, Docente, Estudiante, Novedad, Pedido, Semestre } from './tipos';
+import type { Clase, Datos, DiaEvento, Docente, Estudiante, Novedad, Pedido, Semestre } from './tipos';
 
 export interface PedidoVista extends Pedido {
   /** 'Guía de invitados (2), Acompañamiento en recorridos (2)' */
@@ -53,6 +53,13 @@ export interface PedidoVista extends Pedido {
   bloqueo: string | null;
   confirmados: Estudiante[];
   inscritos: Estudiante[];
+  /** Días a los que asiste cada inscrito o confirmado (null = todos). */
+  asistencia: Record<string, string[] | null>;
+  /** Cupo y confirmados de cada día. */
+  cuposDias: { fecha: string; cantidad: number; confirmados: number }[];
+  /** '20 estudiantes' o '20 estudiantes (día 1: 14 · día 2: 6)'. */
+  cuposTexto: string;
+  cantidadesDistintas: boolean;
   confirmadosN: number;
   inscritosN: number;
   lleno: boolean;
@@ -97,6 +104,9 @@ export function vistaPedido(d: Datos, p: Pedido): PedidoVista {
     aviso: d.avisos.find((a) => a.requestId === p.id && a.classId === c.id) ?? null,
   }));
   const novedades: NovedadVista[] = d.novedades.filter((n) => n.requestId === p.id).map((n) => ({ ...n, estudiante: est.get(n.studentId) ?? null, pendiente: !n.reportadoAt }));
+  const asistencia: Record<string, string[] | null> = Object.fromEntries(ins.map((i) => [i.studentId, i.dias]));
+  const cuposDias = p.dias.map((dia) => ({ fecha: dia.fecha, cantidad: cantidadDia(p, dia), confirmados: confirmados.filter((e) => diasEstudiante(p, asistencia[e.id]).some((x) => x.fecha === dia.fecha)).length }));
+  const lleno = confirmados.length >= p.cantidad || (p.dias.length > 1 && cuposDias.every((c) => c.confirmados >= c.cantidad));
   const v = VESTIMENTA[p.vestimenta] ?? VESTIMENTA.uniforme;
   const tm = transporteMotivoDias(p);
   const p4 = pasa4hDias(p.dias);
@@ -118,11 +128,22 @@ export function vistaPedido(d: Datos, p: Pedido): PedidoVista {
     convLabel: convenioLabel(p), convTag: p.tipo === 'externo' && p.convenio === 'no' ? 'tag-alerta' : 'tag-neutral',
     tagClass: tagClass(estadoVisible(p)),
     bloqueo: p.tipo === 'externo' && p.convenio === 'no' ? 'No se puede aprobar: la institución no tiene convenio vigente con la UTE.' : null,
-    confirmados, inscritos, confirmadosN: confirmados.length, inscritosN: inscritos.length, lleno: confirmados.length >= p.cantidad,
+    confirmados, inscritos, confirmadosN: confirmados.length, inscritosN: inscritos.length, lleno,
+    asistencia, cuposDias, cuposTexto: cuposTexto(p), cantidadesDistintas: cantidadesDistintas(p),
     cruces, cruceAmbito: confirmados.length ? 'semestres confirmados' : 'todos los semestres',
     novedades, novedadesTexto: novedades.length ? novedades.map((n) => `${n.estudiante?.nombre ?? ''}: ${n.tipo}`).join(' · ') : '—',
     evidenciaTexto: p.evidenciaNombre || 'sin evidencia',
   };
+}
+
+/** Confirmados que asisten un día concreto. */
+export function confirmadosEnDia(p: PedidoVista, fecha: string): Estudiante[] {
+  return p.confirmados.filter((e) => diasEstudiante(p, p.asistencia[e.id]).some((d) => d.fecha === fecha));
+}
+
+/** Días a los que asiste un estudiante en el evento. */
+export function diasDeEstudiante(p: PedidoVista, studentId: string): DiaEvento[] {
+  return diasEstudiante(p, p.asistencia[studentId]);
 }
 
 export function vistaPedidos(d: Datos): PedidoVista[] {
@@ -147,7 +168,7 @@ export function avanceEstudiante(d: Datos, studentId: string, pedidos?: PedidoVi
   const k = eventos.length;
   return {
     eventosN: k,
-    horas: redondear1(eventos.reduce((a, e) => a + e.horas, 0)),
+    horas: redondear1(eventos.reduce((a, e) => a + horasEstudiante(e, e.asistencia[studentId]), 0)),
     eventos,
     cumple: k >= MINIMO_EVENTOS,
     estado: k >= MINIMO_EVENTOS ? 'Cumple' : k === 1 ? 'Falta 1 evento' : 'Sin eventos · nota 0',

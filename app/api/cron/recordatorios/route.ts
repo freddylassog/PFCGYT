@@ -4,7 +4,7 @@ import { cargarDatos } from '@/lib/datos';
 import { avisarCoordinacion, enviarDirecto, publicarEnCanal } from '@/lib/notificar';
 import { mensajeRecordatorioCanal, mensajeRecordatorioPersonal, mensajeUniformesRecordatorioCanal, mensajeUniformesRecordatorioPersonal, type TipoCita } from '@/lib/notificar-texto';
 import { sumarDias } from '@/lib/reglas';
-import { vistaPedidos } from '@/lib/vista';
+import { confirmadosEnDia, vistaPedidos } from '@/lib/vista';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,7 +41,7 @@ export async function GET(req: Request) {
   let personales = 0;
   for (const p of pedidos) {
     const dia = p.dias.find((d) => d.fecha === manana)!;
-    for (const e of p.confirmados) if (e.telegramChatId && (await enviarDirecto(e.telegramChatId, mensajeRecordatorioPersonal(p, dia, e)))) personales++;
+    for (const e of confirmadosEnDia(p, manana)) if (e.telegramChatId && (await enviarDirecto(e.telegramChatId, mensajeRecordatorioPersonal(p, dia, e)))) personales++;
   }
   for (const { p, c, tipo } of citas) for (const e of p.confirmados) if (e.telegramChatId && (await enviarDirecto(e.telegramChatId, mensajeUniformesRecordatorioPersonal(p, c, tipo, e)))) personales++;
   resultado.personales = String(personales);

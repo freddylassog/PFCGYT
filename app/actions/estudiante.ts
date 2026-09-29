@@ -7,7 +7,7 @@ import { appUrl } from '@/lib/app-url';
 import { avisarCoordinacion } from '@/lib/notificar';
 import { mensajeInscripcionCoordinacion } from '@/lib/notificar-texto';
 import { vistaPedido } from '@/lib/vista';
-import { claveVigente, horaAhora, hoyISO, normalizarClave, normalizarCorreo, ultimoDia } from '@/lib/reglas';
+import { claveVigente, horaAhora, hoyISO, normalizarClave, normalizarCorreo, ultimoDia, cantidadDia, diasEstudiante } from '@/lib/reglas';
 import { iniciarSesionEstudiante, sesionEstudiante } from '@/lib/sesion';
 import type { Resultado } from '@/lib/tipos';
 
@@ -45,7 +45,7 @@ async function exigir(): Promise<string> {
   return s.studentId;
 }
 
-export async function inscribirme(requestId: string): Promise<Resultado> {
+export async function inscribirme(requestId: string, dias?: string[] | null): Promise<Resultado> {
   try {
     const studentId = await exigir();
     const sql = db();
@@ -54,12 +54,20 @@ export async function inscribirme(requestId: string): Promise<Resultado> {
     if (!p || p.estado !== 'Aprobado' || !p.convocadaAt) throw new Error('La convocatoria no está abierta.');
     if (p.finalizadoAt) throw new Error('El evento ya finalizó.');
     if ((ultimoDia(p.dias)?.fecha ?? p.fecha) < hoyISO()) throw new Error('El evento ya pasó.');
-    const [c] = await sql`select count(*)::int as n from enrollments where request_id = ${requestId} and estado = 'confirmado'`;
-    if (Number(c.n) >= Number(p.cantidad)) throw new Error('Cupos completos.');
+    const fechas = p.dias.map((d) => d.fecha);
+    const elegidos = (dias ?? []).filter((f) => fechas.includes(f));
+    const misDias = elegidos.length && elegidos.length < fechas.length ? elegidos : null;
+    if (dias && dias.length && !elegidos.length) throw new Error('Elige al menos un día del evento.');
+    const conf = await sql`select dias from enrollments where request_id = ${requestId} and estado = 'confirmado'`;
+    if (conf.length >= Number(p.cantidad)) throw new Error('Cupos completos.');
+    if (p.dias.length > 1) {
+      const llenos = (misDias ?? fechas).every((f) => conf.filter((r) => diasEstudiante(p, mapDiasJson(r.dias)).some((d) => d.fecha === f)).length >= cantidadDia(p, p.dias.find((d) => d.fecha === f)!));
+      if (llenos) throw new Error('Cupos completos para esos días.');
+    }
     const [ya] = await sql`select estado from enrollments where request_id = ${requestId} and student_id = ${studentId}`;
     if (ya?.estado === 'rechazado') throw new Error('La coordinación no confirmó tu inscripción a este evento.');
     if (ya?.estado === 'confirmado') throw new Error('Ya estás confirmado en este evento.');
-    await sql`insert into enrollments (request_id, student_id, estado) values (${requestId}, ${studentId}, 'inscrito') on conflict (request_id, student_id) do nothing`;
+    await sql`insert into enrollments (request_id, student_id, estado, dias) values (${requestId}, ${studentId}, 'inscrito', ${misDias ? sql.json(misDias) : null}) on conflict (request_id, student_id) do nothing`;
     revalidatePath('/estudiante'); revalidatePath('/coordinacion');
     await avisarInscripcion(requestId, studentId, 'inscripcion');
     return { ok: true };
@@ -74,4 +82,11 @@ export async function retirarme(requestId: string): Promise<Resultado> {
     if (borradas.length) await avisarInscripcion(requestId, studentId, 'retiro');
     return { ok: true };
   } catch (e) { return { ok: false, error: (e as Error).message }; }
+}
+
+/** dias de una inscripción tal como viene de la base (jsonb o texto). */
+function mapDiasJson(v: unknown): string[] | null {
+  let x = v;
+  if (typeof x === 'string') { try { x = JSON.parse(x); } catch { return null; } }
+  return Array.isArray(x) && x.length ? x.map(String) : null;
 }

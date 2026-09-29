@@ -1,7 +1,7 @@
 'use client';
 import { useRef, useState } from 'react';
 import {
-  cambiarEstado, confirmarDirecto, crearAviso, decidirInscripcion, eliminarPedido, finalizarEvento, guardarActaFirmada, marcarAviso, marcarConvenio, prepararActaFirmada, publicarConvocatoriaCanal, quitarActaFirmada, quitarNovedad, regenerarClave, registrarNovedad, reportarNovedades,
+  cambiarEstado, confirmarDirecto, crearAviso, decidirInscripcion, eliminarPedido, fijarDiasEstudiante, finalizarEvento, guardarActaFirmada, marcarAviso, marcarConvenio, prepararActaFirmada, publicarConvocatoriaCanal, quitarActaFirmada, quitarNovedad, regenerarClave, registrarNovedad, reportarNovedades,
 } from '@/app/actions/coordinacion';
 import { CorreoBox } from '@/components/CorreoBox';
 import { IconoCalendario, IconoCerrar } from '@/components/Iconos';
@@ -12,7 +12,7 @@ import { CitaUniforme } from './CitaUniforme';
 import { correoAvisoDocente, correoConvocatoria, correoDecanato, correoEstudianteDecision, correoRecordatorio, correoSolicitante, mailtoUrl } from '@/lib/correos';
 import { TIPOS_NOVEDAD, claseAplica, fechaCorta, infoUniforme, semCorto } from '@/lib/reglas';
 import type { Datos, Estado, Estudiante } from '@/lib/tipos';
-import type { CruceVista, PedidoVista } from '@/lib/vista';
+import { diasDeEstudiante, type CruceVista, type PedidoVista } from '@/lib/vista';
 import type { CruceEvento } from '@/lib/reglas';
 
 export function PanelPedido({ p, datos, pedidos, cruceEvento, onCerrar }: { p: PedidoVista; datos: Datos; pedidos: PedidoVista[]; cruceEvento: CruceEvento<PedidoVista> | null; onCerrar: () => void }) {
@@ -48,6 +48,20 @@ export function PanelPedido({ p, datos, pedidos, cruceEvento, onCerrar }: { p: P
   }
 
   const cambiar = (estado: Estado) => run(() => cambiarEstado(p.id, estado));
+  /** En eventos de varios días: botones D1, D2… para marcar a qué días va el estudiante. */
+  const chipsDias = (studentId: string) => {
+    if (!p.multidia) return null;
+    const mios = diasDeEstudiante(p, studentId).map((d) => d.fecha);
+    return (
+      <span className="row" style={{ gap: 3, display: 'inline-flex', marginLeft: 6 }} title="Días a los que asiste (clic para cambiar)">
+        {p.dias.map((d, i) => {
+          const va = mios.includes(d.fecha);
+          return <button key={d.fecha} type="button" className={`tag ${va ? 'tag-accent' : 'tag-outline'}`} style={{ fontSize: 10, padding: '1px 6px', cursor: 'pointer' }} aria-pressed={va} aria-label={`Día ${i + 1} · ${fechaCorta(d.fecha)}`}
+            onClick={() => { const nuevos = va ? mios.filter((f) => f !== d.fecha) : [...mios, d.fecha]; if (!nuevos.length) return; run(() => fijarDiasEstudiante(p.id, studentId, nuevos.length === p.dias.length ? null : nuevos)); }}>D{i + 1}</button>;
+        })}
+      </span>
+    );
+  };
   function eliminar() {
     const detalle = [p.confirmadosN ? `${p.confirmadosN} estudiante(s) confirmado(s)` : '', p.inscritosN ? `${p.inscritosN} inscripción(es) por revisar` : '', p.novedades.length ? `${p.novedades.length} novedad(es)` : '', p.evidenciaPath ? 'la evidencia adjunta' : ''].filter(Boolean).join(', ');
     if (!confirm(`¿Eliminar para siempre el pedido ${p.codigo} · ${p.evento}?${detalle ? `\nSe borrarán también: ${detalle}.` : ''}\nEsta acción no se puede deshacer (si solo quieres descartarlo, usa Rechazar).`)) return;
@@ -103,6 +117,7 @@ export function PanelPedido({ p, datos, pedidos, cruceEvento, onCerrar }: { p: P
       {/* Convocatoria e inscripciones */}
       <div className="stack-2 borde-arriba">
         <div className="between"><h6 className="m-0">Convocatoria a estudiantes</h6><span className="heading">{p.confirmadosN} / {p.cantidad} confirmados</span></div>
+        {p.multidia && <p className="muted fs-12 m-0">Por día: {p.cuposDias.map((c, i) => `día ${i + 1} (${fechaCorta(c.fecha)}): ${c.confirmados}/${c.cantidad}`).join(' · ')}. Los botones D1, D2… junto a cada estudiante marcan a qué días va.</p>}
         {!p.convocadaAt && <p className="muted fs-12 m-0">Al aprobar, el sistema genera la clave del evento y el correo de convocatoria (fecha, horario, horas, actividades y vestimenta) para los {nEstudiantes} estudiantes de 1.º a 3.º con el link para inscribirse. Tú lo envías desde Outlook y confirmas quién entra.</p>}
         {p.convocadaAt && (
           <>
@@ -123,7 +138,7 @@ export function PanelPedido({ p, datos, pedidos, cruceEvento, onCerrar }: { p: P
                 <div className="card-kicker">Inscritos por revisar · {p.inscritosN}</div>
                 {p.inscritos.map((s) => (
                   <div key={s.id} className="linea-item">
-                    <span style={{ minWidth: 0 }}>{s.nombre} <span className="muted fs-11">{semCorto(s.semestre)} · {eventosPor(s.id)} ev.</span>{uniformeIncompleto(s) && <> <span className="tag tag-alerta-suave" style={{ fontSize: 10 }}>Uniforme incompleto</span></>}</span>
+                    <span style={{ minWidth: 0 }}>{s.nombre} <span className="muted fs-11">{semCorto(s.semestre)} · {eventosPor(s.id)} ev.</span>{uniformeIncompleto(s) && <> <span className="tag tag-alerta-suave" style={{ fontSize: 10 }}>Uniforme incompleto</span></>}{chipsDias(s.id)}</span>
                     <span style={{ display: 'flex', gap: 4, flex: 'none' }}>
                       <button className="btn btn-primary btn-sm" type="button" disabled={p.lleno} onClick={() => run(() => decidirInscripcion(p.id, s.id, 'aceptar'))}>Aceptar</button>
                       <button className="btn btn-ghost btn-sm" type="button" onClick={() => run(() => decidirInscripcion(p.id, s.id, 'rechazar'))}>Rechazar</button>
@@ -137,7 +152,7 @@ export function PanelPedido({ p, datos, pedidos, cruceEvento, onCerrar }: { p: P
                 <div className="card-kicker">Confirmados</div>
                 {p.confirmados.map((s) => (
                   <div key={s.id} className="linea-item">
-                    <span>{s.nombre} <span className="muted fs-11">{semCorto(s.semestre)}</span></span>
+                    <span>{s.nombre} <span className="muted fs-11">{semCorto(s.semestre)}</span>{chipsDias(s.id)}</span>
                     <span style={{ display: 'flex', gap: 4, flex: 'none' }}>
                       <a className="btn btn-ghost btn-sm" href={mailtoUrl(correoEstudianteDecision(p, s, true))} title="Correo de confirmación">Correo</a>
                       <button className="btn btn-ghost btn-sm" type="button" onClick={() => run(() => decidirInscripcion(p.id, s.id, 'quitar'))}>Quitar</button>

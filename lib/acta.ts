@@ -105,7 +105,7 @@ export async function generarActa(p: PedidoVista, periodo: string, ahora: Date =
     w.parrafo(`${p.fechaLarga} · ${p.horarioTexto} · ${p.horas} h de protocolo`, { etiqueta: 'Fecha y horario:' });
   }
   w.parrafo(lugaresTexto(p, true).replace(/\(fuera del DMQ \/ aeropuerto\)/g, '(fuera del Distrito Metropolitano de Quito / aeropuerto)'), { etiqueta: p.mismoLugar ? 'Lugar:' : 'Lugares:' });
-  w.parrafo(`${p.cantidad} · ${p.actividadesTexto || '—'}`, { etiqueta: 'Estudiantes y actividades:' });
+  w.parrafo(`${p.cuposTexto} · ${p.actividadesTexto || '—'}`, { etiqueta: 'Estudiantes y actividades:' });
   w.parrafo(`${p.vestLabel}. ${p.vestNotaEst}`, { etiqueta: 'Vestimenta:' });
 
   w.titulo('2. Solicitante y responsable en sitio');

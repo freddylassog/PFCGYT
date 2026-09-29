@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import type { JSONValue } from 'postgres';
 import { db } from '@/lib/db';
-import { ajustesActuales, cargarDatos, mapCita } from '@/lib/datos';
+import { ajustesActuales, cargarDatos, mapCita, mapPedido } from '@/lib/datos';
 import { asegurarEsquema } from '@/lib/migrar';
 import { activarWebhook, avisarCoordinacion, desactivarWebhook, detectarCanalTelegram, detectarChatTelegram, enviarDirecto, enviarPrueba, publicarEnCanal } from '@/lib/notificar';
 import { mensajeConvocatoriaCanal, mensajeEstudianteConfirmado, mensajeEstudianteNoConfirmado, mensajeEstudianteRetirado, mensajeUniformesCanal, mensajeUniformesPersonal } from '@/lib/notificar-texto';
@@ -13,7 +13,7 @@ import { avanceEstudiante, vistaPedido } from '@/lib/vista';
 import { leerTabla, parseDocentes, parseEstudiantes, parseHorarios } from '@/lib/excel';
 import { borrarEvidencia, evidenciaExiste, prepararSubida } from '@/lib/storage';
 import {
-  ACTIVIDADES, MAX_ESTUDIANTES, UNIFORME, TIPOS_NOVEDAD, VESTIMENTA, claseAplica, claveNombre, cruceClases, esFechaISO, faltasDias, genClave, hoyISO, normalizarCorreo, normalizarParalelo, ordenarDias, telefonoValido, faltasReparto, faltasCitaUniforme,
+  ACTIVIDADES, MAX_ESTUDIANTES, UNIFORME, TIPOS_NOVEDAD, VESTIMENTA, claseAplica, claveNombre, cruceClases, esFechaISO, faltasDias, genClave, hoyISO, normalizarCorreo, normalizarParalelo, ordenarDias, telefonoValido, faltasReparto, faltasCitaUniforme, faltasCantidadesDias, cantidadDia, diasEstudiante,
 } from '@/lib/reglas';
 import { iniciarSesionCoordinacion, passwordCoordinacionOk, sesionCoordinacion } from '@/lib/sesion';
 import type { CitaUniforme, DiaEvento, Estado, RepartoActividad, Resultado, Semestre } from '@/lib/tipos';
@@ -206,10 +206,12 @@ export async function editarPedido(id: string, c: CambiosPedido): Promise<Result
     if (!actual) throw new Error('Pedido no encontrado');
     if (!c.evento.trim()) throw new Error('Escribe el nombre del evento');
     if (!c.nombre.trim() || !c.cargo.trim() || !c.institucion.trim()) throw new Error('Nombre, cargo e institución son obligatorios');
-    const dias = ordenarDias(c.dias || []).map((d) => ({ fecha: d.fecha, inicio: d.inicio, fin: d.fin, lugar: (d.lugar ?? '').trim().slice(0, 300), lejos: !!d.lejos }));
+    const dias = ordenarDias(c.dias || []).map((d) => ({ fecha: d.fecha, inicio: d.inicio, fin: d.fin, lugar: (d.lugar ?? '').trim().slice(0, 300), lejos: !!d.lejos, ...(Number(d.cantidad) > 0 ? { cantidad: Math.round(Number(d.cantidad)) } : {}) }));
     const lugar = dias[0]?.lugar || (c.lugar || '').trim();
     const lejos = dias.some((d) => d.lejos);
     const malDias = faltasDias(dias, hoyISO(), false);
+    const malCantidades = faltasCantidadesDias(Math.round(Number(c.cantidad)), dias);
+    if (malCantidades.length) throw new Error('Estudiantes por día: ' + malCantidades.join(', '));
     if (malDias.length) throw new Error('Revisa los días: ' + malDias.join(', '));
     if (dias.some((d) => !d.lugar) || !c.responsable.trim()) throw new Error('Lugar de cada día y responsable son obligatorios');
     if (!telefonoValido(c.responsableTelefono)) throw new Error('Escribe un teléfono válido del responsable');
@@ -280,10 +282,18 @@ export async function decidirInscripcion(requestId: string, studentId: string, d
     await exigir();
     const sql = db();
     if (decision === 'aceptar') {
-      const [p] = await sql`select cantidad, estado from requests where id = ${requestId}`;
-      if (!p || p.estado !== 'Aprobado') throw new Error('El pedido debe estar aprobado.');
-      const [c] = await sql`select count(*)::int as n from enrollments where request_id = ${requestId} and estado = 'confirmado'`;
-      if (Number(c.n) >= Number(p.cantidad)) throw new Error('Cupos completos.');
+      const [fila] = await sql`select * from requests where id = ${requestId}`;
+      if (!fila || fila.estado !== 'Aprobado') throw new Error('El pedido debe estar aprobado.');
+      const p = mapPedido(fila);
+      const conf = await sql`select student_id, dias from enrollments where request_id = ${requestId} and estado = 'confirmado'`;
+      if (conf.filter((r) => String(r.student_id) !== studentId).length >= Number(p.cantidad)) throw new Error('Cupos completos.');
+      if (p.dias.length > 1) {
+        const [propia] = await sql`select dias from enrollments where request_id = ${requestId} and student_id = ${studentId}`;
+        const mios = diasEstudiante(p, mapDiasJson(propia?.dias)).map((d) => d.fecha);
+        const otros = conf.filter((r) => String(r.student_id) !== studentId);
+        const llenos = mios.every((f) => otros.filter((r) => diasEstudiante(p, mapDiasJson(r.dias)).some((d) => d.fecha === f)).length >= cantidadDia(p, p.dias.find((d) => d.fecha === f)!));
+        if (llenos) throw new Error('Cupos completos para los días de este estudiante. Cambia sus días o quita a otro.');
+      }
       await sql`insert into enrollments (request_id, student_id, estado) values (${requestId}, ${studentId}, 'confirmado')
         on conflict (request_id, student_id) do update set estado = 'confirmado', updated_at = now()`;
       const [st] = await sql`select semestre from students where id = ${studentId}`;
@@ -316,6 +326,31 @@ export async function decidirInscripcion(requestId: string, studentId: string, d
 /** Coordinación agrega directamente a un estudiante como confirmado. */
 export async function confirmarDirecto(requestId: string, studentId: string): Promise<Resultado> {
   return decidirInscripcion(requestId, studentId, 'aceptar');
+}
+
+/** Días a los que asiste un estudiante (inscrito o confirmado) en un evento de varios días; null = todos. */
+export async function fijarDiasEstudiante(requestId: string, studentId: string, dias: string[] | null): Promise<Resultado> {
+  try {
+    await exigir();
+    const sql = db();
+    const [fila] = await sql`select * from requests where id = ${requestId}`;
+    if (!fila) throw new Error('Pedido no encontrado');
+    const p = mapPedido(fila);
+    const fechas = p.dias.map((d) => d.fecha);
+    const elegidos = (dias ?? []).filter((f) => fechas.includes(f));
+    if (dias && !elegidos.length) throw new Error('El estudiante debe asistir al menos un día.');
+    const valor = elegidos.length && elegidos.length < fechas.length ? elegidos : null;
+    await sql`update enrollments set dias = ${valor ? sql.json(valor) : null}, updated_at = now() where request_id = ${requestId} and student_id = ${studentId}`;
+    refrescar();
+    return { ok: true };
+  } catch (e) { return fallo(e); }
+}
+
+/** dias de una inscripción tal como viene de la base (jsonb o texto). */
+function mapDiasJson(v: unknown): string[] | null {
+  let x = v;
+  if (typeof x === 'string') { try { x = JSON.parse(x); } catch { return null; } }
+  return Array.isArray(x) && x.length ? x.map(String) : null;
 }
 
 // ---------------------------------------------------------------- avisos a docentes
