@@ -9,7 +9,7 @@ const pedido: Pedido = {
   id: 'abc', periodo: '2026-2', numero: 5, codigo: 'SOL-2026-005', nombre: 'Carla Espinosa', cargo: 'Directora', institucion: 'Cámara de Comercio', correoSolicitante: 'carla@ejemplo.com',
   tipo: 'externo', convenio: 'no', evento: 'Feria <de> empleo', fecha: '2026-09-22', inicio: '08:00', fin: '12:00',
   dias: [{ fecha: '2026-09-22', inicio: '08:00', fin: '12:00' }, { fecha: '2026-09-23', inicio: '08:00', fin: '12:00' }],
-  lugar: 'Centro de Convenciones', lejos: true, responsable: 'J. Andrade', responsableTelefono: '098 777 8899', cantidad: 10,
+  lugar: 'Centro de Convenciones', lejos: true, responsable: 'J. Andrade', responsableTelefono: '098 777 8899', cantidad: 10, mismosEstudiantes: true,
   actividades: ['Recepción y registro de invitados'], reparto: [{ actividad: 'Recepción y registro de invitados', cantidad: 10 }], vestimenta: 'ninguna', evidenciaPath: null, evidenciaNombre: null, estado: 'Pendiente', convocadaAt: null, clave: null, telegramPostAt: null, finalizadoAt: null, uniformeCita: null, actaToken: '', actaFirmadaPath: null, actaFirmadaNombre: null, actaFirmadaAt: null, createdAt: '2026-09-15T10:00:00Z',
 };
 

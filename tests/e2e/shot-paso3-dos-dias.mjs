@@ -17,7 +17,7 @@ await p.fill('#responsable', 'Secretaría'); await p.fill('#telefono', '09912345
 await p.waitForTimeout(500);
 await p.click('button:has-text("Continuar")'); await p.waitForSelector('#cantidad');
 await p.fill('#cantidad', '20');
-await p.fill('#cant-dia-0', '14'); await p.fill('#cant-dia-1', '6'); await p.keyboard.press('Tab');
-console.log('por día visible:', await p.locator('text=Estudiantes por día').count(), '·', (await p.locator('label:has-text("Estudiantes por día")').locator('..').textContent()).replace(/\s+/g, ' ').slice(0, 200));
+await p.click('label:has(#d0-act-0)');
+console.log('selector:', (await p.locator('.seg:has-text("todos los días")').textContent()).replace(/\s+/g, ' '));
 await p.screenshot({ path: shots + '/paso3-dos-dias.png', fullPage: true, caret: 'initial' });
 await b.close();

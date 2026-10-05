@@ -117,7 +117,9 @@ export function PanelPedido({ p, datos, pedidos, cruceEvento, onCerrar }: { p: P
       {/* Convocatoria e inscripciones */}
       <div className="stack-2 borde-arriba">
         <div className="between"><h6 className="m-0">Convocatoria a estudiantes</h6><span className="heading">{p.confirmadosN} / {p.cantidad} confirmados</span></div>
-        {p.multidia && <p className="muted fs-12 m-0">Por día: {p.cuposDias.map((c, i) => `día ${i + 1} (${fechaCorta(c.fecha)}): ${c.confirmados}/${c.cantidad}`).join(' · ')}. Los botones D1, D2… junto a cada estudiante marcan a qué días va.</p>}
+        {p.multidia && (p.mismosEstudiantes
+          ? <p className="muted fs-12 m-0">Los mismos {p.cantidad} estudiantes van los {p.dias.length} días (por día: {p.cuposDias.map((c, i) => `día ${i + 1}: ${c.confirmados}/${c.cantidad}`).join(' · ')}). Los botones D1, D2… junto a cada estudiante sirven solo para excepciones.</p>
+          : <p className="muted fs-12 m-0">Distintos estudiantes cada día: {p.cuposDias.map((c, i) => `día ${i + 1} (${fechaCorta(c.fecha)}): ${c.confirmados}/${c.cantidad}`).join(' · ')}. Los botones D1, D2… junto a cada estudiante marcan a qué días va.</p>)}
         {!p.convocadaAt && <p className="muted fs-12 m-0">Al aprobar, el sistema genera la clave del evento y el correo de convocatoria (fecha, horario, horas, actividades y vestimenta) para los {nEstudiantes} estudiantes de 1.º a 3.º con el link para inscribirse. Tú lo envías desde Outlook y confirmas quién entra.</p>}
         {p.convocadaAt && (
           <>

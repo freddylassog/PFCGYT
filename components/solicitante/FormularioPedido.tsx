@@ -182,7 +182,7 @@ export function FormularioPedido({ hoy, anticipacion = { horas: 72, hasta: '' } 
             </div>
             <div className="field">
               <label>Días y horarios de participación de los estudiantes</label>
-              <EditorDias dias={f.dias} onChange={(d) => setF((s) => ({ ...s, dias: sincronizarDias(d, s.cantidad), lugar: d[0]?.lugar ?? '', lejos: d.some((x) => !!x.lejos) }))} min={hoy} idPrefijo="dia" />
+              <EditorDias dias={f.dias} onChange={(d) => setF((s) => ({ ...s, dias: sincronizarDias(d, s.cantidad, s.mismosEstudiantes), lugar: d[0]?.lugar ?? '', lejos: d.some((x) => !!x.lejos) }))} min={hoy} idPrefijo="dia" />
             </div>
             <p className="muted fs-12 m-0">Plazo: <strong style={{ color: 'var(--color-text)' }}>{primero?.fecha ? plazoTexto(primero.fecha, hoy, horasMin) : 'Elige la fecha'}</strong> · Duración: <strong style={{ color: 'var(--color-text)' }}>{durTexto}</strong>.</p>
             {error72 && (
@@ -207,10 +207,20 @@ export function FormularioPedido({ hoy, anticipacion = { horas: 72, hasta: '' } 
         {paso === 3 && (
           <Marco as="section" className="p-6 stack">
             <h6 className="h6-accent">03 · Estudiantes</h6>
-            <div className="field" style={{ maxWidth: 180 }}><label htmlFor="cantidad">Número de estudiantes</label><InputNumero id="cantidad" min={1} max={MAX_ESTUDIANTES} value={f.cantidad} onChange={(n) => setF((s) => ({ ...s, cantidad: n, reparto: ajustarRepartoATotal(s.reparto, n), dias: sincronizarDias(s.dias, n) }))} /></div>
-            <CantidadesPorDia dias={f.dias} cantidad={f.cantidad} onChange={(d) => set('dias', sincronizarDias(d, f.cantidad))} />
+            <div className="field" style={{ maxWidth: 180 }}><label htmlFor="cantidad">Número de estudiantes</label><InputNumero id="cantidad" min={1} max={MAX_ESTUDIANTES} value={f.cantidad} onChange={(n) => setF((s) => ({ ...s, cantidad: n, reparto: ajustarRepartoATotal(s.reparto, n), dias: sincronizarDias(s.dias, n, s.mismosEstudiantes) }))} /></div>
+            {f.dias.length > 1 && (
+              <div className="field">
+                <label>¿Quiénes van los {f.dias.length} días?</label>
+                <div className="seg" role="radiogroup" aria-label="Estudiantes en los días">
+                  <label className="seg-opt"><input type="radio" name="mismos" checked={f.mismosEstudiantes} onChange={() => setF((s) => ({ ...s, mismosEstudiantes: true, dias: sincronizarDias(s.dias, s.cantidad, true) }))} />Los mismos {f.cantidad} estudiantes todos los días</label>
+                  <label className="seg-opt"><input type="radio" name="mismos" checked={!f.mismosEstudiantes} onChange={() => setF((s) => ({ ...s, mismosEstudiantes: false, dias: sincronizarDias(s.dias, s.cantidad, false) }))} />Distintos estudiantes cada día (se reparten los {f.cantidad})</label>
+                </div>
+              </div>
+            )}
+            {!f.mismosEstudiantes && <CantidadesPorDia dias={f.dias} cantidad={f.cantidad} onChange={(d) => set('dias', sincronizarDias(d, f.cantidad, false))} />}
             {f.dias.length > 1 ? (
               <div className="stack-3">
+                {f.dias.length > 1 && (f.dias[0]?.reparto?.length ?? 0) > 0 && <button type="button" className="btn btn-ghost btn-sm" style={{ justifySelf: 'start' }} onClick={() => set('dias', f.dias.map((x, j) => (j === 0 ? x : { ...x, reparto: ajustarRepartoATotal(f.dias[0].reparto ?? [], cantidadDia(f, x)) })))}>Usar las actividades del día 1 en todos los días</button>}
                 {f.dias.map((d, i) => { const n = cantidadDia(f, d); return (
                   <div key={i} className="field" style={{ borderLeft: '3px solid var(--color-accent-200)', paddingLeft: 'var(--space-3)' }}>
                     <label>Día {i + 1}{d.fecha ? ` · ${fechaCorta(d.fecha)}` : ''} · {n} estudiante{n === 1 ? '' : 's'}: actividades y cuántos en cada una</label>
@@ -244,7 +254,7 @@ export function FormularioPedido({ hoy, anticipacion = { horas: 72, hasta: '' } 
             <dl className="dl" style={{ paddingBottom: 'var(--space-3)', borderBottom: '1px solid var(--color-divider)' }}>
               <dt className="muted">Evento</dt><dd>{f.evento} · {resumenTipo}</dd>
               <dt className="muted">Fecha</dt><dd>{fechaLargaDias(f.dias)} · {horarioTextoDias(ordenarDias(f.dias))} ({durTexto})</dd>
-              <dt className="muted">Estudiantes</dt><dd>{cuposTexto({ cantidad: f.cantidad, dias: ordenarDias(f.dias) })} · {actividadesTextoPedido({ reparto: f.reparto, actividades: [], dias: ordenarDias(f.dias) })}</dd>
+              <dt className="muted">Estudiantes</dt><dd>{cuposTexto({ cantidad: f.cantidad, dias: ordenarDias(f.dias), mismosEstudiantes: f.mismosEstudiantes })} · {actividadesTextoPedido({ reparto: f.reparto, actividades: [], dias: ordenarDias(f.dias) })}</dd>
               <dt className="muted">Vestimenta</dt><dd>{VESTIMENTA[f.vestimenta].label}</dd>
               <dt className="muted">Lugar</dt><dd>{lugaresTexto({ ...f, dias: ordenarDias(f.dias) }, true)}</dd>
               <dt className="muted">Responsable</dt><dd>{f.responsable} · {f.responsableTelefono}</dd>

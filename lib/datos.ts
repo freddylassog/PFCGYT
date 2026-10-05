@@ -56,7 +56,7 @@ export function mapPedido(r: Fila): Pedido {
     nombre: s(r.nombre), cargo: s(r.cargo), institucion: s(r.institucion), correoSolicitante: sn(r.correo_solicitante),
     tipo: r.tipo as Pedido['tipo'], convenio: r.convenio as Pedido['convenio'], evento: s(r.evento),
     fecha: s(r.fecha), inicio: hhmm(s(r.inicio)), fin: hhmm(s(r.fin)), dias: mapDias(r), lugar: s(r.lugar), lejos: !!r.lejos,
-    responsable: s(r.responsable), responsableTelefono: s(r.responsable_telefono), cantidad: Number(r.cantidad), actividades: (r.actividades as string[]) ?? [], reparto: mapReparto(r),
+    responsable: s(r.responsable), responsableTelefono: s(r.responsable_telefono), cantidad: Number(r.cantidad), mismosEstudiantes: r.mismos_estudiantes == null ? true : !!r.mismos_estudiantes, actividades: (r.actividades as string[]) ?? [], reparto: mapReparto(r),
     vestimenta: r.vestimenta as Pedido['vestimenta'], evidenciaPath: sn(r.evidencia_path), evidenciaNombre: sn(r.evidencia_nombre),
     estado: r.estado as Pedido['estado'], convocadaAt: sn(r.convocada_at), clave: sn(r.clave), telegramPostAt: r.telegram_post_at ? iso(r.telegram_post_at) : null, finalizadoAt: sn(r.finalizado_at), uniformeCita: mapCita(r), actaToken: '', actaFirmadaPath: sn(r.acta_firmada_path), actaFirmadaNombre: sn(r.acta_firmada_nombre), actaFirmadaAt: r.acta_firmada_at ? iso(r.acta_firmada_at) : null, createdAt: iso(r.created_at),
   };

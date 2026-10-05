@@ -8,6 +8,7 @@ const inicio = process.argv[3] || '09:00', fin = process.argv[4] || '14:30';
 const evento = process.argv[5] || 'Evento de prueba ' + Date.now();
 const tipo = process.argv[6] || 'interno';
 const segundoDia = process.argv[7] || ''; // fecha opcional de un segundo día (mismo horario)
+const modo = process.argv[8] || 'mismos'; // 'mismos' estudiantes los dos días o 'distintos' (se reparten)
 const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
 const p = await b.newPage({ viewport: { width: 1280, height: 900 } });
 p.on('pageerror', (e) => console.log('PAGEERROR', e.message));
@@ -45,16 +46,23 @@ if (await p.locator('button:has-text("Continuar")').isDisabled()) {
 }
 await p.click('button:has-text("Continuar")');
 await p.fill('#cantidad', '3');
-if (segundoDia) {
+if (segundoDia && modo === 'distintos') {
+  await p.click('label:has-text("Distintos estudiantes cada día")');
   await p.fill('#cant-dia-1', '1'); // día 2 solo necesita 1 estudiante
   await p.keyboard.press('Tab');
-}
-if (segundoDia) {
   await p.click('label:has(#d0-act-0)'); // día 1 (2 estudiantes): Recepción
   await p.click('label:has(#d1-act-1)'); // día 2 (1 estudiante): Ubicación
   const a0 = await p.locator('p:has-text("Asignados:")').nth(0).textContent();
   const a1 = await p.locator('p:has-text("Asignados:")').nth(1).textContent();
   if (!/Asignados: 2 de 2/.test(a0 || '') || !/Asignados: 1 de 1/.test(a1 || '')) console.log('REPARTO POR DÍA INESPERADO:', a0, a1);
+} else if (segundoDia) {
+  if ((await p.locator('#cant-dia-1').count()) !== 0) console.log('NO DEBERÍA REPARTIRSE con los mismos estudiantes');
+  await p.click('label:has(#d0-act-0)'); // día 1: Recepción (los 3)
+  await p.click('label:has(#d1-act-5)'); // día 2: Apoyo en mesa de honor (los 3)
+  const a0 = await p.locator('p:has-text("Asignados:")').nth(0).textContent();
+  const a1 = await p.locator('p:has-text("Asignados:")').nth(1).textContent();
+  if (!/Asignados: 3 de 3/.test(a0 || '') || !/Asignados: 3 de 3/.test(a1 || '')) console.log('REPARTO (MISMOS) INESPERADO:', a0, a1);
+  console.log('MISMOS ESTUDIANTES: 3 y 3');
 } else {
   await p.click('label:has-text("Recepción y registro de invitados")');
   await p.click('label:has-text("Ubicación de autoridades")');

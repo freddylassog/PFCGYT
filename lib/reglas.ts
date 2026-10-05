@@ -158,20 +158,23 @@ export interface Transporte {
 }
 
 /** Estudiantes necesarios un día: los suyos o, si no tiene, todos los del pedido. */
-export function cantidadDia(p: { cantidad: number }, d: DiaEvento): number {
+export function cantidadDia(p: { cantidad: number; mismosEstudiantes?: boolean }, d: DiaEvento): number {
+  const total = Math.round(Number(p.cantidad) || 0);
+  if (p.mismosEstudiantes) return total;
   const n = Math.round(Number(d.cantidad) || 0);
-  return n > 0 ? Math.min(n, Math.round(Number(p.cantidad) || 0)) : Math.round(Number(p.cantidad) || 0);
+  return n > 0 ? Math.min(n, total) : total;
 }
 
 /** ¿Algún día necesita menos estudiantes que el total? (solo en eventos de varios días) */
-export function cantidadesDistintas(p: { cantidad: number; dias: DiaEvento[] }): boolean {
-  return p.dias.length > 1 && p.dias.some((d) => cantidadDia(p, d) !== Math.round(Number(p.cantidad) || 0));
+export function cantidadesDistintas(p: { cantidad: number; dias: DiaEvento[]; mismosEstudiantes?: boolean }): boolean {
+  return !p.mismosEstudiantes && p.dias.length > 1 && p.dias.some((d) => cantidadDia(p, d) !== Math.round(Number(p.cantidad) || 0));
 }
 
 /** '20 estudiantes' o '20 estudiantes (día 1: 14 · día 2: 6)'. */
-export function cuposTexto(p: { cantidad: number; dias: DiaEvento[] }): string {
+export function cuposTexto(p: { cantidad: number; dias: DiaEvento[]; mismosEstudiantes?: boolean }): string {
   const n = Math.round(Number(p.cantidad) || 0);
   const base = `${n} estudiante${n === 1 ? '' : 's'}`;
+  if (p.mismosEstudiantes && p.dias.length > 1) return `${base} (los mismos los ${p.dias.length} días)`;
   return cantidadesDistintas(p) ? `${base} (${p.dias.map((d, i) => `día ${i + 1}: ${cantidadDia(p, d)}`).join(' · ')})` : base;
 }
 
@@ -184,8 +187,8 @@ export function repartirCantidad(total: number, n: number): number[] {
 }
 
 /** Problemas de las cantidades por día (vacío = correctas). Solo aplica a eventos de varios días: se reparten el total. */
-export function faltasCantidadesDias(cantidad: number, dias: DiaEvento[]): string[] {
-  if (dias.length <= 1) return [];
+export function faltasCantidadesDias(cantidad: number, dias: DiaEvento[], mismosEstudiantes = false): string[] {
+  if (dias.length <= 1 || mismosEstudiantes) return [];
   const total = Math.round(Number(cantidad) || 0);
   const porDia = dias.map((d) => Math.round(Number(d.cantidad) || 0));
   if (porDia.some((n) => !(n >= 1 && n <= total))) return [`estudiantes por día entre 1 y ${total}`];
@@ -194,9 +197,8 @@ export function faltasCantidadesDias(cantidad: number, dias: DiaEvento[]): strin
 }
 
 /** Al cambiar el total o los días: si las cantidades ya suman el total se conservan; si no, se reparten parejo. */
-export function ajustarCantidadesDias(dias: DiaEvento[], nuevoTotal: number, _viejoTotal?: number): DiaEvento[] {
-  void _viejoTotal;
-  if (dias.length <= 1) return dias.map((d) => { const { cantidad: _c, ...resto } = d; void _c; return resto; });
+export function ajustarCantidadesDias(dias: DiaEvento[], nuevoTotal: number, mismosEstudiantes = false): DiaEvento[] {
+  if (dias.length <= 1 || mismosEstudiantes) return dias.map((d) => { const { cantidad: _c, ...resto } = d; void _c; return resto; });
   const total = Math.round(Number(nuevoTotal) || 0);
   const actuales = dias.map((d) => Math.round(Number(d.cantidad) || 0));
   if (actuales.every((n) => n >= 1) && actuales.reduce((a, n) => a + n, 0) === total) return dias;
@@ -236,10 +238,10 @@ export function actividadesEtiquetasPedido(p: { reparto: RepartoActividad[]; act
 }
 
 /** Mantiene coherentes las cantidades y los repartos por día al cambiar el total o los días. */
-export function sincronizarDias(dias: DiaEvento[], total: number): DiaEvento[] {
-  const ajustados = ajustarCantidadesDias(dias, total);
+export function sincronizarDias(dias: DiaEvento[], total: number, mismosEstudiantes = false): DiaEvento[] {
+  const ajustados = ajustarCantidadesDias(dias, total, mismosEstudiantes);
   if (ajustados.length <= 1) return ajustados;
-  return ajustados.map((d) => ({ ...d, reparto: ajustarRepartoATotal(d.reparto ?? [], cantidadDia({ cantidad: total }, d)) }));
+  return ajustados.map((d) => ({ ...d, reparto: ajustarRepartoATotal(d.reparto ?? [], cantidadDia({ cantidad: total, mismosEstudiantes }, d)) }));
 }
 
 /** Días a los que asiste un estudiante según su inscripción (null o sin coincidencias = todos). */
@@ -311,7 +313,7 @@ export interface Compromiso {
 }
 
 /** Compromisos del organizador con las cantidades concretas del pedido. */
-export function compromisosPedido(p: { dias: DiaEvento[]; lejos: boolean; cantidad: number; reparto: RepartoActividad[]; actividades: string[]; responsable: string; responsableTelefono: string }): Compromiso[] {
+export function compromisosPedido(p: { dias: DiaEvento[]; lejos: boolean; cantidad: number; mismosEstudiantes?: boolean; reparto: RepartoActividad[]; actividades: string[]; responsable: string; responsableTelefono: string }): Compromiso[] {
   const n = Math.max(0, Math.round(Number(p.cantidad) || 0));
   const comidas = comidasDias(p.dias);
   const porDia = p.dias.length > 1 ? ` (${p.dias.map((d, i) => `día ${i + 1}: ${comidasDia(d)}`).join(', ')})` : '';
@@ -693,6 +695,8 @@ export interface FormPedido {
   responsable: string;
   responsableTelefono: string;
   cantidad: number;
+  /** Varios días: los mismos estudiantes todos los días (true) o se reparte el total (false). */
+  mismosEstudiantes: boolean;
   reparto: RepartoActividad[];
   vestimenta: Vestimenta;
   acepta: boolean;
@@ -705,7 +709,7 @@ export const DIA_INICIAL: DiaEvento = { fecha: '', inicio: '09:00', fin: '13:00'
 export const FORM_INICIAL: FormPedido = {
   nombre: '', cargo: '', institucion: '', correoSolicitante: '', tipo: 'interno', convenio: 'si',
   evento: '', dias: [{ ...DIA_INICIAL }], lugar: '', lejos: false, responsable: '', responsableTelefono: '',
-  cantidad: 4, reparto: [], vestimenta: 'uniforme', acepta: false, evidenciaNombre: '', evidenciaPath: '',
+  cantidad: 4, mismosEstudiantes: true, reparto: [], vestimenta: 'uniforme', acepta: false, evidenciaNombre: '', evidenciaPath: '',
 };
 
 /** Al menos 7 dígitos (acepta espacios, guiones, paréntesis y +). */
@@ -803,7 +807,7 @@ export function faltasPedido(f: FormPedido, hoy: string, cruce: { evento: string
   const f3: string[] = [];
   if (!(f.cantidad >= 1 && f.cantidad <= MAX_ESTUDIANTES)) f3.push('número de estudiantes (1–20)');
   if (f.dias.length > 1) {
-    f3.push(...faltasCantidadesDias(f.cantidad, f.dias));
+    f3.push(...faltasCantidadesDias(f.cantidad, f.dias, f.mismosEstudiantes));
     f.dias.forEach((d, i) => f3.push(...faltasReparto(d.reparto ?? [], cantidadDia(f, d)).map((m) => `día ${i + 1}: ${m}`)));
   } else f3.push(...faltasReparto(f.reparto, f.cantidad));
   if (!VESTIMENTA[f.vestimenta]) f3.push('vestimenta');

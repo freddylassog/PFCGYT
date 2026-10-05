@@ -64,6 +64,8 @@ export interface Pedido {
   responsable: string;
   responsableTelefono: string;
   cantidad: number;
+  /** En eventos de varios días: los mismos estudiantes van todos los días (true) o el total se reparte entre los días (false). */
+  mismosEstudiantes: boolean;
   actividades: string[];
   reparto: RepartoActividad[];
   vestimenta: Vestimenta;

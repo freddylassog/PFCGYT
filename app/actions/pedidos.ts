@@ -53,7 +53,7 @@ export async function crearPedido(f: FormPedido): Promise<Resultado<PedidoCreado
   const hoy = hoyISO();
   const horasMin = anticipacionVigente(await ajustesActuales(), hoy);
   const pedidos = await pedidosDelPeriodo();
-  const dias = ordenarDias(f.dias || []).map((d) => ({ fecha: d.fecha, inicio: d.inicio, fin: d.fin, lugar: (d.lugar ?? '').trim().slice(0, 300), lejos: !!d.lejos, ...(Number(d.cantidad) > 0 ? { cantidad: Math.round(Number(d.cantidad)) } : {}), ...(d.reparto?.length ? { reparto: limpiarReparto(d.reparto) } : {}) }));
+  const dias = ordenarDias(f.dias || []).map((d) => ({ fecha: d.fecha, inicio: d.inicio, fin: d.fin, lugar: (d.lugar ?? '').trim().slice(0, 300), lejos: !!d.lejos, ...(!f.mismosEstudiantes && Number(d.cantidad) > 0 ? { cantidad: Math.round(Number(d.cantidad)) } : {}), ...(d.reparto?.length ? { reparto: limpiarReparto(d.reparto) } : {}) }));
   const lugar = dias[0]?.lugar || f.lugar.trim();
   const lejos = dias.some((d) => d.lejos);
   const cruce = cruceEventos({ dias }, pedidos);
@@ -71,11 +71,11 @@ export async function crearPedido(f: FormPedido): Promise<Resultado<PedidoCreado
     try {
       const [fila] = await sql`
         insert into requests (periodo, numero, codigo, nombre, cargo, institucion, correo_solicitante, tipo, convenio,
-          evento, fecha, inicio, fin, dias, lugar, lejos, responsable, responsable_telefono, cantidad, actividades, reparto, vestimenta, evidencia_path, evidencia_nombre)
+          evento, fecha, inicio, fin, dias, lugar, lejos, responsable, responsable_telefono, cantidad, mismos_estudiantes, actividades, reparto, vestimenta, evidencia_path, evidencia_nombre)
         select ${periodo}, n, ${'SOL-' + periodo.slice(0, 4) + '-'} || lpad(n::text, 3, '0'),
           ${f.nombre.trim()}, ${f.cargo.trim()}, ${f.institucion.trim()}, ${normalizarCorreo(f.correoSolicitante)},
           ${f.tipo}, ${f.tipo === 'externo' ? f.convenio : 'si'}, ${f.evento.trim()}, ${primero.fecha}, ${primero.inicio}, ${primero.fin}, ${sql.json(dias as unknown as JSONValue)},
-          ${lugar}, ${lejos}, ${f.responsable.trim()}, ${f.responsableTelefono.trim()}, ${Math.round(f.cantidad)}, ${actividades}, ${sql.json(reparto as unknown as JSONValue)}, ${f.vestimenta},
+          ${lugar}, ${lejos}, ${f.responsable.trim()}, ${f.responsableTelefono.trim()}, ${Math.round(f.cantidad)}, ${!!f.mismosEstudiantes}, ${actividades}, ${sql.json(reparto as unknown as JSONValue)}, ${f.vestimenta},
           ${f.evidenciaPath}, ${f.evidenciaNombre.slice(0, 200)}
         from (select coalesce(max(numero), 0) + 1 as n from requests where periodo = ${periodo}) s
         returning *`;

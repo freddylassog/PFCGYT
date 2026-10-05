@@ -194,7 +194,7 @@ export async function crearEnlaceCalendario(): Promise<Resultado<{ token: string
 export interface CambiosPedido {
   nombre: string; cargo: string; institucion: string; correoSolicitante: string;
   evento: string; dias: DiaEvento[]; lugar: string; lejos: boolean; responsable: string; responsableTelefono: string;
-  cantidad: number; vestimenta: string; reparto: RepartoActividad[];
+  cantidad: number; mismosEstudiantes: boolean; vestimenta: string; reparto: RepartoActividad[];
 }
 
 /** Coordinación corrige los datos de un pedido (por ejemplo, la cantidad de estudiantes). */
@@ -206,11 +206,11 @@ export async function editarPedido(id: string, c: CambiosPedido): Promise<Result
     if (!actual) throw new Error('Pedido no encontrado');
     if (!c.evento.trim()) throw new Error('Escribe el nombre del evento');
     if (!c.nombre.trim() || !c.cargo.trim() || !c.institucion.trim()) throw new Error('Nombre, cargo e institución son obligatorios');
-    const dias = ordenarDias(c.dias || []).map((d) => ({ fecha: d.fecha, inicio: d.inicio, fin: d.fin, lugar: (d.lugar ?? '').trim().slice(0, 300), lejos: !!d.lejos, ...(Number(d.cantidad) > 0 ? { cantidad: Math.round(Number(d.cantidad)) } : {}), ...(d.reparto?.length ? { reparto: (d.reparto || []).filter((x) => ACTIVIDADES.includes(x.actividad)).map((x) => ({ actividad: x.actividad, cantidad: Math.round(Number(x.cantidad)) })) } : {}) }));
+    const dias = ordenarDias(c.dias || []).map((d) => ({ fecha: d.fecha, inicio: d.inicio, fin: d.fin, lugar: (d.lugar ?? '').trim().slice(0, 300), lejos: !!d.lejos, ...(!c.mismosEstudiantes && Number(d.cantidad) > 0 ? { cantidad: Math.round(Number(d.cantidad)) } : {}), ...(d.reparto?.length ? { reparto: (d.reparto || []).filter((x) => ACTIVIDADES.includes(x.actividad)).map((x) => ({ actividad: x.actividad, cantidad: Math.round(Number(x.cantidad)) })) } : {}) }));
     const lugar = dias[0]?.lugar || (c.lugar || '').trim();
     const lejos = dias.some((d) => d.lejos);
     const malDias = faltasDias(dias, hoyISO(), false);
-    const malCantidades = faltasCantidadesDias(Math.round(Number(c.cantidad)), dias);
+    const malCantidades = faltasCantidadesDias(Math.round(Number(c.cantidad)), dias, !!c.mismosEstudiantes);
     if (malCantidades.length) throw new Error('Estudiantes por día: ' + malCantidades.join(', '));
     if (malDias.length) throw new Error('Revisa los días: ' + malDias.join(', '));
     if (dias.some((d) => !d.lugar) || !c.responsable.trim()) throw new Error('Lugar de cada día y responsable son obligatorios');
@@ -222,7 +222,7 @@ export async function editarPedido(id: string, c: CambiosPedido): Promise<Result
     if (!(c.vestimenta in VESTIMENTA)) throw new Error('Vestimenta inválida');
     let reparto: RepartoActividad[];
     if (dias.length > 1) {
-      const malPorDia = dias.flatMap((d, i) => faltasReparto(d.reparto ?? [], cantidadDia({ cantidad }, d)).map((x) => `día ${i + 1}: ${x}`));
+      const malPorDia = dias.flatMap((d, i) => faltasReparto(d.reparto ?? [], cantidadDia({ cantidad, mismosEstudiantes: !!c.mismosEstudiantes }, d)).map((x) => `día ${i + 1}: ${x}`));
       if (malPorDia.length) throw new Error('Actividades: ' + malPorDia.join(', '));
       reparto = unirRepartos(dias);
     } else {
@@ -235,7 +235,7 @@ export async function editarPedido(id: string, c: CambiosPedido): Promise<Result
     await sql`update requests set nombre = ${c.nombre.trim()}, cargo = ${c.cargo.trim()}, institucion = ${c.institucion.trim()}, correo_solicitante = ${correo},
       evento = ${c.evento.trim()}, fecha = ${dias[0].fecha}, inicio = ${dias[0].inicio}, fin = ${dias[0].fin}, dias = ${sql.json(dias as unknown as JSONValue)},
       lugar = ${lugar}, lejos = ${lejos}, responsable = ${c.responsable.trim()}, responsable_telefono = ${c.responsableTelefono.trim()},
-      cantidad = ${cantidad}, vestimenta = ${c.vestimenta}, actividades = ${actividades}, reparto = ${sql.json(reparto as unknown as JSONValue)} where id = ${id}`;
+      cantidad = ${cantidad}, mismos_estudiantes = ${!!c.mismosEstudiantes}, vestimenta = ${c.vestimenta}, actividades = ${actividades}, reparto = ${sql.json(reparto as unknown as JSONValue)} where id = ${id}`;
     // Si cambiaron los días u horarios, los avisos a docentes pendientes se recalculan.
     const antes = JSON.stringify(ordenarDias((Array.isArray(actual.dias) ? actual.dias : []) as DiaEvento[]).map((d) => [d.fecha, String(d.inicio).slice(0, 5), String(d.fin).slice(0, 5)]));
     const cambioHorario = antes !== JSON.stringify(dias.map((d) => [d.fecha, d.inicio, d.fin]));

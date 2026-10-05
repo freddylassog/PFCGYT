@@ -8,7 +8,7 @@ export function EditorDias({ dias, onChange, min, idPrefijo = 'dia' }: { dias: D
   const set = (i: number, k: keyof DiaEvento, v: string | boolean) => onChange(dias.map((d, j) => (j === i ? { ...d, [k]: v } : d)));
   const agregar = () => {
     const ultimo = dias[dias.length - 1];
-    onChange([...dias, { fecha: ultimo?.fecha ? sumarDias(ultimo.fecha, 1) : '', inicio: ultimo?.inicio ?? '09:00', fin: ultimo?.fin ?? '13:00', lugar: ultimo?.lugar ?? '', lejos: !!ultimo?.lejos }]);
+    onChange([...dias, { fecha: ultimo?.fecha ? sumarDias(ultimo.fecha, 1) : '', inicio: ultimo?.inicio ?? '09:00', fin: ultimo?.fin ?? '13:00', lugar: ultimo?.lugar ?? '', lejos: !!ultimo?.lejos, ...(ultimo?.reparto?.length ? { reparto: ultimo.reparto.map((x) => ({ ...x })) } : {}) }]);
   };
   const varios = dias.length > 1;
   return (

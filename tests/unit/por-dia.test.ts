@@ -22,7 +22,7 @@ test('validación de cantidades por día', () => {
   assert.deepEqual(faltasCantidadesDias(20, [{ ...d1, cantidad: 0 }, d2]), ['estudiantes por día entre 1 y 20']);
   assert.deepEqual(faltasCantidadesDias(20, [{ ...d1, cantidad: 10 }, d2]), ['las cantidades por día deben sumar 20 (suman 16)']);
   assert.deepEqual(faltasCantidadesDias(20, [{ ...d1, cantidad: 14 }, { ...d2, cantidad: 8 }]), ['las cantidades por día deben sumar 20 (suman 22)']);
-  const ajustados = ajustarCantidadesDias([{ ...d1, cantidad: 20 }, d2], 10, 20);
+  const ajustados = ajustarCantidadesDias([{ ...d1, cantidad: 20 }, d2], 10);
   assert.deepEqual(ajustados.map((d) => d.cantidad), [5, 5], 'si no suman el total se reparten parejo');
   assert.deepEqual(ajustarCantidadesDias([d1, d2], 20).map((d) => d.cantidad), [14, 6], 'si ya suman el total se conservan');
   assert.deepEqual(repartirCantidad(4, 2), [2, 2]);
@@ -49,7 +49,7 @@ test('compromisos con cantidades por día: alimentación total y transporte por 
 
 test('vista: cupos por día, lleno por días y confirmados de cada día', () => {
   const d = datosDemo();
-  d.pedidos[0].dias = [d1, { ...d2, cantidad: 1 }]; d.pedidos[0].cantidad = 2;
+  d.pedidos[0].dias = [d1, { ...d2, cantidad: 1 }]; d.pedidos[0].cantidad = 2; d.pedidos[0].mismosEstudiantes = false;
   d.inscripciones = [
     { id: 'i1', requestId: 'p1', studentId: 's1', estado: 'confirmado', dias: ['2026-10-20'], createdAt: '' },
     { id: 'i2', requestId: 'p1', studentId: 's2', estado: 'confirmado', dias: null, createdAt: '' },
@@ -68,8 +68,23 @@ test('actividades por día: texto, unión y validación del paso 3', () => {
   ];
   assert.equal(actividadesTextoPedido({ reparto: [], actividades: [], dias }), 'Día 1: Guía de invitados (2) · Día 2: Recepción y registro de invitados (1), Guía de invitados (1)');
   assert.deepEqual(unirRepartos(dias), [{ actividad: 'Recepción y registro de invitados', cantidad: 1 }, { actividad: 'Guía de invitados', cantidad: 3 }]);
-  const f = { ...FORM_INICIAL, nombre: 'A', cargo: 'B', institucion: 'C', correoSolicitante: 'a@b.co', evento: 'E', evidenciaPath: 'x', responsable: 'R', responsableTelefono: '0991234567', acepta: true, cantidad: 4, dias };
+  const f = { ...FORM_INICIAL, nombre: 'A', cargo: 'B', institucion: 'C', correoSolicitante: 'a@b.co', evento: 'E', evidenciaPath: 'x', responsable: 'R', responsableTelefono: '0991234567', acepta: true, cantidad: 4, mismosEstudiantes: false, dias };
   assert.deepEqual(faltasPedido(f, '2026-09-08', null)[2], []);
   const mal = { ...f, dias: [dias[0], { ...dias[1], reparto: [{ actividad: 'Guía de invitados', cantidad: 1 }] }] };
   assert.deepEqual(faltasPedido(mal, '2026-09-08', null)[2], ['día 2: repartir los 2 estudiantes entre las actividades (asignados: 1)']);
+});
+
+test('los mismos estudiantes todos los días: no se reparte el total', () => {
+  const p = { cantidad: 2, mismosEstudiantes: true, dias: [d1, d2] };
+  assert.equal(cantidadDia(p, d1), 2);
+  assert.equal(cantidadDia(p, d2), 2);
+  assert.equal(cuposTexto(p), '2 estudiantes (los mismos los 2 días)');
+  assert.deepEqual(faltasCantidadesDias(2, [d1, d2], true), []);
+  assert.equal(ajustarCantidadesDias([d1, d2], 2, true).every((d) => d.cantidad === undefined), true, 'sin cantidades por día');
+  const c = compromisosPedido({ ...p, lejos: false, reparto: [], actividades: ['Guía'], responsable: 'R', responsableTelefono: '' });
+  assert.match(c[0].texto, /2 alimentaciones por estudiante.*: 4 en total para 2 estudiantes/);
+  const f = { ...FORM_INICIAL, nombre: 'A', cargo: 'B', institucion: 'C', correoSolicitante: 'a@b.co', evento: 'E', evidenciaPath: 'x', responsable: 'R', responsableTelefono: '0991234567', acepta: true, cantidad: 2, mismosEstudiantes: true,
+    dias: [{ ...d1, reparto: [{ actividad: 'Guía de invitados', cantidad: 2 }] }, { ...d2, reparto: [{ actividad: 'Apoyo en mesa de honor', cantidad: 2 }] }] };
+  assert.deepEqual(faltasPedido(f, '2026-09-08', null)[2], []);
+  assert.deepEqual(faltasPedido({ ...f, dias: [f.dias[0], { ...f.dias[1], reparto: [{ actividad: 'Apoyo en mesa de honor', cantidad: 1 }] }] }, '2026-09-08', null)[2], ['día 2: repartir los 2 estudiantes entre las actividades (asignados: 1)']);
 });

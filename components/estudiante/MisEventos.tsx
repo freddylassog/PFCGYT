@@ -57,7 +57,7 @@ export function MisEventos({ datos, yo }: { datos: Datos; yo: Estudiante }) {
                 <div className="between arriba"><div><div className="card-kicker">{e.tipoLabel} · {e.institucion}</div><h4 style={{ margin: '2px 0 0' }}>{e.evento}</h4></div><span className={`tag ${e.miTag}`}>{e.miEstado}</span></div>
                 <div className="muted fs-13">{e.fechaLarga} · {e.horarioTexto} · {e.horas} h · {e.vestLabel} · {e.confirmadosN}/{e.cantidad} cupos confirmados{e.cantidadesDistintas ? ` (${e.cuposDias.map((c, i) => `día ${i + 1}: ${c.confirmados}/${c.cantidad}`).join(' · ')})` : ''}</div>
                 <div className="row" style={{ gap: 4 }}>{e.actividadesEtiquetas.map((a) => <span key={a} className="tag tag-neutral">{a}</span>)}</div>
-                {e.puedo && e.multidia && (
+                {e.puedo && e.multidia && !e.mismosEstudiantes && (
                   <div className="row" style={{ gap: 'var(--space-3)' }}>
                     <span className="fs-13">Puedo asistir:</span>
                     {e.dias.map((d, i) => { const sel = (diasElegidos[e.id] ?? e.dias.map((x) => x.fecha)).includes(d.fecha); return (
