@@ -7,7 +7,7 @@ import { appUrl } from '@/lib/app-url';
 import { avisarCoordinacion } from '@/lib/notificar';
 import { mensajeInscripcionCoordinacion } from '@/lib/notificar-texto';
 import { vistaPedido } from '@/lib/vista';
-import { claveVigente, horaAhora, hoyISO, normalizarClave, normalizarCorreo, ultimoDia, cantidadDia, diasEstudiante } from '@/lib/reglas';
+import { claveVigente, diasLlenos, horaAhora, hoyISO, nombrarDias, normalizarClave, normalizarCorreo, ultimoDia } from '@/lib/reglas';
 import { iniciarSesionEstudiante, sesionEstudiante } from '@/lib/sesion';
 import type { Resultado } from '@/lib/tipos';
 
@@ -59,11 +59,11 @@ export async function inscribirme(requestId: string, dias?: string[] | null): Pr
     const misDias = elegidos.length && elegidos.length < fechas.length ? elegidos : null;
     if (dias && dias.length && !elegidos.length) throw new Error('Elige al menos un día del evento.');
     const conf = await sql`select dias from enrollments where request_id = ${requestId} and estado = 'confirmado'`;
-    if (conf.length >= Number(p.cantidad)) throw new Error('Cupos completos.');
-    if (p.dias.length > 1) {
-      const llenos = (misDias ?? fechas).every((f) => conf.filter((r) => diasEstudiante(p, mapDiasJson(r.dias)).some((d) => d.fecha === f)).length >= cantidadDia(p, p.dias.find((d) => d.fecha === f)!));
-      if (llenos) throw new Error('Cupos completos para esos días.');
-    }
+    // El cupo es por día: si un día ya está lleno, el estudiante debe marcar solo los días con cupo.
+    const pedidos = misDias ?? fechas;
+    const llenos = diasLlenos(p, conf.map((r) => mapDiasJson(r.dias)), pedidos);
+    if (llenos.length === pedidos.length) throw new Error(p.dias.length > 1 ? 'Cupos completos para esos días.' : 'Cupos completos.');
+    if (llenos.length) throw new Error(`${nombrarDias(llenos, fechas)} ya ${llenos.length > 1 ? 'tienen' : 'tiene'} los cupos completos. Marca solo los días con cupo.`);
     const [ya] = await sql`select estado from enrollments where request_id = ${requestId} and student_id = ${studentId}`;
     if (ya?.estado === 'rechazado') throw new Error('La coordinación no confirmó tu inscripción a este evento.');
     if (ya?.estado === 'confirmado') throw new Error('Ya estás confirmado en este evento.');

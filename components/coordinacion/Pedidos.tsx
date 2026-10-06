@@ -69,7 +69,7 @@ export function Pedidos({ datos, pedidos, selInicial }: { datos: Datos; pedidos:
                       <td className="nowrap">{e.fechaCorta}</td>
                       <td className="nowrap" title={e.horarioTexto}>{e.multidia ? `${e.dias.length} días` : e.horarioTexto}</td>
                       <td className="nowrap">{e.horas} h</td>
-                      <td className="nowrap">{e.confirmadosN}/{e.cantidad}{e.inscritosN > 0 && <> <span className="muted fs-12">+{e.inscritosN} por revisar</span></>}</td>
+                      <td className="nowrap">{e.progreso}{e.inscritosN > 0 && <> <span className="muted fs-12">+{e.inscritosN} por revisar</span></>}</td>
                       <td>{cruceTexto(e)}</td>
                       <td><span className={`tag ${e.tagClass}`}>{e.estadoLabel}</span></td>
                     </tr>
@@ -90,7 +90,7 @@ export function Pedidos({ datos, pedidos, selInicial }: { datos: Datos; pedidos:
                         <div className="card-kicker">{e.codigo} · {e.tipoLabel}</div>
                         <div className="card-title" style={{ fontSize: 16 }}>{e.evento}</div>
                         <div className="card-meta">{e.fechaCorta} · {e.multidia ? `${e.dias.length} días` : e.horarioTexto} · {e.horas} h</div>
-                        <div className="card-meta">{e.confirmadosN}/{e.cantidad} confirmados{e.finalizado && e.finalizadoAt && <> · <span className="tag tag-verde" style={{ fontSize: 10, padding: '1px 6px' }}>Finalizado · {fechaCorta(e.finalizadoAt)}</span></>}</div>
+                        <div className="card-meta">{e.progreso} confirmados{e.finalizado && e.finalizadoAt && <> · <span className="tag tag-verde" style={{ fontSize: 10, padding: '1px 6px' }}>Finalizado · {fechaCorta(e.finalizadoAt)}</span></>}</div>
                       </Marco>
                     ))}
                   </div>

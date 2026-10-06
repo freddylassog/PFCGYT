@@ -174,8 +174,23 @@ export function cantidadesDistintas(p: { cantidad: number; dias: DiaEvento[]; mi
 export function cuposTexto(p: { cantidad: number; dias: DiaEvento[]; mismosEstudiantes?: boolean }): string {
   const n = Math.round(Number(p.cantidad) || 0);
   const base = `${n} estudiante${n === 1 ? '' : 's'}`;
-  if (p.mismosEstudiantes && p.dias.length > 1) return `${base} (los mismos los ${p.dias.length} días)`;
+  if (p.mismosEstudiantes && p.dias.length > 1) return `${base} cada día (en lo posible los mismos)`;
   return cantidadesDistintas(p) ? `${base} (${p.dias.map((d, i) => `día ${i + 1}: ${cantidadDia(p, d)}`).join(' · ')})` : base;
+}
+
+/** De las fechas pedidas, las que ya tienen el cupo del día completo con los confirmados dados (días de cada uno; null = todos). */
+export function diasLlenos(p: { cantidad: number; mismosEstudiantes?: boolean; dias: DiaEvento[] }, confirmados: (string[] | null)[], fechas: string[]): string[] {
+  return fechas.filter((f) => {
+    const dia = p.dias.find((d) => d.fecha === f);
+    if (!dia) return false;
+    return confirmados.filter((c) => diasEstudiante(p, c).some((d) => d.fecha === f)).length >= cantidadDia(p, dia);
+  });
+}
+
+/** 'El día 1 (14 dic)' o 'Los días 1 (14 dic) y 2 (15 dic)' (número según la posición en todas las fechas del evento). */
+export function nombrarDias(fechas: string[], todas: string[]): string {
+  const n = fechas.map((f) => `${todas.indexOf(f) + 1} (${fechaCorta(f)})`);
+  return n.length > 1 ? `Los días ${n.join(' y ')}` : `El día ${n[0] ?? ''}`;
 }
 
 /** Reparte el total entre n días lo más parejo posible (4 → 2 y 2; 5 → 3 y 2; 20 en 3 días → 7, 7 y 6). */

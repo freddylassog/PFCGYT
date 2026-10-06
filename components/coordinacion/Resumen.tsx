@@ -48,7 +48,7 @@ export function Resumen({ datos, pedidos }: { datos: Datos; pedidos: PedidoVista
           <thead><tr><th>Evento aprobado</th><th>Tipo</th><th>Fecha</th><th>Horas</th><th>Confirmados</th><th>Vestimenta</th><th>Compromisos</th><th>Novedades</th></tr></thead>
           <tbody>
             {aprobados.length === 0 && <tr><td colSpan={8} className="muted">Aún no hay eventos aprobados.</td></tr>}
-            {aprobados.map((e) => <tr key={e.id}><td>{e.evento}<div className="muted fs-12">{e.institucion}</div></td><td>{e.tipoLabel}</td><td className="nowrap">{e.fechaCorta}</td><td className="nowrap">{e.horas} h</td><td>{e.confirmadosN}/{e.cantidad}</td><td>{e.vestCorta}</td><td>{e.compromisos}</td><td className="fs-12">{e.novedadesTexto}</td></tr>)}
+            {aprobados.map((e) => <tr key={e.id}><td>{e.evento}<div className="muted fs-12">{e.institucion}</div></td><td>{e.tipoLabel}</td><td className="nowrap">{e.fechaCorta}</td><td className="nowrap">{e.horas} h</td><td>{e.progreso}</td><td>{e.vestCorta}</td><td>{e.compromisos}</td><td className="fs-12">{e.novedadesTexto}</td></tr>)}
           </tbody>
         </table>
       </Marco>

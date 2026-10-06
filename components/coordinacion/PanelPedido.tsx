@@ -12,7 +12,7 @@ import { CitaUniforme } from './CitaUniforme';
 import { correoAvisoDocente, correoConvocatoria, correoDecanato, correoEstudianteDecision, correoRecordatorio, correoSolicitante, mailtoUrl } from '@/lib/correos';
 import { TIPOS_NOVEDAD, claseAplica, fechaCorta, infoUniforme, semCorto } from '@/lib/reglas';
 import type { Datos, Estado, Estudiante } from '@/lib/tipos';
-import { diasDeEstudiante, type CruceVista, type PedidoVista } from '@/lib/vista';
+import { diasDeEstudiante, diasLlenosDe, type CruceVista, type PedidoVista } from '@/lib/vista';
 import type { CruceEvento } from '@/lib/reglas';
 
 export function PanelPedido({ p, datos, pedidos, cruceEvento, onCerrar }: { p: PedidoVista; datos: Datos; pedidos: PedidoVista[]; cruceEvento: CruceEvento<PedidoVista> | null; onCerrar: () => void }) {
@@ -116,10 +116,8 @@ export function PanelPedido({ p, datos, pedidos, cruceEvento, onCerrar }: { p: P
 
       {/* Convocatoria e inscripciones */}
       <div className="stack-2 borde-arriba">
-        <div className="between"><h6 className="m-0">Convocatoria a estudiantes</h6><span className="heading">{p.confirmadosN} / {p.cantidad} confirmados</span></div>
-        {p.multidia && (p.mismosEstudiantes
-          ? <p className="muted fs-12 m-0">Los mismos {p.cantidad} estudiantes van los {p.dias.length} días (por día: {p.cuposDias.map((c, i) => `día ${i + 1}: ${c.confirmados}/${c.cantidad}`).join(' · ')}). Los botones D1, D2… junto a cada estudiante sirven solo para excepciones.</p>
-          : <p className="muted fs-12 m-0">Distintos estudiantes cada día: {p.cuposDias.map((c, i) => `día ${i + 1} (${fechaCorta(c.fecha)}): ${c.confirmados}/${c.cantidad}`).join(' · ')}. Los botones D1, D2… junto a cada estudiante marcan a qué días va.</p>)}
+        <div className="between"><h6 className="m-0">Convocatoria a estudiantes</h6><span className="heading">{p.multidia ? p.progreso : `${p.confirmadosN} / ${p.cantidad} confirmados`}</span></div>
+        {p.multidia && <p className="muted fs-12 m-0">{p.mismosEstudiantes ? `Se necesitan ${p.cantidad} estudiantes cada día, en lo posible los mismos` : 'Distintos estudiantes cada día'}: {p.cuposDias.map((c, i) => `día ${i + 1} (${fechaCorta(c.fecha)}): ${c.confirmados}/${c.cantidad}`).join(' · ')}. Cada estudiante marca al inscribirse los días que puede; los botones D1, D2… junto a su nombre muestran y cambian sus días. Si un día ya está lleno, apaga ese día antes de aceptar a alguien más.</p>}
         {!p.convocadaAt && <p className="muted fs-12 m-0">Al aprobar, el sistema genera la clave del evento y el correo de convocatoria (fecha, horario, horas, actividades y vestimenta) para los {nEstudiantes} estudiantes de 1.º a 3.º con el link para inscribirse. Tú lo envías desde Outlook y confirmas quién entra.</p>}
         {p.convocadaAt && (
           <>
@@ -138,15 +136,15 @@ export function PanelPedido({ p, datos, pedidos, cruceEvento, onCerrar }: { p: P
             {p.inscritosN > 0 && (
               <>
                 <div className="card-kicker">Inscritos por revisar · {p.inscritosN}</div>
-                {p.inscritos.map((s) => (
+                {p.inscritos.map((s) => { const llenos = diasLlenosDe(p, s.id); const sinCupo = llenos.length > 0; const todoLleno = llenos.length === diasDeEstudiante(p, s.id).length; return (
                   <div key={s.id} className="linea-item">
-                    <span style={{ minWidth: 0 }}>{s.nombre} <span className="muted fs-11">{semCorto(s.semestre)} · {eventosPor(s.id)} ev.</span>{uniformeIncompleto(s) && <> <span className="tag tag-alerta-suave" style={{ fontSize: 10 }}>Uniforme incompleto</span></>}{chipsDias(s.id)}</span>
+                    <span style={{ minWidth: 0 }}>{s.nombre} <span className="muted fs-11">{semCorto(s.semestre)} · {eventosPor(s.id)} ev.</span>{uniformeIncompleto(s) && <> <span className="tag tag-alerta-suave" style={{ fontSize: 10 }}>Uniforme incompleto</span></>}{sinCupo && <> <span className="tag tag-alerta-suave" style={{ fontSize: 10 }} title={todoLleno ? 'Sus días ya tienen el cupo completo' : 'Ese día ya tiene el cupo completo: apágalo para aceptarlo en los demás'}>{p.multidia && !todoLleno ? `Sin cupo ${llenos.map((f) => `D${p.dias.findIndex((d) => d.fecha === f) + 1}`).join(', ')}` : 'Sin cupo'}</span></>}{chipsDias(s.id)}</span>
                     <span style={{ display: 'flex', gap: 4, flex: 'none' }}>
-                      <button className="btn btn-primary btn-sm" type="button" disabled={p.lleno} onClick={() => run(() => decidirInscripcion(p.id, s.id, 'aceptar'))}>Aceptar</button>
+                      <button className="btn btn-primary btn-sm" type="button" disabled={sinCupo} title={sinCupo ? (todoLleno ? 'Cupos completos para sus días' : 'Apaga el día lleno (D1, D2…) o quita a otro confirmado') : ''} onClick={() => run(() => decidirInscripcion(p.id, s.id, 'aceptar'))}>Aceptar</button>
                       <button className="btn btn-ghost btn-sm" type="button" onClick={() => run(() => decidirInscripcion(p.id, s.id, 'rechazar'))}>Rechazar</button>
                     </span>
                   </div>
-                ))}
+                ); })}
               </>
             )}
             {p.confirmadosN > 0 && (
@@ -167,7 +165,7 @@ export function PanelPedido({ p, datos, pedidos, cruceEvento, onCerrar }: { p: P
             {!p.lleno && disponibles.length > 0 && (
               <div className="row" style={{ gap: 4 }}>
                 <select className="input" style={{ flex: 1, minWidth: 160 }} value={agregarId} onChange={(e) => setAgregarId(e.target.value)} aria-label="Agregar estudiante directamente">
-                  <option value="">Agregar estudiante…</option>
+                  <option value="">{p.multidia && p.cuposDias.some((c) => c.confirmados >= c.cantidad) ? 'Agregar estudiante (solo a los días con cupo)…' : 'Agregar estudiante…'}</option>
                   {disponibles.map((e) => <option key={e.id} value={e.id}>{e.nombre} · {semCorto(e.semestre)}</option>)}
                 </select>
                 <button className="btn btn-secondary btn-sm" type="button" disabled={!agregarId} onClick={() => run(() => confirmarDirecto(p.id, agregarId), () => setAgregarId(''))}>Confirmar</button>

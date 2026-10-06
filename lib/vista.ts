@@ -61,6 +61,8 @@ export interface PedidoVista extends Pedido {
   /** '20 estudiantes' o '20 estudiantes (día 1: 14 · día 2: 6)'. */
   cuposTexto: string;
   cantidadesDistintas: boolean;
+  /** Avance de cupos: '1/2' o, en varios días, 'D1 1/2 · D2 2/2' (cada día tiene su cupo). */
+  progreso: string;
   confirmadosN: number;
   inscritosN: number;
   lleno: boolean;
@@ -107,7 +109,9 @@ export function vistaPedido(d: Datos, p: Pedido): PedidoVista {
   const novedades: NovedadVista[] = d.novedades.filter((n) => n.requestId === p.id).map((n) => ({ ...n, estudiante: est.get(n.studentId) ?? null, pendiente: !n.reportadoAt }));
   const asistencia: Record<string, string[] | null> = Object.fromEntries(ins.map((i) => [i.studentId, i.dias]));
   const cuposDias = p.dias.map((dia) => ({ fecha: dia.fecha, cantidad: cantidadDia(p, dia), confirmados: confirmados.filter((e) => diasEstudiante(p, asistencia[e.id]).some((x) => x.fecha === dia.fecha)).length }));
-  const lleno = confirmados.length >= p.cantidad || (p.dias.length > 1 && cuposDias.every((c) => c.confirmados >= c.cantidad));
+  // Lleno solo cuando todos los días tienen su cupo: con los mismos estudiantes pedidos, uno puede ir un solo día y otro cubrir el otro.
+  const lleno = cuposDias.length ? cuposDias.every((c) => c.confirmados >= c.cantidad) : confirmados.length >= p.cantidad;
+  const progreso = p.dias.length > 1 ? cuposDias.map((c, i) => `D${i + 1} ${c.confirmados}/${c.cantidad}`).join(' · ') : `${confirmados.length}/${p.cantidad}`;
   const v = VESTIMENTA[p.vestimenta] ?? VESTIMENTA.uniforme;
   const tm = transporteMotivoDias(p);
   const p4 = pasa4hDias(p.dias);
@@ -131,7 +135,7 @@ export function vistaPedido(d: Datos, p: Pedido): PedidoVista {
     tagClass: tagClass(estadoVisible(p)),
     bloqueo: p.tipo === 'externo' && p.convenio === 'no' ? 'No se puede aprobar: la institución no tiene convenio vigente con la UTE.' : null,
     confirmados, inscritos, confirmadosN: confirmados.length, inscritosN: inscritos.length, lleno,
-    asistencia, cuposDias, cuposTexto: cuposTexto(p), cantidadesDistintas: cantidadesDistintas(p),
+    asistencia, cuposDias, cuposTexto: cuposTexto(p), cantidadesDistintas: cantidadesDistintas(p), progreso,
     cruces, cruceAmbito: confirmados.length ? 'semestres confirmados' : 'todos los semestres',
     novedades, novedadesTexto: novedades.length ? novedades.map((n) => `${n.estudiante?.nombre ?? ''}: ${n.tipo}`).join(' · ') : '—',
     evidenciaTexto: p.evidenciaNombre || 'sin evidencia',
@@ -141,6 +145,11 @@ export function vistaPedido(d: Datos, p: Pedido): PedidoVista {
 /** Confirmados que asisten un día concreto. */
 export function confirmadosEnDia(p: PedidoVista, fecha: string): Estudiante[] {
   return p.confirmados.filter((e) => diasEstudiante(p, p.asistencia[e.id]).some((d) => d.fecha === fecha));
+}
+
+/** Días (fechas) de un inscrito que ya tienen el cupo completo con los demás confirmados. */
+export function diasLlenosDe(p: PedidoVista, studentId: string): string[] {
+  return diasDeEstudiante(p, studentId).map((d) => d.fecha).filter((f) => { const c = p.cuposDias.find((x) => x.fecha === f); return !!c && !p.confirmados.some((e) => e.id === studentId) && c.confirmados >= c.cantidad; });
 }
 
 /** Etiquetas de actividades solo de los días a los que asiste un estudiante. */

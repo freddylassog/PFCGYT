@@ -42,7 +42,7 @@ export function Novedades({ datos, pedidos }: { datos: Datos; pedidos: PedidoVis
               <div style={{ minWidth: 0 }}>
                 <div className="card-kicker">{e.codigo} · {e.tipoLabel} · {e.fechaCorta}</div>
                 <div className="card-title" style={{ fontSize: 16 }}>{e.evento}</div>
-                <div className="card-meta">{e.multidia ? `${e.dias.length} días` : e.horarioTexto} · {e.confirmadosN}/{e.cantidad} confirmados · {e.novedades.length} novedad(es)</div>
+                <div className="card-meta">{e.multidia ? `${e.dias.length} días` : e.horarioTexto} · {e.progreso} confirmados · {e.novedades.length} novedad(es)</div>
               </div>
               <span className="row" style={{ gap: 4, flex: 'none' }}>
                 <span className={`tag ${e.tagClass}`}>{e.finalizado && e.finalizadoAt ? `Finalizado · ${fechaCorta(e.finalizadoAt)}` : e.terminado ? 'Terminó · por cerrar' : 'En curso'}</span>

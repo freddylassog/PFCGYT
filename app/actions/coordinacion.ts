@@ -12,9 +12,7 @@ import { appUrl } from '@/lib/app-url';
 import { avanceEstudiante, vistaPedido } from '@/lib/vista';
 import { leerTabla, parseDocentes, parseEstudiantes, parseHorarios } from '@/lib/excel';
 import { borrarEvidencia, evidenciaExiste, prepararSubida } from '@/lib/storage';
-import {
-  ACTIVIDADES, MAX_ESTUDIANTES, UNIFORME, TIPOS_NOVEDAD, VESTIMENTA, claseAplica, claveNombre, cruceClases, esFechaISO, faltasDias, genClave, hoyISO, normalizarCorreo, normalizarParalelo, ordenarDias, telefonoValido, faltasReparto, faltasCitaUniforme, faltasCantidadesDias, cantidadDia, diasEstudiante, unirRepartos,
-} from '@/lib/reglas';
+import { ACTIVIDADES, cantidadDia, claseAplica, claveNombre, cruceClases, diasEstudiante, diasLlenos, esFechaISO, faltasCantidadesDias, faltasCitaUniforme, faltasDias, faltasReparto, genClave, hoyISO, MAX_ESTUDIANTES, nombrarDias, normalizarCorreo, normalizarParalelo, ordenarDias, telefonoValido, TIPOS_NOVEDAD, UNIFORME, unirRepartos, VESTIMENTA } from '@/lib/reglas';
 import { iniciarSesionCoordinacion, passwordCoordinacionOk, sesionCoordinacion } from '@/lib/sesion';
 import type { CitaUniforme, DiaEvento, Estado, RepartoActividad, Resultado, Semestre } from '@/lib/tipos';
 
@@ -293,16 +291,21 @@ export async function decidirInscripcion(requestId: string, studentId: string, d
       if (!fila || fila.estado !== 'Aprobado') throw new Error('El pedido debe estar aprobado.');
       const p = mapPedido(fila);
       const conf = await sql`select student_id, dias from enrollments where request_id = ${requestId} and estado = 'confirmado'`;
-      if (conf.filter((r) => String(r.student_id) !== studentId).length >= Number(p.cantidad)) throw new Error('Cupos completos.');
-      if (p.dias.length > 1) {
-        const [propia] = await sql`select dias from enrollments where request_id = ${requestId} and student_id = ${studentId}`;
-        const mios = diasEstudiante(p, mapDiasJson(propia?.dias)).map((d) => d.fecha);
-        const otros = conf.filter((r) => String(r.student_id) !== studentId);
-        const llenos = mios.every((f) => otros.filter((r) => diasEstudiante(p, mapDiasJson(r.dias)).some((d) => d.fecha === f)).length >= cantidadDia(p, p.dias.find((d) => d.fecha === f)!));
-        if (llenos) throw new Error('Cupos completos para los días de este estudiante. Cambia sus días o quita a otro.');
+      const [propia] = await sql`select dias from enrollments where request_id = ${requestId} and student_id = ${studentId}`;
+      const otros = conf.filter((r) => String(r.student_id) !== studentId).map((r) => mapDiasJson(r.dias));
+      const fechas = p.dias.map((d) => d.fecha);
+      let valorDias: string[] | null = propia ? mapDiasJson(propia.dias) : null;
+      const mios = diasEstudiante(p, valorDias).map((d) => d.fecha);
+      // El cupo es por día. Un inscrito con algún día lleno no se acepta hasta apagar ese día (D1, D2…) o quitar a otro;
+      // un estudiante agregado directamente por coordinación queda solo en los días con cupo.
+      const llenos = diasLlenos(p, otros, mios);
+      if (llenos.length === mios.length) throw new Error(p.dias.length > 1 ? 'Cupos completos para los días de este estudiante. Cambia sus días (D1, D2…) o quita a otro confirmado.' : 'Cupos completos.');
+      if (llenos.length) {
+        if (propia) throw new Error(`${nombrarDias(llenos, fechas)} ya ${llenos.length > 1 ? 'tienen' : 'tiene'} los cupos completos. Apaga ${llenos.map((f) => `D${fechas.indexOf(f) + 1}`).join(' y ')} junto al estudiante antes de aceptarlo, o quita a otro confirmado.`);
+        valorDias = mios.filter((f) => !llenos.includes(f));
       }
-      await sql`insert into enrollments (request_id, student_id, estado) values (${requestId}, ${studentId}, 'confirmado')
-        on conflict (request_id, student_id) do update set estado = 'confirmado', updated_at = now()`;
+      await sql`insert into enrollments (request_id, student_id, estado, dias) values (${requestId}, ${studentId}, 'confirmado', ${valorDias ? sql.json(valorDias) : null})
+        on conflict (request_id, student_id) do update set estado = 'confirmado', dias = excluded.dias, updated_at = now()`;
       const [st] = await sql`select semestre from students where id = ${studentId}`;
       if (st) await prepararAvisos(requestId, Number(st.semestre));
     } else if (decision === 'rechazar') {

@@ -104,7 +104,7 @@ paso('estudiante ve evento confirmado');
 // 9. Uniformes
 await p.goto(base + '/coordinacion?tab=uniformes');
 paso('uniformes visibles (solo con evento de uniforme): ' + await p.locator('.cols-auto-340 > .blueprint').count());
-const tarjeta = p.locator('.blueprint:has-text("Camila Ríos")').first();
+const tarjeta = p.locator('.blueprint:has(label.chip):has-text("Camila Ríos")').first(); // tarjeta de la estudiante (no la del evento)
 await tarjeta.locator('label.chip:has-text("Vestido")').click();
 await tarjeta.locator('text=Parcial 1/3').waitFor({ timeout: 20000 });
 await tarjeta.locator('button:has-text("Recibido lavado")').click();

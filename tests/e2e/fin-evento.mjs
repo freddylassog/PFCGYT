@@ -39,10 +39,12 @@ await col.locator('.card.finalizado:has-text("Feria")').waitFor({ timeout: 15000
 paso('Tablero: columna Finalizado con la tarjeta en verde');
 await shot('tablero-finalizado');
 
-// Calendario: chip verde en septiembre 2026
+// Calendario: chip verde en el mes del evento (se busca desde el mes actual hacia adelante y luego hacia atrás)
 await p.click('label:has-text("Calendario")');
 await p.waitForSelector('.calendario');
-while (!/septiembre 2026/i.test(await p.locator('h4').first().textContent())) await p.click('button:has-text("Mes anterior")');
+const enMes = () => p.locator('.calendario .evento:has-text("Feria")').count();
+for (let i = 0; i < 3 && !(await enMes()); i++) await p.click('button:has-text("Mes siguiente")');
+for (let i = 0; i < 6 && !(await enMes()); i++) await p.click('button:has-text("Mes anterior")');
 await p.locator('.calendario .evento.finalizado:has-text("Feria")').waitFor({ timeout: 15000 });
 paso('Calendario: evento en verde');
 await shot('calendario-finalizado');

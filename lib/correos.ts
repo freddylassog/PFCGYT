@@ -52,6 +52,7 @@ export function correoConvocatoria(d: Datos, p: PedidoVista): Correo {
     `Horas de protocolo: ${p.horas} h`,
     `Lugar: ${p.lugarTexto}`,
     `Cupos: ${p.cuposTexto}`,
+    p.multidia ? `Si solo puedes uno de los días, márcalo al inscribirte.` : '',
     `Vestimenta: ${p.vestLabel}. ${p.vestNotaEst}`,
     `Actividades:`,
     lista(p.actividadesEtiquetas),

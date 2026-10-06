@@ -1,5 +1,5 @@
 // Texto de las notificaciones (puro, sin dependencias de servidor).
-import { MINIMO_EVENTOS, cantidadDia, citaDevolucionTexto, citaEntregaTexto, fechaLarga, lugarDia, lugaresTexto, fechaLargaDias, horarioTextoDias, horasDias, repartoTexto, tipoLabel } from './reglas';
+import { cantidadDia, citaDevolucionTexto, citaEntregaTexto, diasEstudiante, fechaCorta, fechaLarga, fechaLargaDias, horarioTextoDias, horasDias, lugarDia, lugaresTexto, MINIMO_EVENTOS, repartoTexto, tipoLabel } from './reglas';
 import type { CitaUniforme, DiaEvento, Estudiante, Pedido } from './tipos';
 import { confirmadosEnDia, type PedidoVista } from './vista';
 
@@ -43,6 +43,7 @@ export function mensajeConvocatoriaCanal(p: PedidoVista, appUrl: string): string
     `Horario: ${p.horarioTexto} · ${p.horas} h de protocolo${p.multidia ? ` en ${p.dias.length} días` : ''}`,
     `Lugar: ${p.lugarTexto}`,
     `Cupos: ${p.cuposTexto}`,
+    p.multidia ? `Si solo puedes uno de los días, márcalo al inscribirte.` : '',
     `Vestimenta: ${p.vestLabel}. ${p.vestNotaEst}`,
     `Actividades: ${p.actividadesTexto}`,
     p.comidas > 0 ? `Alimentación: ${p.comidas} por estudiante, la cubre el organizador.` : '',
@@ -182,5 +183,7 @@ export function mensajeUniformesRecordatorioPersonal(p: PedidoVista, c: CitaUnif
 export function mensajeInscripcionCoordinacion(p: PedidoVista, e: Estudiante, tipo: 'inscripcion' | 'retiro', appUrl: string): string {
   const cabecera = tipo === 'inscripcion' ? `📝 ${e.nombre} (${e.semestre}.º) se inscribió en` : `↩️ ${e.nombre} (${e.semestre}.º) retiró su inscripción de`;
   const porRevisar = p.inscritosN + (tipo === 'inscripcion' ? 1 : -1);
-  return `${cabecera} ${p.codigo} · ${p.evento} (${p.fechaCorta}).\nConfirmados ${p.confirmadosN}/${p.cantidad} · por revisar ${Math.max(0, porRevisar)}.\n${appUrl}/coordinacion?sel=${p.id}`;
+  const dias = p.multidia ? diasEstudiante(p, p.asistencia[e.id] ?? null) : [];
+  const misDias = p.multidia && dias.length < p.dias.length ? ` · solo ${dias.map((d) => `día ${p.dias.indexOf(d) + 1} (${fechaCorta(d.fecha)})`).join(' y ')}` : '';
+  return `${cabecera} ${p.codigo} · ${p.evento} (${p.fechaCorta})${misDias}.\nConfirmados ${p.progreso} · por revisar ${Math.max(0, porRevisar)}.\n${appUrl}/coordinacion?sel=${p.id}`;
 }

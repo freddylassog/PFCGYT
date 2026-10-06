@@ -215,6 +215,7 @@ export function FormularioPedido({ hoy, anticipacion = { horas: 72, hasta: '' } 
                   <label className="seg-opt"><input type="radio" name="mismos" checked={f.mismosEstudiantes} onChange={() => setF((s) => ({ ...s, mismosEstudiantes: true, dias: sincronizarDias(s.dias, s.cantidad, true) }))} />Los mismos {f.cantidad} estudiantes todos los días</label>
                   <label className="seg-opt"><input type="radio" name="mismos" checked={!f.mismosEstudiantes} onChange={() => setF((s) => ({ ...s, mismosEstudiantes: false, dias: sincronizarDias(s.dias, s.cantidad, false) }))} />Distintos estudiantes cada día (se reparten los {f.cantidad})</label>
                 </div>
+                <p className="muted fs-12 m-0">{f.mismosEstudiantes ? 'Si un estudiante solo puede uno de los días, coordinación completa ese día con otro.' : 'Cada día tiene su propio cupo; cada estudiante elige a qué días va.'}</p>
               </div>
             )}
             {!f.mismosEstudiantes && <CantidadesPorDia dias={f.dias} cantidad={f.cantidad} onChange={(d) => set('dias', sincronizarDias(d, f.cantidad, false))} />}

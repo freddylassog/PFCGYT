@@ -17,6 +17,8 @@ export function MisEventos({ datos, yo }: { datos: Datos; yo: Estudiante }) {
   const devTexto = dev?.estado === 'lavado' ? 'Uniforme devuelto y recibido lavado.' : dev?.estado === 'rechazado' ? 'Tu uniforme no fue recibido porque llegó sin lavar. Debes volver a entregarlo lavado.' : 'Al final del semestre devuelve el uniforme lavado; si no está lavado no se recibe.';
   const misEventos = avance.eventos;
   const [diasElegidos, setDiasElegidos] = useState<Record<string, string[]>>({});
+  /** Fechas de un evento que aún tienen cupo (los días llenos quedan bloqueados). */
+  const conCupo = (e: { cuposDias: { fecha: string; cantidad: number; confirmados: number }[] }) => e.cuposDias.filter((c) => c.confirmados < c.cantidad).map((c) => c.fecha);
   const convocatorias = pedidos.filter((e) => e.estado === 'Aprobado' && !e.finalizado && e.convocadaAt && e.ultimaFecha >= datos.hoy && !e.confirmados.some((c) => c.id === yo.id)).map((e) => {
     const insc = datos.inscripciones.find((i) => i.requestId === e.id && i.studentId === yo.id);
     const inscrito = insc?.estado === 'inscrito', rechazado = insc?.estado === 'rechazado';
@@ -55,17 +57,20 @@ export function MisEventos({ datos, yo }: { datos: Datos; yo: Estudiante }) {
             {convocatorias.map((e) => (
               <Marco key={e.id} className="p-4 stack-2">
                 <div className="between arriba"><div><div className="card-kicker">{e.tipoLabel} · {e.institucion}</div><h4 style={{ margin: '2px 0 0' }}>{e.evento}</h4></div><span className={`tag ${e.miTag}`}>{e.miEstado}</span></div>
-                <div className="muted fs-13">{e.fechaLarga} · {e.horarioTexto} · {e.horas} h · {e.vestLabel} · {e.confirmadosN}/{e.cantidad} cupos confirmados{e.cantidadesDistintas ? ` (${e.cuposDias.map((c, i) => `día ${i + 1}: ${c.confirmados}/${c.cantidad}`).join(' · ')})` : ''}</div>
+                <div className="muted fs-13">{e.fechaLarga} · {e.horarioTexto} · {e.horas} h · {e.vestLabel} · {e.multidia ? `cupos por día: ${e.cuposDias.map((c, i) => `día ${i + 1}: ${c.confirmados}/${c.cantidad}`).join(' · ')}` : `${e.confirmadosN}/${e.cantidad} cupos confirmados`}</div>
                 <div className="row" style={{ gap: 4 }}>{e.actividadesEtiquetas.map((a) => <span key={a} className="tag tag-neutral">{a}</span>)}</div>
-                {e.puedo && e.multidia && !e.mismosEstudiantes && (
-                  <div className="row" style={{ gap: 'var(--space-3)' }}>
-                    <span className="fs-13">Puedo asistir:</span>
-                    {e.dias.map((d, i) => { const sel = (diasElegidos[e.id] ?? e.dias.map((x) => x.fecha)).includes(d.fecha); return (
-                      <label key={d.fecha} className="radio fs-13"><input type="checkbox" checked={sel} onChange={() => setDiasElegidos((m) => { const act = m[e.id] ?? e.dias.map((x) => x.fecha); return { ...m, [e.id]: sel ? act.filter((f) => f !== d.fecha) : [...act, d.fecha] }; })} /><span className="dot cuadro" />Día {i + 1} · {fechaCorta(d.fecha)} ({d.inicio}–{d.fin})</label>
-                    ); })}
+                {e.puedo && e.multidia && (
+                  <div className="stack-2">
+                    <div className="row" style={{ gap: 'var(--space-3)' }}>
+                      <span className="fs-13">Puedo asistir:</span>
+                      {e.dias.map((d, i) => { const cupo = e.cuposDias[i]; const llenoDia = !!cupo && cupo.confirmados >= cupo.cantidad; const sel = !llenoDia && (diasElegidos[e.id] ?? conCupo(e)).includes(d.fecha); return (
+                        <label key={d.fecha} className="radio fs-13" style={llenoDia ? { opacity: 0.55 } : undefined}><input type="checkbox" checked={sel} disabled={llenoDia} onChange={() => setDiasElegidos((m) => { const act = m[e.id] ?? conCupo(e); return { ...m, [e.id]: sel ? act.filter((f) => f !== d.fecha) : [...act, d.fecha] }; })} /><span className="dot cuadro" />Día {i + 1} · {fechaCorta(d.fecha)} ({d.inicio}–{d.fin}){llenoDia ? ' · cupos completos' : ''}</label>
+                      ); })}
+                    </div>
+                    <p className="muted fs-12 m-0">{e.mismosEstudiantes ? `El organizador prefiere que vayan los mismos ${e.cantidad} estudiantes los ${e.dias.length} días. Si solo puedes uno, marca solo ese día.` : 'Marca solo los días que puedes asistir.'}</p>
                   </div>
                 )}
-                {e.puedo && <button className="btn btn-primary btn-40" type="button" style={{ justifySelf: 'start' }} disabled={e.multidia && (diasElegidos[e.id]?.length === 0)} onClick={() => { const sel = diasElegidos[e.id]; run(() => inscribirme(e.id, sel && sel.length < e.dias.length ? sel : null)); }}>Inscribirme</button>}
+                {e.puedo && <button className="btn btn-primary btn-40" type="button" style={{ justifySelf: 'start' }} disabled={e.multidia && (diasElegidos[e.id] ?? conCupo(e)).length === 0} onClick={() => { const sel = e.multidia ? (diasElegidos[e.id] ?? conCupo(e)) : null; run(() => inscribirme(e.id, sel && sel.length < e.dias.length ? sel : null)); }}>Inscribirme</button>}
                 {e.inscrito && <button className="btn btn-ghost" type="button" style={{ justifySelf: 'start' }} onClick={() => run(() => retirarme(e.id))}>Retirar inscripción</button>}
               </Marco>
             ))}
