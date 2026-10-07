@@ -82,7 +82,7 @@ export function correoAvisoDocente(p: PedidoVista, c: CruceVista, estudiantes: E
   const cuerpo = [
     `Estimado/a docente:`,
     ``,
-    `Los siguientes estudiantes participarán en el evento ${p.evento} (${p.horarioTexto}) el ${p.fechaLarga} como apoyo protocolario de la facultad, por lo que no asistirán a su clase de ${c.materia} de ${c.inicio}–${c.fin}.`,
+    `Los siguientes estudiantes participarán en el evento ${p.evento} (${p.horarioTexto}) el ${c.fechas?.length ? c.fechas.map(fechaLarga).join(' y ') : p.fechaLarga} como apoyo protocolario de la facultad, por lo que no asistirán a su clase de ${c.materia} de ${c.inicio}–${c.fin}.`,
     ``,
     lista(estudiantes.map((e) => `${e.nombre}${e.correo ? ` · ${e.correo}` : ''}`)),
     ``,

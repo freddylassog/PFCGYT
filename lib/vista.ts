@@ -1,6 +1,6 @@
 // Cálculos derivados que comparten el panel, el portal del estudiante, el
 // reporte Excel y los correos. Todo puro: entra `Datos`, salen vistas.
-import { ACTIVIDADES, actividadesEtiquetasPedido, actividadesTextoPedido, cantidadDia, cantidadesDistintas, citaDevolucionTexto, citaEntregaTexto, comidasDias, compromisosPedido, convenioLabel, cruceClases, cuposTexto, DEVOLUCION, diasEstudiante, diasHasta, duracionTextoDias, estadoDevolucion, estadoVisible, fechaCorta, fechaCortaDias, fechaLarga, fechaLargaDias, horarioTextoDias, horarioUniformeTexto, horasDias, horasEstudiante, infoUniforme, limiteDevolucion, lugaresTexto, MINIMO_EVENTOS, mismoLugar, pasa4hDias, redondear1, repartoDia, semanaDe, semCorto, semLabel, tagClass, tieneRepartoPorDia, tipoClass, tipoLabel, transporteDias, transporteMotivoDias, transporteTexto, type Compromiso, type EstadoDevolucion, type EstadoVisible, type Transporte, ultimoDia, VESTIMENTA } from './reglas';
+import { ACTIVIDADES, actividadesEtiquetasPedido, actividadesTextoPedido, cantidadDia, cantidadesDistintas, citaDevolucionTexto, citaEntregaTexto, comidasDias, compromisosPedido, convenioLabel, cruceClases, cruceTexto, cuposTexto, DEVOLUCION, diasEstudiante, diasHasta, duracionTextoDias, estadoDevolucion, estadoVisible, estudiantesAfectados, fechaCorta, fechaCortaDias, fechaLarga, fechaLargaDias, fechasCruce, horarioTextoDias, horarioUniformeTexto, horasDias, horasEstudiante, infoUniforme, limiteDevolucion, lugaresTexto, MINIMO_EVENTOS, mismoLugar, pasa4hDias, redondear1, repartoDia, semanaDe, semCorto, semLabel, tagClass, tieneRepartoPorDia, tipoClass, tipoLabel, transporteDias, transporteMotivoDias, transporteTexto, type Compromiso, type EstadoDevolucion, type EstadoVisible, type Transporte, ultimoDia, VESTIMENTA } from './reglas';
 import type { Clase, Datos, Devolucion, DiaEvento, Docente, Estudiante, Novedad, Pedido, Semestre } from './tipos';
 
 export interface PedidoVista extends Pedido {
@@ -84,6 +84,10 @@ export interface CruceVista extends Clase {
   docente: Docente | null;
   semLabel: string;
   aviso: Datos['avisos'][number] | null;
+  /** Fechas del evento en que esta clase se cruza. */
+  fechas: string[];
+  /** 'miércoles 14 oct · 07:00–11:00' */
+  cuando: string;
 }
 
 export interface NovedadVista extends Novedad {
@@ -109,12 +113,15 @@ export function vistaPedido(d: Datos, p: Pedido): PedidoVista {
   const ins = d.inscripciones.filter((i) => i.requestId === p.id);
   const confirmados = ins.filter((i) => i.estado === 'confirmado').map((i) => est.get(i.studentId)).filter((x): x is Estudiante => !!x);
   const inscritos = ins.filter((i) => i.estado === 'inscrito').map((i) => est.get(i.studentId)).filter((x): x is Estudiante => !!x);
-  const cruces: CruceVista[] = cruceClases(p, d.clases, confirmados).map((c) => ({
+  const asistencia: Record<string, string[] | null> = Object.fromEntries(ins.map((i) => [i.studentId, i.dias]));
+  // Cada confirmado cuenta solo en los días del evento a los que va.
+  const confirmadosConDias = confirmados.map((e) => ({ ...e, dias: diasEstudiante(p, asistencia[e.id] ?? null) }));
+  const cruces: CruceVista[] = cruceClases(p, d.clases, confirmadosConDias).map((c) => ({
     ...c, docente: docenteDe(d, c.teacherId), semLabel: semLabel(c.semestre) + (c.paralelo ? ` · paralelo ${c.paralelo}` : ''),
     aviso: d.avisos.find((a) => a.requestId === p.id && a.classId === c.id) ?? null,
+    fechas: fechasCruce(p.dias, c).map((x) => x.fecha), cuando: cruceTexto(p.dias, c),
   }));
   const novedades: NovedadVista[] = d.novedades.filter((n) => n.requestId === p.id).map((n) => ({ ...n, estudiante: est.get(n.studentId) ?? null, pendiente: !n.reportadoAt }));
-  const asistencia: Record<string, string[] | null> = Object.fromEntries(ins.map((i) => [i.studentId, i.dias]));
   const cuposDias = p.dias.map((dia) => ({ fecha: dia.fecha, cantidad: cantidadDia(p, dia), confirmados: confirmados.filter((e) => diasEstudiante(p, asistencia[e.id]).some((x) => x.fecha === dia.fecha)).length }));
   // Lleno solo cuando todos los días tienen su cupo: con los mismos estudiantes pedidos, uno puede ir un solo día y otro cubrir el otro.
   const lleno = cuposDias.length ? cuposDias.every((c) => c.confirmados >= c.cantidad) : confirmados.length >= p.cantidad;
@@ -193,6 +200,11 @@ export function estadoDevolucionDe(p: PedidoVista, studentId: string, hoy: strin
 export function pendientesDevolucion(p: PedidoVista, hoy: string): { e: Estudiante; estado: EstadoDevolucion; limite: string }[] {
   if (p.vestimenta !== 'uniforme' || p.estado !== 'Aprobado') return [];
   return p.confirmados.map((e) => ({ e, estado: estadoDevolucionDe(p, e.id, hoy), limite: limiteDevolucionDe(p, e.id) })).filter((x) => x.estado.clave === 'pendiente' || x.estado.clave === 'vencido' || x.estado.clave === 'rechazado');
+}
+
+/** Confirmados a los que les choca esa clase (cursan la materia y van a un día del evento en que se cruza). */
+export function estudiantesDeCruce(p: PedidoVista, c: Clase): Estudiante[] {
+  return estudiantesAfectados(p, c, p.confirmados.map((e) => ({ ...e, dias: diasDeEstudiante(p, e.id) }))).map(({ dias: _d, ...e }) => { void _d; return e; });
 }
 
 /** Etiquetas de actividades solo de los días a los que asiste un estudiante. */

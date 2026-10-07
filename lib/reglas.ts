@@ -736,21 +736,39 @@ export function claseAplica(c: { semestre: number; paralelo: string | null; nrc?
 export function cruceClases(
   e: { dias: DiaEvento[] },
   clases: Clase[],
-  estudiantes: { semestre: number; paralelo: string | null; nrcs?: string[] }[],
+  estudiantes: { semestre: number; paralelo: string | null; nrcs?: string[]; dias?: DiaEvento[] }[],
 ): Clase[] {
   const vistas = new Set<string>();
   const resultado: Clase[] = [];
   for (const d of ordenarDias(e.dias)) {
     if (!d.fecha || !d.inicio || !d.fin) continue;
     const dow = diaSemana(d.fecha);
+    // En eventos de varios días, un estudiante cuenta solo en los días a los que va (st.dias); sin dias = todos.
+    const asiste = (st: { dias?: DiaEvento[] }) => !st.dias || st.dias.some((x) => x.fecha === d.fecha);
     for (const c of clases) {
       if (vistas.has(c.id)) continue;
-      if (c.activo && c.dia === dow && overlap(d.inicio, d.fin, c.inicio, c.fin) && (!estudiantes.length || estudiantes.some((st) => claseAplica(c, st)))) {
+      if (c.activo && c.dia === dow && overlap(d.inicio, d.fin, c.inicio, c.fin) && (!estudiantes.length || estudiantes.some((st) => claseAplica(c, st) && asiste(st)))) {
         vistas.add(c.id); resultado.push(c);
       }
     }
   }
   return resultado.sort((a, b) => a.semestre - b.semestre || (a.paralelo || '').localeCompare(b.paralelo || '') || a.dia - b.dia || a.inicio.localeCompare(b.inicio));
+}
+
+/** Días del evento en que esa clase se cruza (mismo día de la semana y horas que se solapan). */
+export function fechasCruce(dias: DiaEvento[], c: { dia: number; inicio: string; fin: string }): DiaEvento[] {
+  return ordenarDias(dias).filter((d) => !!d.fecha && !!d.inicio && !!d.fin && diaSemana(d.fecha) === c.dia && overlap(d.inicio, d.fin, c.inicio, c.fin));
+}
+
+/** 'miércoles 14 oct · 07:00–11:00' (la clase, con la fecha o fechas del evento en que choca). */
+export function cruceTexto(dias: DiaEvento[], c: { dia: number; inicio: string; fin: string }): string {
+  const f = fechasCruce(dias, c).map((d) => fechaCorta(d.fecha));
+  return `${DIAS[c.dia] ?? ''}${f.length ? ` ${f.join(' y ')}` : ''} · ${c.inicio}–${c.fin}`;
+}
+
+/** Estudiantes a los que les choca esa clase: cursan la materia (NRC o semestre/paralelo) y van a un día del evento en que se cruza. */
+export function estudiantesAfectados<T extends { semestre: number; paralelo: string | null; nrcs?: string[]; dias?: DiaEvento[] }>(e: { dias: DiaEvento[] }, c: Clase, estudiantes: T[]): T[] {
+  return estudiantes.filter((st) => claseAplica(c, st) && fechasCruce(st.dias ?? e.dias, c).length > 0);
 }
 
 /** Como claveNombre pero sin importar el orden de las palabras (APELLIDOS NOMBRES o NOMBRES APELLIDOS). */

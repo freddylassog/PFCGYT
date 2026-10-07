@@ -5,7 +5,7 @@ import { CorreoBox } from '@/components/CorreoBox';
 import { Marco } from '@/components/Marco';
 import { useAccion } from '@/components/useAccion';
 import { correoAvisoDocente } from '@/lib/correos';
-import { DIAS_CLASE, SEMESTRES, fechaCorta, semLabel } from '@/lib/reglas';
+import { cruceTexto, DIAS_CLASE, fechaCorta, fechasCruce, SEMESTRES, semLabel } from '@/lib/reglas';
 import type { Datos, Estudiante, Semestre } from '@/lib/tipos';
 import { docenteDe, vistaPedidos } from '@/lib/vista';
 
@@ -33,7 +33,7 @@ export function Horarios({ datos }: { datos: Datos }) {
     const p = pedidos.find((x) => x.id === a.requestId);
     const c = datos.clases.find((x) => x.id === a.classId);
     if (!p || !c) return null;
-    const cruce = { ...c, docente: docenteDe(datos, c.teacherId), semLabel: semLabel(c.semestre), aviso: a };
+    const cruce = { ...c, docente: docenteDe(datos, c.teacherId), semLabel: semLabel(c.semestre), aviso: a, fechas: fechasCruce(p.dias, c).map((x) => x.fecha), cuando: cruceTexto(p.dias, c) };
     const est = a.studentIds.map((id) => datos.estudiantes.find((e) => e.id === id)).filter((e): e is Estudiante => !!e);
     return { a, p, c: cruce, est, correo: correoAvisoDocente(p, cruce, est) };
   }).filter((x): x is NonNullable<typeof x> => !!x).sort((x, y) => (x.a.sentAt ? 1 : 0) - (y.a.sentAt ? 1 : 0) || y.a.createdAt.localeCompare(x.a.createdAt));

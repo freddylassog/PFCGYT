@@ -12,7 +12,7 @@ import { appUrl } from '@/lib/app-url';
 import { avanceEstudiante, vistaPedido } from '@/lib/vista';
 import { coincideNombre, esFormatoNrc, generoPorNombre, leerHojas, leerTabla, parseDocentes, parseEstudiantes, parseEstudiantesNrc, parseHorarios, type HojaCruda } from '@/lib/excel';
 import { borrarEvidencia, evidenciaExiste, prepararSubida } from '@/lib/storage';
-import { ACTIVIDADES, cantidadDia, claseAplica, claveDocente, cruceClases, diasEstudiante, diasLlenos, esFechaISO, faltasCantidadesDias, faltasCitaUniforme, faltasDias, faltasHorarioUniforme, faltasReparto, genClave, hoyISO, MAX_ESTUDIANTES, nombrarDias, normalizarCorreo, normalizarParalelo, ordenarDias, telefonoValido, TIPOS_NOVEDAD, UNIFORME, unirRepartos, VESTIMENTA } from '@/lib/reglas';
+import { ACTIVIDADES, cantidadDia, claveDocente, cruceClases, diasEstudiante, diasLlenos, esFechaISO, estudiantesAfectados, faltasCantidadesDias, faltasCitaUniforme, faltasDias, faltasHorarioUniforme, faltasReparto, genClave, hoyISO, MAX_ESTUDIANTES, nombrarDias, normalizarCorreo, normalizarParalelo, ordenarDias, telefonoValido, TIPOS_NOVEDAD, UNIFORME, unirRepartos, VESTIMENTA } from '@/lib/reglas';
 import { iniciarSesionCoordinacion, passwordCoordinacionOk, sesionCoordinacion } from '@/lib/sesion';
 import type { CitaUniforme, DiaEvento, Estado, FranjaUniforme, RepartoActividad, Resultado, Semestre } from '@/lib/tipos';
 
@@ -277,10 +277,10 @@ async function prepararAvisos(requestId: string, semestre: number): Promise<void
   const datos = await cargarDatos();
   const p = datos.pedidos.find((x) => x.id === requestId);
   if (!p) return;
-  const confirmados = datos.inscripciones.filter((i) => i.requestId === requestId && i.estado === 'confirmado').map((i) => datos.estudiantes.find((e) => e.id === i.studentId)).filter((e): e is NonNullable<typeof e> => !!e);
+  const confirmados = datos.inscripciones.filter((i) => i.requestId === requestId && i.estado === 'confirmado').map((i) => { const e = datos.estudiantes.find((x) => x.id === i.studentId); return e ? { ...e, dias: diasEstudiante(p, i.dias) } : null; }).filter((e): e is NonNullable<typeof e> => !!e);
   const delSemestre = confirmados.filter((e) => e.semestre === semestre);
   for (const c of cruceClases(p, datos.clases, delSemestre)) {
-    const ids = delSemestre.filter((e) => claseAplica(c, e)).map((e) => e.id);
+    const ids = estudiantesAfectados(p, c, delSemestre).map((e) => e.id);
     if (!ids.length) continue;
     await sql`insert into teacher_notices (request_id, class_id, student_ids) values (${requestId}, ${c.id}, ${ids})
       on conflict (request_id, class_id) do update set student_ids = excluded.student_ids where teacher_notices.sent_at is null`;
@@ -377,9 +377,11 @@ export async function crearAviso(requestId: string, classId: string): Promise<Re
     const datos = await cargarDatos();
     const clase = datos.clases.find((x) => x.id === classId);
     if (!clase) throw new Error('Clase no encontrada');
-    const confirmados = datos.inscripciones.filter((i) => i.requestId === requestId && i.estado === 'confirmado').map((i) => datos.estudiantes.find((e) => e.id === i.studentId)).filter((e): e is NonNullable<typeof e> => !!e);
-    // Por matrícula real (NRC) cuando existe; si no, por semestre y paralelo. Sin coincidencias: todos los confirmados.
-    let ids = confirmados.filter((e) => claseAplica(clase, e)).map((e) => e.id);
+    const p = datos.pedidos.find((x) => x.id === requestId);
+    if (!p) throw new Error('Pedido no encontrado');
+    const confirmados = datos.inscripciones.filter((i) => i.requestId === requestId && i.estado === 'confirmado').map((i) => { const e = datos.estudiantes.find((x) => x.id === i.studentId); return e ? { ...e, dias: diasEstudiante(p, i.dias) } : null; }).filter((e): e is NonNullable<typeof e> => !!e);
+    // Por matrícula real (NRC) cuando existe; si no, por semestre y paralelo; y solo los días del evento a los que va cada uno. Sin coincidencias: todos.
+    let ids = estudiantesAfectados(p, clase, confirmados).map((e) => e.id);
     if (!ids.length) ids = confirmados.map((e) => e.id);
     await sql`insert into teacher_notices (request_id, class_id, student_ids) values (${requestId}, ${classId}, ${ids})
       on conflict (request_id, class_id) do update set student_ids = excluded.student_ids where teacher_notices.sent_at is null`;

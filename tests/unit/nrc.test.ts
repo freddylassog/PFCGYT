@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { candidatosPorNombre, claveNombreEstudiante, semestreDeHoja, coincideNombre, esFormatoNrc, formatearNombreNrc, generoPorNombre, parseEstudiantesNrc, parseHorariosAncho, tituloNombre } from '../../lib/importar';
-import { claseAplica, claveDocente, cruceClases } from '../../lib/reglas';
+import { claseAplica, claveDocente, cruceClases, cruceTexto, estudiantesAfectados, fechasCruce } from '../../lib/reglas';
 import type { Clase } from '../../lib/tipos';
 
 test('nombres del listado por materia: "NOMBRE, APELLIDO/APELLIDO I." → nombre legible', () => {
@@ -85,4 +85,21 @@ test('registro por nombre y docentes sin importar el orden', () => {
   assert.deepEqual(candidatosPorNombre(lista, 'Nadie Conocido'), []);
   assert.equal(claveDocente('LASSO GARZON FREDDY XAVIER'), claveDocente('Freddy Xavier Lasso Garzón'));
   assert.notEqual(claveDocente('LASSO GARZON FREDDY XAVIER'), claveDocente('LASSO GARZON FREDDY'));
+});
+
+test('evento de dos días: cada estudiante cuenta solo en los días a los que va', () => {
+  const clases: Clase[] = [
+    { id: 'tbc', semestre: 2, paralelo: 'A', dia: 3, inicio: '07:00', fin: '11:00', materia: 'TBC II', teacherId: null, nrc: '2807', activo: true },
+    { id: 'tcc', semestre: 2, paralelo: 'A', dia: 5, inicio: '07:00', fin: '12:00', materia: 'Carnicería', teacherId: null, nrc: '2808', activo: true },
+  ];
+  const mie = { fecha: '2026-10-14', inicio: '08:00', fin: '10:00' }, vie = { fecha: '2026-10-16', inicio: '08:00', fin: '10:00' };
+  const ev = { dias: [mie, vie] };
+  const ana = { semestre: 2, paralelo: 'A', nrcs: ['2807', '2808'], dias: [mie] }; // va solo el miércoles
+  const luis = { ...ana, dias: undefined }; // va los dos días
+  assert.deepEqual(cruceClases(ev, clases, [ana]).map((c) => c.id), ['tbc'], 'Ana no va el viernes: Carnicería no se cruza');
+  assert.deepEqual(cruceClases(ev, clases, [luis]).map((c) => c.id), ['tbc', 'tcc']);
+  assert.deepEqual(estudiantesAfectados(ev, clases[1], [ana, luis]).map((e) => (e.dias ? 'solo algunos días' : 'todos')), ['todos']);
+  assert.deepEqual(fechasCruce(ev.dias, clases[1]).map((d) => d.fecha), ['2026-10-16']);
+  assert.equal(cruceTexto(ev.dias, clases[0]), 'miércoles 14 oct · 07:00–11:00');
+  assert.equal(cruceTexto(ev.dias, clases[1]), 'viernes 16 oct · 07:00–12:00');
 });
