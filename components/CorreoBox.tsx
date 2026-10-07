@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { mailtoUrl, textoCorreo, type Correo } from '@/lib/correos';
+import { mailtoUrl, outlookWebUrl, textoCorreo, type Correo } from '@/lib/correos';
 import { IconoCopiar, IconoCorreo } from './Iconos';
 
 /** Muestra un correo generado con botones para abrirlo en Outlook o copiarlo.
@@ -40,6 +40,7 @@ export function CorreoBox({
       )}
       <div className="row">
         <a className="btn btn-primary btn-sm" href={mailtoUrl(correo)}><IconoCorreo /> Abrir en Outlook</a>
+        {!correo.cco?.length && <a className="btn btn-secondary btn-sm" href={outlookWebUrl(correo)} target="_blank" rel="noreferrer" title="Abre la redacción en outlook.office.com con la cuenta institucional del navegador">Outlook web</a>}
         <button type="button" className="btn btn-secondary btn-sm" onClick={() => copiar(textoCorreo(correo), 'todo')}><IconoCopiar /> {copiado === 'todo' ? 'Copiado' : 'Copiar texto'}</button>
         {correo.cco?.length ? (
           <button type="button" className="btn btn-secondary btn-sm" onClick={() => copiar(correo.cco!.join('; '), 'cco')}>{copiado === 'cco' ? 'Copiado' : 'Copiar destinatarios'}</button>
@@ -47,6 +48,7 @@ export function CorreoBox({
         {extra}
       </div>
       {sinDestino && <p className="muted fs-12 m-0">Sin destinatario configurado: agrega el correo en Outlook antes de enviar.</p>}
+      <p className="muted fs-12 m-0">Si Outlook se abre vacío, usa «Outlook web» o «Copiar texto» y pégalo en el correo.</p>
       {nota && <p className="muted fs-12 m-0">{nota}</p>}
     </div>
   );

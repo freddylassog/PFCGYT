@@ -771,6 +771,44 @@ export function estudiantesAfectados<T extends { semestre: number; paralelo: str
   return estudiantes.filter((st) => claseAplica(c, st) && fechasCruce(st.dias ?? e.dias, c).length > 0);
 }
 
+export interface DiagnosticoCruce {
+  /** Clases activas que cursa (por NRC o, sin NRC, por semestre/paralelo). */
+  clases: Clase[];
+  /** De esas, las que chocan con los días del evento a los que va. */
+  cruzan: Clase[];
+  /** NRC del estudiante que no están en ninguna clase activa del horario cargado. */
+  nrcsSinHorario: string[];
+  /** Por qué no hay cruce (null cuando sí lo hay). */
+  motivo: string | null;
+}
+
+/** Explica, para un estudiante confirmado, por qué ninguna clase se cruza con el evento:
+ *  sin clases de su semestre, NRC que no están en el horario, otro paralelo, clases ese día en otra hora o ningún día de clase. */
+export function diagnosticoCruce(e: { dias: DiaEvento[] }, clases: Clase[], st: { semestre: number; paralelo: string | null; nrcs?: string[]; dias?: DiaEvento[] }): DiagnosticoCruce {
+  const activas = clases.filter((c) => c.activo);
+  const mias = activas.filter((c) => claseAplica(c, st));
+  const dias = ordenarDias(st.dias?.length ? st.dias : e.dias).filter((d) => !!d.fecha && !!d.inicio && !!d.fin);
+  const cruzan = mias.filter((c) => fechasCruce(dias, c).length > 0);
+  const nrcs = st.nrcs ?? [];
+  const nrcsSinHorario = nrcs.filter((n) => !activas.some((c) => c.nrc === n));
+  let motivo: string | null = null;
+  if (!cruzan.length) {
+    const sem = semLabel(st.semestre);
+    const cuando = dias.map((d) => `${DIAS[diaSemana(d.fecha)]} ${fechaCorta(d.fecha)} ${d.inicio}–${d.fin}`).join(', ');
+    if (!activas.some((c) => c.semestre === st.semestre)) motivo = `el horario cargado no tiene clases de ${sem}`;
+    else if (nrcs.length && !mias.length) motivo = `ninguno de sus ${nrcs.length} NRC (${nrcs.join(', ')}) está en el horario cargado: revisa la columna NRC del horario de ${sem} o vuelve a subir el listado por materia`;
+    else if (!mias.length) motivo = `el horario de ${sem} no tiene clases del paralelo ${st.paralelo ?? '—'}`;
+    else {
+      const mismoDia = mias.filter((c) => dias.some((d) => diaSemana(d.fecha) === c.dia));
+      motivo = mismoDia.length
+        ? `ese día sus clases son en otra hora: ${mismoDia.map((c) => `${c.materia} ${c.inicio}–${c.fin}`).join(', ')} (evento: ${cuando})`
+        : `no tiene clases el ${cuando}`;
+      if (nrcsSinHorario.length) motivo += ` · ${nrcsSinHorario.length} de sus NRC no están en el horario (${nrcsSinHorario.join(', ')})`;
+    }
+  }
+  return { clases: mias, cruzan, nrcsSinHorario, motivo };
+}
+
 /** Como claveNombre pero sin importar el orden de las palabras (APELLIDOS NOMBRES o NOMBRES APELLIDOS). */
 export function claveDocente(s: string): string {
   return claveNombre(s).split(' ').filter(Boolean).sort().join(' ');

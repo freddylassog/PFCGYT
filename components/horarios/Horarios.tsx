@@ -22,6 +22,11 @@ export function Horarios({ datos }: { datos: Datos }) {
   const pedidos = vistaPedidos(datos);
   const arch = datos.ajustes.archivos;
   const clases = datos.clases.filter((c) => c.activo && c.semestre === sem).sort((a, b) => a.dia - b.dia || a.inicio.localeCompare(b.inicio) || (a.paralelo || '').localeCompare(b.paralelo || ''));
+  // Estudiantes activos matriculados en cada NRC (del listado por materia): 0 delata un NRC que no coincide entre horario y listado.
+  const activos = datos.estudiantes.filter((e) => e.activo);
+  const hayNrc = activos.some((e) => e.nrcs.length > 0);
+  const matriculados = (nrc: string | null) => (nrc ? activos.filter((e) => e.nrcs.includes(nrc)).length : 0);
+  const sinMatriculados = hayNrc ? clases.filter((c) => c.nrc && !matriculados(c.nrc)) : [];
 
   function subir(clave: 'horarios' | 'docentes', archivo: File) {
     const fd = new FormData(); fd.set('archivo', archivo);
@@ -96,20 +101,21 @@ export function Horarios({ datos }: { datos: Datos }) {
       )}
       <Marco className="mt-3 scroll-x">
         <table className="table" style={{ minWidth: 560 }}>
-          <thead><tr><th>Día</th><th>Hora</th><th>Materia</th><th>NRC</th><th>Paralelo</th><th>Docente</th><th>Correo</th><th></th></tr></thead>
+          <thead><tr><th>Día</th><th>Hora</th><th>Materia</th><th>NRC</th><th title="Estudiantes activos con ese NRC en su listado por materia">Matric.</th><th>Paralelo</th><th>Docente</th><th>Correo</th><th></th></tr></thead>
           <tbody>
-            {clases.length === 0 && <tr><td colSpan={8} className="muted">Sin clases cargadas para {sem}.º semestre.</td></tr>}
+            {clases.length === 0 && <tr><td colSpan={9} className="muted">Sin clases cargadas para {sem}.º semestre.</td></tr>}
             {clases.map((c) => {
               const d = docenteDe(datos, c.teacherId);
               return (
                 <tr key={c.id}>
-                  <td>{DIAS_CLASE[c.dia]}</td><td className="nowrap">{c.inicio}–{c.fin}</td><td>{c.materia}</td><td className="muted fs-13">{c.nrc ?? '—'}</td><td>{c.paralelo ?? '—'}</td><td>{d?.nombre ?? '—'}</td><td className="muted fs-13">{d?.correo ?? <span className="tag tag-outline">sin correo</span>}</td>
+                  <td>{DIAS_CLASE[c.dia]}</td><td className="nowrap">{c.inicio}–{c.fin}</td><td>{c.materia}</td><td className="muted fs-13">{c.nrc ?? '—'}</td><td className="fs-13">{!c.nrc || !hayNrc ? <span className="muted">—</span> : matriculados(c.nrc) || <span className="tag tag-outline" title="Ningún estudiante activo tiene este NRC: no se cruzará con nadie">0</span>}</td><td>{c.paralelo ?? '—'}</td><td>{d?.nombre ?? '—'}</td><td className="muted fs-13">{d?.correo ?? <span className="tag tag-outline">sin correo</span>}</td>
                   <td className="nowrap"><button type="button" className="btn btn-ghost btn-sm" onClick={() => { setClase({ id: c.id, semestre: c.semestre, paralelo: c.paralelo ?? '', dia: c.dia, inicio: c.inicio, fin: c.fin, materia: c.materia, nrc: c.nrc ?? '', teacherId: c.teacherId ?? '', activo: true }); setVerClase(true); }}>Editar</button><button type="button" className="btn btn-ghost btn-sm" onClick={() => { if (confirm(`¿Eliminar ${c.materia} (${DIAS_CLASE[c.dia]} ${c.inicio})?`)) run(() => eliminarClase(c.id)); }}>Quitar</button></td>
                 </tr>
               );
             })}
           </tbody>
         </table>
+        {sinMatriculados.length > 0 && <p className="muted fs-12 mt-2 m-0">{sinMatriculados.length} clase(s) de {sem}.º sin estudiantes matriculados: su NRC no aparece en el listado por materia cargado, así que no se cruzarán con nadie. Revisa la columna NRC del horario ({sinMatriculados.map((c) => c.nrc).join(', ')}) o vuelve a subir el listado por materia de {sem}.º.</p>}
       </Marco>
 
       {datos.docentes.some((d) => d.activo && !d.correo) && <p className="aviso mt-3 fs-13" style={{ maxWidth: 760 }}>Hay docentes sin correo ({datos.docentes.filter((d) => d.activo && !d.correo).length}). Carga el directorio de docentes (Nombre, Correo) o pulsa &quot;Agregar docente&quot; y elige el nombre para completarlo.</p>}

@@ -21,6 +21,7 @@ export function PanelPedido({ p, datos, pedidos, cruceEvento, onCerrar }: { p: P
   const [verDecanato, setVerDecanato] = useState(false);
   const [agregarId, setAgregarId] = useState('');
   const [editando, setEditando] = useState(false);
+  const [verCorreo, setVerCorreo] = useState<string | null>(null);
   const [subiendoActa, setSubiendoActa] = useState(false);
   const [errorActa, setErrorActa] = useState<string | null>(null);
   const actaRef = useRef<HTMLInputElement>(null);
@@ -221,24 +222,34 @@ export function PanelPedido({ p, datos, pedidos, cruceEvento, onCerrar }: { p: P
         {p.cruces.map((c) => {
           const est = estudiantesAviso(c);
           const correo = correoAvisoDocente(p, c, est);
+          const abierto = verCorreo === c.id;
+          const verBoton = c.aviso ? <button className="btn btn-ghost btn-sm" type="button" onClick={() => setVerCorreo(abierto ? null : c.id)}>{abierto ? 'Ocultar' : 'Ver / copiar'}</button> : null;
           return (
-            <div key={c.id} className="fs-13 between arriba">
-              <div><strong>{c.materia}</strong> · {c.semLabel} · {c.cuando}<div className="muted">{c.docente ? `${c.docente.nombre} · ${c.docente.correo ?? 'sin correo (complétalo en Horarios)'}` : 'Docente sin registrar'}</div></div>
-              {c.aviso?.sentAt ? (
-                <span className="row" style={{ gap: 4 }}><span className="tag tag-accent">Correo enviado · {fechaCorta(c.aviso.sentAt)}</span><button className="btn btn-ghost btn-sm" type="button" onClick={() => run(() => marcarAviso(c.aviso!.id, false))}>Deshacer</button></span>
-              ) : c.aviso ? (
-                <span className="row" style={{ gap: 4 }}>
-                  <span className="tag tag-outline">Pendiente de envío</span>
-                  <a className="btn btn-secondary btn-sm" href={mailtoUrl(correo)}>Abrir correo</a>
-                  <button className="btn btn-ghost btn-sm" type="button" onClick={() => run(() => marcarAviso(c.aviso!.id, true))}>Marcar enviado</button>
-                </span>
-              ) : (
-                <button className="btn btn-secondary btn-sm" type="button" disabled={!p.confirmadosN} title={p.confirmadosN ? '' : 'Confirma estudiantes primero'} onClick={() => run(() => crearAviso(p.id, c.id))}>Preparar correo</button>
-              )}
+            <div key={c.id}>
+              <div className="fs-13 between arriba">
+                <div><strong>{c.materia}</strong> · {c.semLabel} · {c.cuando}<div className="muted">{c.docente ? `${c.docente.nombre} · ${c.docente.correo ?? 'sin correo (complétalo en Horarios)'}` : 'Docente sin registrar'}</div></div>
+                {c.aviso?.sentAt ? (
+                  <span className="row" style={{ gap: 4 }}><span className="tag tag-accent">Correo enviado · {fechaCorta(c.aviso.sentAt)}</span>{verBoton}<button className="btn btn-ghost btn-sm" type="button" onClick={() => run(() => marcarAviso(c.aviso!.id, false))}>Deshacer</button></span>
+                ) : c.aviso ? (
+                  <span className="row" style={{ gap: 4 }}>
+                    <span className="tag tag-outline">Pendiente de envío</span>
+                    <a className="btn btn-secondary btn-sm" href={mailtoUrl(correo)}>Abrir correo</a>
+                    {verBoton}
+                    <button className="btn btn-ghost btn-sm" type="button" onClick={() => run(() => marcarAviso(c.aviso!.id, true))}>Marcar enviado</button>
+                  </span>
+                ) : (
+                  <button className="btn btn-secondary btn-sm" type="button" disabled={!p.confirmadosN} title={p.confirmadosN ? '' : 'Confirma estudiantes primero'} onClick={() => run(() => crearAviso(p.id, c.id))}>Preparar correo</button>
+                )}
+              </div>
+              {abierto && <div className="mt-2"><CorreoBox titulo={`Correo a ${c.docente?.nombre ?? 'docente'}`} correo={correo} abierto /></div>}
             </div>
           );
         })}
         {!p.cruces.length && <p className="muted fs-13 m-0">No se cruza con ninguna clase.</p>}
+        {p.sinCruce.map(({ estudiante: e, motivo }) => (
+          <p key={e.id} className="muted fs-12 m-0">Sin cruce · <strong>{e.nombre}</strong> ({semCorto(e.semestre)}{e.paralelo ? ` ${e.paralelo}` : ''}, {e.nrcs.length ? `${e.nrcs.length} materias por NRC` : 'sin materias por NRC'}): {motivo}.</p>
+        ))}
+        {p.inscritosN > 0 && <p className="muted fs-12 m-0">Los {p.inscritosN} inscrito(s) por revisar no cuentan en el cruce hasta que los confirmes.</p>}
         {p.cruces.some((c) => !c.aviso?.sentAt) && <p className="muted fs-12 m-0">Los correos a docentes se preparan automáticamente al confirmar estudiantes de ese semestre. Envíalos desde aquí o desde Horarios y márcalos como enviados.</p>}
       </div>
 

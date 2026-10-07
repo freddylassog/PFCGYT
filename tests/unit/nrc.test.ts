@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { candidatosPorNombre, claveNombreEstudiante, semestreDeHoja, coincideNombre, esFormatoNrc, formatearNombreNrc, generoPorNombre, parseEstudiantesNrc, parseHorariosAncho, tituloNombre } from '../../lib/importar';
-import { claseAplica, claveDocente, cruceClases, cruceTexto, estudiantesAfectados, fechasCruce } from '../../lib/reglas';
+import { claseAplica, claveDocente, cruceClases, cruceTexto, diagnosticoCruce, estudiantesAfectados, fechasCruce } from '../../lib/reglas';
 import type { Clase } from '../../lib/tipos';
 
 test('nombres del listado por materia: "NOMBRE, APELLIDO/APELLIDO I." → nombre legible', () => {
@@ -85,6 +85,35 @@ test('registro por nombre y docentes sin importar el orden', () => {
   assert.deepEqual(candidatosPorNombre(lista, 'Nadie Conocido'), []);
   assert.equal(claveDocente('LASSO GARZON FREDDY XAVIER'), claveDocente('Freddy Xavier Lasso Garzón'));
   assert.notEqual(claveDocente('LASSO GARZON FREDDY XAVIER'), claveDocente('LASSO GARZON FREDDY'));
+});
+
+test('diagnóstico: por qué a un confirmado no le choca ninguna clase', () => {
+  const clases: Clase[] = [
+    { id: 'tbc', semestre: 2, paralelo: 'A', dia: 3, inicio: '07:00', fin: '11:00', materia: 'TBC II', teacherId: null, nrc: '2807', activo: true },
+    { id: 'tcc', semestre: 2, paralelo: 'A', dia: 5, inicio: '07:00', fin: '12:00', materia: 'Carnicería', teacherId: null, nrc: '2808', activo: true },
+    { id: 'vieja', semestre: 2, paralelo: 'A', dia: 3, inicio: '07:00', fin: '11:00', materia: 'Inactiva', teacherId: null, nrc: '9999', activo: false },
+    { id: 'ts3', semestre: 3, paralelo: 'A', dia: 3, inicio: '07:00', fin: '10:00', materia: 'Servicio', teacherId: null, nrc: '3301', activo: true },
+  ];
+  const mie = { fecha: '2026-10-14', inicio: '07:00', fin: '11:00' }, vie = { fecha: '2026-10-16', inicio: '14:00', fin: '16:00' };
+  const ev = { dias: [mie, vie] };
+  const ana = { semestre: 2, paralelo: 'A', nrcs: ['2807', '2808', '2809'] };
+  const d1 = diagnosticoCruce(ev, clases, ana);
+  assert.deepEqual([d1.clases.map((c) => c.id), d1.cruzan.map((c) => c.id), d1.nrcsSinHorario, d1.motivo], [['tbc', 'tcc'], ['tbc'], ['2809'], null], 'con cruce no hay motivo');
+  // Sus NRC no coinciden con el horario (p. ej. se cambió la columna NRC del archivo)
+  const d2 = diagnosticoCruce(ev, clases, { ...ana, nrcs: ['5807', '5808'] });
+  assert.deepEqual(d2.cruzan, []);
+  assert.match(d2.motivo ?? '', /ninguno de sus 2 NRC \(5807, 5808\) está en el horario cargado: revisa la columna NRC del horario de 2\.º semestre/);
+  // Va solo el viernes por la tarde: ese día tiene clase en otra hora
+  const d3 = diagnosticoCruce(ev, clases, { ...ana, dias: [vie] });
+  assert.match(d3.motivo ?? '', /^ese día sus clases son en otra hora: Carnicería 07:00–12:00 \(evento: viernes 16 oct 14:00–16:00\) · 1 de sus NRC no están en el horario \(2809\)$/);
+  // Evento un lunes: no tiene clases ese día
+  const d4 = diagnosticoCruce({ dias: [{ fecha: '2026-10-12', inicio: '08:00', fin: '10:00' }] }, clases, { ...ana, nrcs: ['2807'] });
+  assert.equal(d4.motivo, 'no tiene clases el lunes 12 oct 08:00–10:00');
+  // Sin clases de su semestre en el horario
+  assert.equal(diagnosticoCruce(ev, clases, { semestre: 1, paralelo: 'C', nrcs: ['1001'] }).motivo, 'el horario cargado no tiene clases de 1.º semestre');
+  // Sin NRC y de otro paralelo
+  assert.equal(diagnosticoCruce(ev, clases, { semestre: 2, paralelo: 'B', nrcs: [] }).motivo, 'el horario de 2.º semestre no tiene clases del paralelo B');
+  assert.equal(diagnosticoCruce(ev, clases, { semestre: 3, paralelo: null, nrcs: [] }).motivo, null, 'sin paralelo ni NRC: todas las de su semestre');
 });
 
 test('evento de dos días: cada estudiante cuenta solo en los días a los que va', () => {

@@ -1,6 +1,6 @@
 // Cálculos derivados que comparten el panel, el portal del estudiante, el
 // reporte Excel y los correos. Todo puro: entra `Datos`, salen vistas.
-import { ACTIVIDADES, actividadesEtiquetasPedido, actividadesTextoPedido, cantidadDia, cantidadesDistintas, citaDevolucionTexto, citaEntregaTexto, comidasDias, compromisosPedido, convenioLabel, cruceClases, cruceTexto, cuposTexto, DEVOLUCION, diasEstudiante, diasHasta, duracionTextoDias, estadoDevolucion, estadoVisible, estudiantesAfectados, fechaCorta, fechaCortaDias, fechaLarga, fechaLargaDias, fechasCruce, horarioTextoDias, horarioUniformeTexto, horasDias, horasEstudiante, infoUniforme, limiteDevolucion, lugaresTexto, MINIMO_EVENTOS, mismoLugar, pasa4hDias, redondear1, repartoDia, semanaDe, semCorto, semLabel, tagClass, tieneRepartoPorDia, tipoClass, tipoLabel, transporteDias, transporteMotivoDias, transporteTexto, type Compromiso, type EstadoDevolucion, type EstadoVisible, type Transporte, ultimoDia, VESTIMENTA } from './reglas';
+import { ACTIVIDADES, actividadesEtiquetasPedido, actividadesTextoPedido, cantidadDia, cantidadesDistintas, citaDevolucionTexto, citaEntregaTexto, comidasDias, compromisosPedido, convenioLabel, cruceClases, cruceTexto, diagnosticoCruce, cuposTexto, diasEstudiante, diasHasta, duracionTextoDias, estadoDevolucion, estadoVisible, estudiantesAfectados, fechaCorta, fechaCortaDias, fechaLarga, fechaLargaDias, fechasCruce, horarioTextoDias, horarioUniformeTexto, horasDias, horasEstudiante, infoUniforme, limiteDevolucion, lugaresTexto, MINIMO_EVENTOS, mismoLugar, pasa4hDias, redondear1, repartoDia, semanaDe, semCorto, semLabel, tagClass, tieneRepartoPorDia, tipoClass, tipoLabel, transporteDias, transporteMotivoDias, transporteTexto, type Compromiso, type EstadoDevolucion, type EstadoVisible, type Transporte, ultimoDia, VESTIMENTA } from './reglas';
 import type { Clase, Datos, Devolucion, DiaEvento, Docente, Estudiante, Novedad, Pedido, Semestre } from './tipos';
 
 export interface PedidoVista extends Pedido {
@@ -75,6 +75,8 @@ export interface PedidoVista extends Pedido {
   lleno: boolean;
   cruces: CruceVista[];
   cruceAmbito: string;
+  /** Confirmados sin ninguna clase que choque y el motivo, para ver de un vistazo si faltan NRC o el horario. */
+  sinCruce: { estudiante: Estudiante; motivo: string }[];
   novedades: NovedadVista[];
   novedadesTexto: string;
   evidenciaTexto: string;
@@ -116,6 +118,8 @@ export function vistaPedido(d: Datos, p: Pedido): PedidoVista {
   const asistencia: Record<string, string[] | null> = Object.fromEntries(ins.map((i) => [i.studentId, i.dias]));
   // Cada confirmado cuenta solo en los días del evento a los que va.
   const confirmadosConDias = confirmados.map((e) => ({ ...e, dias: diasEstudiante(p, asistencia[e.id] ?? null) }));
+  // Confirmados a los que ninguna clase les choca, con el porqué (NRC fuera del horario, otro día u hora…).
+  const sinCruce = confirmadosConDias.map((e, i) => ({ estudiante: confirmados[i], motivo: diagnosticoCruce(p, d.clases, e).motivo })).filter((x): x is { estudiante: Estudiante; motivo: string } => !!x.motivo);
   const cruces: CruceVista[] = cruceClases(p, d.clases, confirmadosConDias).map((c) => ({
     ...c, docente: docenteDe(d, c.teacherId), semLabel: semLabel(c.semestre) + (c.paralelo ? ` · paralelo ${c.paralelo}` : ''),
     aviso: d.avisos.find((a) => a.requestId === p.id && a.classId === c.id) ?? null,
@@ -160,7 +164,7 @@ export function vistaPedido(d: Datos, p: Pedido): PedidoVista {
     confirmados, inscritos, confirmadosN: confirmados.length, inscritosN: inscritos.length, lleno,
     asistencia, cuposDias, cuposTexto: cuposTexto(p), cantidadesDistintas: cantidadesDistintas(p), progreso, uniformeAvisoTexto,
     devolucionDias, devolucionLimite, devolucionDondeTexto, devoluciones: d.devoluciones.filter((x) => x.requestId === p.id),
-    cruces, cruceAmbito: confirmados.length ? 'semestres confirmados' : 'todos los semestres',
+    cruces, sinCruce, cruceAmbito: confirmados.length ? 'semestres confirmados' : 'todos los semestres',
     novedades, novedadesTexto: novedades.length ? novedades.map((n) => `${n.estudiante?.nombre ?? ''}: ${n.tipo}`).join(' · ') : '—',
     evidenciaTexto: p.evidenciaNombre || 'sin evidencia',
   };

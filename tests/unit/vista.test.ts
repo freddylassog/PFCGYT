@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { correoConvocatoria, mailtoUrl } from '../../lib/correos';
+import { correoConvocatoria, mailtoUrl, outlookWebUrl } from '../../lib/correos';
 import { datosDemo } from './datos-demo';
 import { avanceEstudiante, matrizSemestres, resumenHoras, vistaPedidos } from '../../lib/vista';
 
@@ -55,4 +55,8 @@ test('correo de convocatoria y mailto', () => {
   assert.match(url, /^mailto:\?bcc=/);
   assert.match(url, /%0D%0A/);
   assert.doesNotMatch(url, /\+/);
+  const web = outlookWebUrl({ para: ['docente@ute.edu.ec'], asunto: 'Ausencia justificada · miércoles', cuerpo: 'Hola\n\nAdiós' });
+  assert.match(web, /^https:\/\/outlook\.office\.com\/mail\/deeplink\/compose\?to=docente%40ute\.edu\.ec&subject=Ausencia%20justificada/);
+  assert.match(web, /body=Hola%0A%0AAdi%C3%B3s/);
+  assert.doesNotMatch(web, /\+/);
 });

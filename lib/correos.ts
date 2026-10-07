@@ -23,6 +23,13 @@ export function mailtoUrl(c: Correo): string {
   return `mailto:${c.para.map(encodeURIComponent).join(',')}?${q}`;
 }
 
+/** Redacción en Outlook web (la cuenta institucional abierta en el navegador). Solo para correos sin CCO:
+ *  el enlace no admite copia oculta y se mandaría sin ella. */
+export function outlookWebUrl(c: Correo): string {
+  const params = new URLSearchParams({ to: c.para.join(';'), subject: c.asunto, body: c.cuerpo, online: '1' });
+  return `https://outlook.office.com/mail/deeplink/compose?${params.toString().replace(/\+/g, '%20')}`;
+}
+
 export function textoCorreo(c: Correo): string {
   const lineas = [`Para: ${c.para.join(', ') || '—'}`];
   if (c.cco?.length) lineas.push(`CCO: ${c.cco.join(', ')}`);

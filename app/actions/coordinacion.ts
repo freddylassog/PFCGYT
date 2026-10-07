@@ -725,15 +725,16 @@ export async function importarEstudiantes(formData: FormData): Promise<Resultado
       else porCorreo.set(e.correo, e);
     }
     const tocados: string[] = [];
+    // Un listado sin columna Paralelo no borra el paralelo que ya trajo el listado por materia.
     await sql.begin(async (tx) => {
       for (const { id, e } of porNombre) {
-        await tx`update students set correo = ${e.correo}, nombre = ${e.nombre}, semestre = ${e.semestre}, paralelo = ${e.paralelo || null}, genero = ${e.genero}, activo = true where id = ${id}`;
+        await tx`update students set correo = ${e.correo}, nombre = ${e.nombre}, semestre = ${e.semestre}, paralelo = coalesce(${e.paralelo || null}, paralelo), genero = ${e.genero}, activo = true where id = ${id}`;
         tocados.push(id);
       }
       const lote = [...porCorreo.values()].map((e) => ({ periodo, nombre: e.nombre, correo: e.correo, semestre: e.semestre, paralelo: e.paralelo || null, genero: e.genero, activo: true }));
       if (lote.length) {
         const r = await tx`insert into students ${tx(lote, 'periodo', 'nombre', 'correo', 'semestre', 'paralelo', 'genero', 'activo')}
-          on conflict (periodo, correo) do update set nombre = excluded.nombre, semestre = excluded.semestre, paralelo = excluded.paralelo, genero = excluded.genero, activo = true returning id`;
+          on conflict (periodo, correo) do update set nombre = excluded.nombre, semestre = excluded.semestre, paralelo = coalesce(excluded.paralelo, students.paralelo), genero = excluded.genero, activo = true returning id`;
         for (const x of r) tocados.push(String(x.id));
       }
       // Reemplaza el listado de los semestres que trae el archivo: quien no aparece queda inactivo (nunca se borra historial).

@@ -57,6 +57,11 @@ await p.waitForSelector('text=Lenguaje');
 const filaLenguaje = (await p.locator('table tbody tr:has-text("Lenguaje")').first().textContent()).replace(/\s+/g, ' ');
 if (!/1002/.test(filaLenguaje)) throw new Error('el horario no muestra el NRC de Lenguaje: ' + filaLenguaje);
 paso('horario cargado con NRC (Lenguaje = 1002)');
+// Matriculados por NRC: Lenguaje (1002) la cursan 3 de 1.º (Camila no); la columna delata NRC que no coinciden
+const celdasLenguaje = await p.locator('table tbody tr:has-text("Lenguaje")').first().locator('td').allTextContents();
+if (celdasLenguaje[4].trim() !== '3') throw new Error('Matric. de Lenguaje debería ser 3: ' + JSON.stringify(celdasLenguaje));
+if ((await p.locator('text=sin estudiantes matriculados').count()) !== 0) throw new Error('todas las clases de 1.º tienen matriculados');
+paso('columna Matric.: Lenguaje = 3');
 
 // 4. Cruce real: evento un martes 10:00–12:00 (Lenguaje 1.º es martes 10:00–13:00)
 const martes = new Date(); martes.setDate(martes.getDate() + 5); while (martes.getDay() !== 2) martes.setDate(martes.getDate() + 1);
@@ -87,13 +92,24 @@ await p.waitForTimeout(500);
 let t = await cruceTexto();
 if (/Cruce con clases · todos los semestres/.test(t)) throw new Error('con una confirmada ya no debe decir "todos los semestres"');
 if (/Lenguaje/.test(t)) throw new Error('Camila no cursa Lenguaje: no debería aparecer el cruce: ' + t.slice(t.indexOf('Cruce'), t.indexOf('Cruce') + 300));
-paso('Camila confirmada: sin cruce con Lenguaje (no está matriculada)');
+if (!/Sin cruce · Camila Ríos \(1\.º A, 4 materias por NRC\): no tiene clases el martes/.test(t)) throw new Error('falta el diagnóstico de Camila: ' + t.slice(t.indexOf('Cruce'), t.indexOf('Cruce') + 400));
+paso('Camila confirmada: sin cruce con Lenguaje (no está matriculada) y el panel explica por qué');
 await agregar('Andrés Molina');
 await p.waitForSelector('aside :text("Lenguaje")', { timeout: 15000 });
 t = await cruceTexto();
 const bloque = t.slice(t.indexOf('Cruce con clases'));
 if (!/Lenguaje/.test(bloque)) throw new Error('con Andrés confirmado debe aparecer Lenguaje');
 paso('Andrés confirmado: aparece el cruce con Lenguaje');
+// Ver / copiar: el correo al docente se ve completo con Outlook web y Copiar texto
+await p.click('aside button:has-text("Ver / copiar")');
+const caja = p.locator('aside .correo', { hasText: 'Ausencia justificada en Lenguaje' });
+await caja.waitFor({ timeout: 10000 });
+const cajaTexto = (await caja.textContent()).replace(/\s+/g, ' ');
+if (!/Para: mcobo@ute\.edu\.ec/.test(cajaTexto) || !/Ausencia justificada en Lenguaje/.test(cajaTexto) || !/Andrés Molina/.test(cajaTexto)) throw new Error('la caja del correo al docente no trae destinatario, asunto o estudiante: ' + cajaTexto.slice(0, 400));
+const hrefWeb = await caja.locator('a:has-text("Outlook web")').getAttribute('href');
+if (!/^https:\/\/outlook\.office\.com\/mail\/deeplink\/compose\?to=mcobo%40ute\.edu\.ec&subject=Ausencia%20justificada/.test(hrefWeb || '')) throw new Error('enlace a Outlook web: ' + hrefWeb);
+if ((await caja.locator('button:has-text("Copiar texto")').count()) !== 1) throw new Error('falta Copiar texto');
+paso('correo al docente visible con Outlook web y Copiar texto');
 await p.screenshot({ path: shots + '/nrc-cruce.png', fullPage: false, caret: 'initial' });
 // El aviso al docente preparado lleva solo a Andrés
 await p.goto(base + '/horarios');
