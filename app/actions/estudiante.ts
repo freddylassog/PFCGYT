@@ -8,6 +8,7 @@ import { avisarCoordinacion } from '@/lib/notificar';
 import { mensajeInscripcionCoordinacion } from '@/lib/notificar-texto';
 import { vistaPedido } from '@/lib/vista';
 import { claveVigente, diasLlenos, horaAhora, hoyISO, nombrarDias, normalizarClave, normalizarCorreo, ultimoDia } from '@/lib/reglas';
+import { candidatosPorNombre } from '@/lib/importar';
 import { iniciarSesionEstudiante, sesionEstudiante } from '@/lib/sesion';
 import type { Resultado } from '@/lib/tipos';
 
@@ -28,6 +29,31 @@ export async function loginEstudiante(_prev: { error?: string } | undefined, for
   const vigente = pedidos.some((p) => claveVigente(mapPedido(p), hoy, hora, ajustes.uniformeDiasDevolucion));
   if (!vigente) return { error: ERROR_LOGIN };
   await iniciarSesionEstudiante(String(st.id));
+  redirect('/estudiante');
+}
+
+/** Primera vez sin correo en la lista: el estudiante se registra con su nombre (como en la facultad), su correo institucional y la clave de un evento. */
+export async function registrarEstudiante(_prev: { error?: string } | undefined, formData: FormData): Promise<{ error?: string }> {
+  const nombre = String(formData.get('nombre') ?? '').trim();
+  const correo = normalizarCorreo(String(formData.get('correo') ?? ''));
+  const clave = normalizarClave(String(formData.get('clave') ?? ''));
+  if (!nombre || !correo.includes('@') || !clave) return { error: 'Escribe tu nombre completo, tu correo institucional y la clave del evento.' };
+  const sql = db();
+  const ajustes = await ajustesActuales();
+  const periodo = ajustes.periodo;
+  const pedidos = await sql`select * from requests where periodo = ${periodo} and estado = 'Aprobado' and clave = ${clave}`;
+  const hoy = hoyISO(), hora = horaAhora();
+  if (!pedidos.some((p) => claveVigente(mapPedido(p), hoy, hora, ajustes.uniformeDiasDevolucion))) return { error: 'La clave del evento no es válida o ya venció.' };
+  const activos = await sql`select id, nombre, correo from students where periodo = ${periodo} and activo`;
+  const candidatos = candidatosPorNombre(activos.map((r) => ({ id: String(r.id), nombre: String(r.nombre), correo: r.correo ? String(r.correo) : '' })), nombre);
+  if (!candidatos.length) return { error: 'No encontramos ese nombre en la lista. Escríbelo como en la facultad (nombre y dos apellidos) o consulta a coordinación.' };
+  if (candidatos.length > 1) return { error: 'Hay varios estudiantes con ese nombre: escribe tu nombre y tus dos apellidos.' };
+  const st = candidatos[0];
+  if (st.correo && st.correo !== correo) return { error: `Ya tienes un correo registrado (empieza por ${st.correo.slice(0, 3)}…). Ingresa con él, o avisa a coordinación si está mal.` };
+  const [otro] = await sql`select id from students where periodo = ${periodo} and correo = ${correo} and id <> ${st.id}`;
+  if (otro) return { error: 'Ese correo ya está registrado por otro estudiante. Consulta a coordinación.' };
+  if (!st.correo) await sql`update students set correo = ${correo} where id = ${st.id}`;
+  await iniciarSesionEstudiante(st.id);
   redirect('/estudiante');
 }
 

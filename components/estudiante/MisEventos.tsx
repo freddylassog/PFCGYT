@@ -53,7 +53,7 @@ export function MisEventos({ datos, yo }: { datos: Datos; yo: Estudiante }) {
           <div className="between"><h6 className="m-0">Avisos en tu celular</h6>{yo.telegramChatId ? <span className="tag tag-accent">Telegram conectado</span> : <span className="tag tag-outline">Sin conectar</span>}</div>
           {yo.telegramChatId
             ? <p className="muted fs-12 m-0">Recibirás por Telegram la confirmación de cada inscripción y un recordatorio el día antes de cada evento.</p>
-            : <p className="fs-13 m-0">Abre <a href={`https://t.me/${datos.notificaciones.botUsername}`} target="_blank" rel="noopener">@{datos.notificaciones.botUsername}</a> en Telegram, pulsa <strong>Iniciar</strong> y escribe tu correo institucional ({yo.correo}). Desde entonces te llegarán tus confirmaciones y recordatorios al celular.</p>}
+            : <p className="fs-13 m-0">Abre <a href={`https://t.me/${datos.notificaciones.botUsername}`} target="_blank" rel="noopener">@{datos.notificaciones.botUsername}</a> en Telegram, pulsa <strong>Iniciar</strong> y escribe tu nombre completo o tu correo institucional{yo.correo ? ` (${yo.correo})` : ''}. Desde entonces te llegarán tus confirmaciones, recordatorios y avisos de uniforme al celular.</p>}
         </Marco>
       )}
       {error && <p className="error mt-4 max-720">{error}</p>}

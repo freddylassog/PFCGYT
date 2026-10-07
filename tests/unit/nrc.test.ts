@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { claveNombreEstudiante, coincideNombre, esFormatoNrc, formatearNombreNrc, generoPorNombre, parseEstudiantesNrc, parseHorariosAncho, tituloNombre } from '../../lib/importar';
-import { claseAplica, cruceClases } from '../../lib/reglas';
+import { candidatosPorNombre, claveNombreEstudiante, coincideNombre, esFormatoNrc, formatearNombreNrc, generoPorNombre, parseEstudiantesNrc, parseHorariosAncho, tituloNombre } from '../../lib/importar';
+import { claseAplica, claveDocente, cruceClases } from '../../lib/reglas';
 import type { Clase } from '../../lib/tipos';
 
 test('nombres del listado por materia: "NOMBRE, APELLIDO/APELLIDO I." → nombre legible', () => {
@@ -69,4 +69,15 @@ test('cruce por matrícula real: solo las clases en que el estudiante está matr
   assert.deepEqual(cruceClases(ev, clases, [andrei]).map((c) => c.id), ['mat1c', 'manual']);
   assert.deepEqual(cruceClases(ev, clases, [sinNrc]).map((c) => c.id), ['mat1c', 'manual', 'hsa1c'], 'ordenadas por hora');
   assert.deepEqual(cruceClases(ev, clases, []).map((c) => c.id), ['mat1c', 'manual', 'hsa1c'], 'sin confirmados: todas');
+});
+
+test('registro por nombre y docentes sin importar el orden', () => {
+  const lista = [{ nombre: 'Andrei R. Carrión Tiscama' }, { nombre: 'Andrei Carrión Paz' }, { nombre: 'Tania E. Montenegro Lima' }];
+  assert.deepEqual(candidatosPorNombre(lista, 'andrei carrion tiscama').map((e) => e.nombre), ['Andrei R. Carrión Tiscama'], 'nombre y dos apellidos: uno solo');
+  assert.deepEqual(candidatosPorNombre(lista, 'Andrei Carrión').map((e) => e.nombre), ['Andrei R. Carrión Tiscama', 'Andrei Carrión Paz'], 'ambiguo');
+  assert.deepEqual(candidatosPorNombre(lista, 'Tania Montenegro').map((e) => e.nombre), ['Tania E. Montenegro Lima']);
+  assert.deepEqual(candidatosPorNombre(lista, 'Tania'), [], 'una sola palabra no basta');
+  assert.deepEqual(candidatosPorNombre(lista, 'Nadie Conocido'), []);
+  assert.equal(claveDocente('LASSO GARZON FREDDY XAVIER'), claveDocente('Freddy Xavier Lasso Garzón'));
+  assert.notEqual(claveDocente('LASSO GARZON FREDDY XAVIER'), claveDocente('LASSO GARZON FREDDY'));
 });

@@ -753,6 +753,11 @@ export function cruceClases(
   return resultado.sort((a, b) => a.semestre - b.semestre || (a.paralelo || '').localeCompare(b.paralelo || '') || a.dia - b.dia || a.inicio.localeCompare(b.inicio));
 }
 
+/** Como claveNombre pero sin importar el orden de las palabras (APELLIDOS NOMBRES o NOMBRES APELLIDOS). */
+export function claveDocente(s: string): string {
+  return claveNombre(s).split(' ').filter(Boolean).sort().join(' ');
+}
+
 /** Nombre normalizado para comparar docentes entre archivos. */
 export function claveNombre(s: string): string {
   return (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim();

@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { ajustesActuales, cargarDatos } from '@/lib/datos';
 import { enviarDirecto, secretoWebhook } from '@/lib/notificar';
-import { mensajeBienvenidaBot, mensajeCorreoNoEncontrado, mensajeNoEntendido, mensajeVinculado } from '@/lib/notificar-texto';
+import { mensajeBienvenidaBot, mensajeCorreoEnUso, mensajeCorreoGuardado, mensajeCorreoNoEncontrado, mensajeNoEntendido, mensajeVariosNombres, mensajeVinculado } from '@/lib/notificar-texto';
+import { candidatosPorNombre } from '@/lib/importar';
 import { normalizarCorreo } from '@/lib/reglas';
 import { avanceEstudiante } from '@/lib/vista';
 
@@ -42,22 +43,37 @@ export async function POST(req: Request) {
       await enviarDirecto(chatId, mensajeBienvenidaBot());
       return NextResponse.json({ ok: true });
     }
+    const nombreTg = [m.from?.first_name, m.from?.last_name].filter(Boolean).join(' ') || m.from?.username || null;
+    const vincular = async (studentId: string) => {
+      await sql`insert into telegram_vinculos (chat_id, student_id, nombre) values (${chatId}, ${studentId}, ${nombreTg})
+        on conflict (chat_id) do update set student_id = excluded.student_id, nombre = excluded.nombre, at = now()`;
+      const datos = await cargarDatos();
+      const e = datos.estudiantes.find((x) => x.id === studentId);
+      if (e) await enviarDirecto(chatId, mensajeVinculado(e, avanceEstudiante(datos, e.id).eventosN));
+    };
     const correo = normalizarCorreo((texto.match(/[^\s@]+@[^\s@]+\.[^\s@]+/) || [''])[0]);
-    if (!correo) {
-      await enviarDirecto(chatId, mensajeNoEntendido());
-      return NextResponse.json({ ok: true });
-    }
-    const [st] = await sql`select id, nombre from students where periodo = ${ajustes.periodo} and activo and correo = ${correo}`;
-    if (!st) {
+    if (correo) {
+      const [st] = await sql`select id from students where periodo = ${ajustes.periodo} and activo and correo = ${correo}`;
+      if (st) { await vincular(String(st.id)); return NextResponse.json({ ok: true }); }
+      // El chat ya está vinculado por nombre y la ficha no tiene correo: se guarda para que pueda entrar al portal.
+      const [v] = await sql`select v.student_id, s.nombre, s.correo from telegram_vinculos v join students s on s.id = v.student_id where v.chat_id = ${chatId}`;
+      if (v) {
+        const [otro] = await sql`select id from students where periodo = ${ajustes.periodo} and correo = ${correo} and id <> ${v.student_id}`;
+        if (otro) { await enviarDirecto(chatId, mensajeCorreoEnUso(correo)); return NextResponse.json({ ok: true }); }
+        if (v.correo && String(v.correo) !== correo) { await enviarDirecto(chatId, `Tu ficha ya tiene el correo ${v.correo}. Si está mal, avisa a coordinación.`); return NextResponse.json({ ok: true }); }
+        await sql`update students set correo = ${correo} where id = ${v.student_id}`;
+        await enviarDirecto(chatId, mensajeCorreoGuardado(String(v.nombre), correo));
+        return NextResponse.json({ ok: true });
+      }
       await enviarDirecto(chatId, mensajeCorreoNoEncontrado(correo));
       return NextResponse.json({ ok: true });
     }
-    const nombreTg = [m.from?.first_name, m.from?.last_name].filter(Boolean).join(' ') || m.from?.username || null;
-    await sql`insert into telegram_estudiantes (correo, chat_id, nombre) values (${correo}, ${chatId}, ${nombreTg})
-      on conflict (correo) do update set chat_id = excluded.chat_id, nombre = excluded.nombre`;
-    const datos = await cargarDatos();
-    const e = datos.estudiantes.find((x) => x.id === String(st.id));
-    if (e) await enviarDirecto(chatId, mensajeVinculado(e, avanceEstudiante(datos, e.id).eventosN));
+    // Nombre completo tal como está en la lista (los listados de la universidad no traen correo).
+    const activos = await sql`select id, nombre, semestre from students where periodo = ${ajustes.periodo} and activo`;
+    const candidatos = candidatosPorNombre(activos.map((r) => ({ id: String(r.id), nombre: String(r.nombre), semestre: Number(r.semestre) })), texto);
+    if (candidatos.length === 1) { await vincular(candidatos[0].id); return NextResponse.json({ ok: true }); }
+    if (candidatos.length > 1) { await enviarDirecto(chatId, mensajeVariosNombres(candidatos.map((c) => `${c.nombre} (${c.semestre}.º)`))); return NextResponse.json({ ok: true }); }
+    await enviarDirecto(chatId, mensajeNoEntendido());
     return NextResponse.json({ ok: true });
   } catch (e) {
     console.error('[telegram webhook]', (e as Error).message);

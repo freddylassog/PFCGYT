@@ -205,6 +205,17 @@ export function coincideNombre(a: string, b: string): boolean {
   return corto.length >= 2 && corto.every((t) => largo.includes(t));
 }
 
+/** Estudiantes cuyo nombre coincide con lo escrito (nombre y al menos un apellido); vacío si lo escrito tiene menos de dos palabras. */
+export function candidatosPorNombre<T extends { nombre: string }>(lista: T[], texto: string): T[] {
+  const sinIniciales = (s: string) => claveNombreEstudiante(s).split(' ').filter((t) => t.length > 1).join(' ');
+  const escrito = sinIniciales(texto);
+  if (escrito.split(' ').filter(Boolean).length < 2) return [];
+  // Nombre completo exacto (sin tildes ni iniciales) → ese; si no, coincidencia por nombre y apellidos.
+  const exactos = lista.filter((e) => sinIniciales(e.nombre) === escrito);
+  if (exactos.length === 1) return exactos;
+  return lista.filter((e) => coincideNombre(e.nombre, texto));
+}
+
 /** "CARRIÓN" → "Carrión"; "DE LA TORRE" → "de la Torre" (la primera palabra siempre con mayúscula). */
 export function tituloNombre(s: string): string {
   return limpiarTexto(s).toLowerCase().split(' ').map((w, i) => (i > 0 && PARTICULAS.has(w.toUpperCase()) ? w : w.charAt(0).toUpperCase() + w.slice(1))).join(' ');

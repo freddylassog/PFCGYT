@@ -12,7 +12,7 @@ import { appUrl } from '@/lib/app-url';
 import { avanceEstudiante, vistaPedido } from '@/lib/vista';
 import { coincideNombre, esFormatoNrc, generoPorNombre, leerHojas, leerTabla, parseDocentes, parseEstudiantes, parseEstudiantesNrc, parseHorarios, type HojaCruda } from '@/lib/excel';
 import { borrarEvidencia, evidenciaExiste, prepararSubida } from '@/lib/storage';
-import { ACTIVIDADES, cantidadDia, claseAplica, claveNombre, cruceClases, diasEstudiante, diasLlenos, esFechaISO, faltasCantidadesDias, faltasCitaUniforme, faltasDias, faltasHorarioUniforme, faltasReparto, genClave, hoyISO, MAX_ESTUDIANTES, nombrarDias, normalizarCorreo, normalizarParalelo, ordenarDias, telefonoValido, TIPOS_NOVEDAD, UNIFORME, unirRepartos, VESTIMENTA } from '@/lib/reglas';
+import { ACTIVIDADES, cantidadDia, claseAplica, claveDocente, cruceClases, diasEstudiante, diasLlenos, esFechaISO, faltasCantidadesDias, faltasCitaUniforme, faltasDias, faltasHorarioUniforme, faltasReparto, genClave, hoyISO, MAX_ESTUDIANTES, nombrarDias, normalizarCorreo, normalizarParalelo, ordenarDias, telefonoValido, TIPOS_NOVEDAD, UNIFORME, unirRepartos, VESTIMENTA } from '@/lib/reglas';
 import { iniciarSesionCoordinacion, passwordCoordinacionOk, sesionCoordinacion } from '@/lib/sesion';
 import type { CitaUniforme, DiaEvento, Estado, FranjaUniforme, RepartoActividad, Resultado, Semestre } from '@/lib/tipos';
 
@@ -804,7 +804,7 @@ export async function importarDocentes(formData: FormData): Promise<Resultado<{ 
     await sql.begin(async (tx) => {
       for (const d of ok) {
         // Si el docente ya existe (creado desde el horario, sin correo), se completa su correo.
-        const porNombre = existentes.find((t) => claveNombre(String(t.nombre)) === claveNombre(d.nombre) && String(t.correo ?? '') !== d.correo);
+        const porNombre = existentes.find((t) => claveDocente(String(t.nombre)) === claveDocente(d.nombre) && String(t.correo ?? '') !== d.correo);
         const porCorreo = existentes.find((t) => String(t.correo ?? '') === d.correo);
         if (porNombre && !porCorreo) await tx`update teachers set correo = ${d.correo}, nombre = ${d.nombre}, activo = true where id = ${porNombre.id}`;
         else await tx`insert into teachers (periodo, nombre, correo, activo) values (${periodo}, ${d.nombre}, ${d.correo}, true)
@@ -831,7 +831,7 @@ export async function importarHorarios(formData: FormData): Promise<Resultado<{ 
     const { periodo } = await ajustesActuales();
     const docentes = await sql`select id, nombre, correo from teachers where periodo = ${periodo}`;
     const idPorCorreo = new Map(docentes.filter((t) => t.correo).map((t) => [String(t.correo), String(t.id)]));
-    const idPorNombre = new Map(docentes.map((t) => [claveNombre(String(t.nombre)), String(t.id)]));
+    const idPorNombre = new Map(docentes.map((t) => [claveDocente(String(t.nombre)), String(t.id)]));
     await sql.begin(async (tx) => {
       // Docentes que vienen en el horario y aún no existen (por correo o por nombre).
       for (const c of ok) {
@@ -839,15 +839,15 @@ export async function importarHorarios(formData: FormData): Promise<Resultado<{ 
           const [t] = await tx`insert into teachers (periodo, nombre, correo, activo) values (${periodo}, ${c.docenteNombre || c.correoDocente.split('@')[0]}, ${c.correoDocente}, true)
             on conflict (periodo, correo) do update set activo = true returning id`;
           idPorCorreo.set(c.correoDocente, String(t.id));
-          if (c.docenteNombre) idPorNombre.set(claveNombre(c.docenteNombre), String(t.id));
-        } else if (!c.correoDocente && c.docenteNombre && !idPorNombre.has(claveNombre(c.docenteNombre))) {
+          if (c.docenteNombre) idPorNombre.set(claveDocente(c.docenteNombre), String(t.id));
+        } else if (!c.correoDocente && c.docenteNombre && !idPorNombre.has(claveDocente(c.docenteNombre))) {
           const [t] = await tx`insert into teachers (periodo, nombre, correo, activo) values (${periodo}, ${c.docenteNombre}, null, true) returning id`;
-          idPorNombre.set(claveNombre(c.docenteNombre), String(t.id));
+          idPorNombre.set(claveDocente(c.docenteNombre), String(t.id));
         }
       }
       await tx`update classes set activo = false where periodo = ${periodo}`;
       for (const c of ok) {
-        const teacherId = (c.correoDocente && idPorCorreo.get(c.correoDocente)) || (c.docenteNombre && idPorNombre.get(claveNombre(c.docenteNombre))) || null;
+        const teacherId = (c.correoDocente && idPorCorreo.get(c.correoDocente)) || (c.docenteNombre && idPorNombre.get(claveDocente(c.docenteNombre))) || null;
         await tx`insert into classes (periodo, semestre, paralelo, dia, inicio, fin, materia, teacher_id, nrc, activo)
           values (${periodo}, ${c.semestre}, ${c.paralelo || null}, ${c.dia}, ${c.inicio}, ${c.fin}, ${c.materia}, ${teacherId}, ${c.nrc || null}, true)
           on conflict (periodo, semestre, dia, inicio, materia, coalesce(paralelo, '')) do update set fin = excluded.fin, teacher_id = coalesce(excluded.teacher_id, classes.teacher_id), nrc = coalesce(excluded.nrc, classes.nrc), activo = true`;

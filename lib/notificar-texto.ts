@@ -85,11 +85,24 @@ function primerNombre(e: Estudiante): string {
 }
 
 export function mensajeBienvenidaBot(): string {
-  return 'Hola. Soy el bot de Protocolo FCGT. Para recibir tus avisos personales (confirmaciones y recordatorios de eventos), escribe tu correo institucional (nombre.apellido@ute.edu.ec).';
+  return 'Hola. Soy el bot de Protocolo FCGT. Para recibir tus avisos personales (confirmaciones, recordatorios y devolución de uniformes), escribe tu nombre completo tal como está en la lista de la facultad (nombre y dos apellidos) o tu correo institucional (nombre.apellido@ute.edu.ec).';
+}
+
+export function mensajeVariosNombres(nombres: string[]): string {
+  return `Hay ${nombres.length} estudiantes que coinciden: ${nombres.slice(0, 5).join('; ')}. Escribe tu nombre con tus dos apellidos.`;
+}
+
+export function mensajeCorreoGuardado(nombre: string, correo: string): string {
+  return `Guardé ${correo} en tu ficha, ${nombre.split(' ')[0]}. Con ese correo y la clave de cada evento también puedes entrar al portal web.`;
+}
+
+export function mensajeCorreoEnUso(correo: string): string {
+  return `${correo} ya está registrado por otro estudiante. Si es tuyo, avisa a coordinación.`;
 }
 
 export function mensajeVinculado(e: Estudiante, eventosN: number): string {
-  return `Listo, ${primerNombre(e)}. Quedaste vinculado como ${e.nombre} (${e.semestre}.º semestre). Te avisaré cuando coordinación confirme tu participación y el día antes de cada evento. Llevas ${eventosN} de ${MINIMO_EVENTOS} eventos del semestre.`;
+  const sinCorreo = e.correo ? '' : ' Tu ficha no tiene correo: si quieres usar también el portal web, escríbeme tu correo institucional.';
+  return `Listo, ${primerNombre(e)}. Quedaste vinculado como ${e.nombre} (${e.semestre}.º semestre). Te avisaré cuando coordinación confirme tu participación y el día antes de cada evento. Llevas ${eventosN} de ${MINIMO_EVENTOS} eventos del semestre.${sinCorreo}`;
 }
 
 export function mensajeCorreoNoEncontrado(correo: string): string {
@@ -97,7 +110,7 @@ export function mensajeCorreoNoEncontrado(correo: string): string {
 }
 
 export function mensajeNoEntendido(): string {
-  return 'Para vincular tu cuenta escribe solo tu correo institucional (nombre.apellido@ute.edu.ec).';
+  return 'No encuentro ese nombre. Escríbelo como en la lista de la facultad (nombre y dos apellidos), o escribe tu correo institucional (nombre.apellido@ute.edu.ec).';
 }
 
 export function mensajeEstudianteConfirmado(p: PedidoVista, e: Estudiante, eventosN: number): string {

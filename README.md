@@ -10,7 +10,7 @@ Costo mensual: **$0** (Supabase + Vercel en sus planes gratuitos).
 |---|---|---|
 | **Solicitante** (interno UTE o externo) | Llena el pedido de 4 pasos y adjunta la evidencia (correo o pedido formal). | Enlace público, sin clave. |
 | **Coordinación** | Revisa, aprueba, convoca, confirma estudiantes, registra novedades y uniformes, descarga el reporte. | `/coordinacion` con usuario y contraseña. |
-| **Estudiante** | Se inscribe a convocatorias, ve sus eventos confirmados y su uniforme. Si conecta el bot de Telegram, recibe en su celular la confirmación y el recordatorio de cada evento. | `/estudiante` con su correo institucional y la **clave del evento** (su código, p. ej. `SOL-2026-003`). |
+| **Estudiante** | Entra con su correo institucional y la clave del evento; si la lista no trae su correo, la primera vez pulsa *Regístrate con tu nombre* (nombre como en la facultad + correo + clave) y queda registrado. Se inscribe a convocatorias, ve sus eventos confirmados y su uniforme. Si conecta el bot de Telegram, recibe en su celular la confirmación y el recordatorio de cada evento. | `/estudiante` con su correo institucional y la **clave del evento** (su código, p. ej. `SOL-2026-003`). |
 
 ### Correos: la app no los envía, los prepara
 
@@ -113,6 +113,10 @@ La app puede avisar a coordinación cada vez que entra un pedido, por dos canale
 - **Telegram** (mensaje al celular): en Telegram habla con **@BotFather**, envía `/newbot`, sigue los pasos y copia el token. Variable: `TELEGRAM_BOT_TOKEN`. Tras el *Redeploy*, abre tu bot en Telegram, pulsa **Iniciar**, escríbele "hola" y en la app pulsa **Detectar mi chat de Telegram** (Resumen → Avisos): la app guarda tu chat. (`TELEGRAM_CHAT_ID` es opcional para fijarlo a mano.)
 
 El aviso incluye código, evento, fechas y horario, solicitante, cantidad de estudiantes, reparto por actividad, lugar, responsable y el enlace directo al pedido. Por Telegram también llega un aviso cada vez que un estudiante **se inscribe** o **retira su inscripción** (con el conteo de inscritos y el enlace al pedido para aceptar o rechazar). Si un canal falla, el pedido se registra igual y el error queda en los registros de Vercel.
+
+### Mensajes personales del bot
+
+Cada estudiante vincula su Telegram una sola vez: abre el bot, pulsa *Iniciar* y escribe **su nombre completo tal como está en la lista** (nombre y dos apellidos) o su correo institucional. Si se vinculó por nombre y su ficha no tiene correo, puede escribir después su correo y el bot lo guarda (así también puede entrar al portal). No hace falta ninguna matriz de teléfonos: Telegram no permite escribir a un número; el vínculo lo hace el propio estudiante. En *Coordinación → Estudiantes* se ve quién está conectado.
 
 ### Canal de Telegram para estudiantes
 
