@@ -156,7 +156,9 @@ export interface PrendaEntregada {
   entregadoAt: string;
 }
 
+/** Devolución del uniforme de un estudiante por evento (sin fila = pendiente). */
 export interface Devolucion {
+  requestId: string;
   studentId: string;
   estado: EstadoDevolucion;
   at: string;
@@ -214,6 +216,8 @@ export interface Ajustes {
   anticipacionHasta: string;
   /** Horario fijo de retiro y devolución de uniformes durante el periodo (vacío = solo citas por evento). */
   uniformeHorario: FranjaUniforme[];
+  /** Días que tiene cada estudiante, después de su último día del evento, para devolver el uniforme lavado (7). */
+  uniformeDiasDevolucion: number;
 }
 
 /** Todo lo que necesita el panel de coordinación, cargado en una sola pasada. */

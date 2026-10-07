@@ -1,7 +1,7 @@
 // Reglas de negocio y formato. Solo funciones puras: se usan igual en el
 // navegador y en el servidor (validaciones, reporte, correos).
 import type {
-  CitaUniforme, Clase, DiaEvento, Estado, FranjaUniforme, Genero, RepartoActividad, Semestre, Vestimenta,
+  CitaUniforme, Clase, DiaEvento, Estado, EstadoDevolucion as EstadoDevolucionRegistro, FranjaUniforme, Genero, RepartoActividad, Semestre, Vestimenta,
 } from './tipos';
 
 export const ZONA_HORARIA = 'America/Guayaquil';
@@ -684,10 +684,12 @@ export function genClave(random: () => number = Math.random): string {
 }
 
 /** La clave sirve hasta la hora de salida del último día del evento. */
-export function claveVigente(p: { dias: DiaEvento[] }, hoy: string, hora: string): boolean {
+/** La clave sirve hasta que termina el último día; en eventos con uniforme sigue sirviendo durante el plazo de devolución (para ver el estado en el portal). */
+export function claveVigente(p: { dias: DiaEvento[]; vestimenta?: string }, hoy: string, hora: string, diasDevolucion = 0): boolean {
   const u = ultimoDia(p.dias);
   if (!u) return false;
   if (u.fecha > hoy) return true;
+  if (p.vestimenta === 'uniforme' && diasDevolucion > 0 && hoy <= limiteDevolucion(u.fecha, diasDevolucion)) return true;
   if (u.fecha < hoy) return false;
   return min(hora) <= min(u.fin);
 }
@@ -780,9 +782,39 @@ export function infoUniforme(genero: Genero, entregadas: string[]): InfoUniforme
 }
 
 export const DEVOLUCION = {
-  lavado: { label: 'Devuelto lavado', tag: 'tag-accent' },
+  lavado: { label: 'Devuelto lavado', tag: 'tag-verde' },
   rechazado: { label: 'No recibido · sin lavar', tag: 'tag-alerta' },
 } as const;
+
+// ---------------------------------------------------------------- devolución del uniforme por evento (plazo)
+
+/** Último día para devolver el uniforme lavado: N días después del último día del estudiante en el evento. */
+export function limiteDevolucion(ultimoDia: string, dias: number): string {
+  return sumarDias(ultimoDia, Math.max(1, Math.round(dias) || 7));
+}
+
+export type ClaveDevolucion = 'en-curso' | 'pendiente' | 'vencido' | 'devuelto' | 'rechazado';
+export interface EstadoDevolucion { clave: ClaveDevolucion; label: string; tag: string }
+
+/** Estado de la devolución de un estudiante en un evento, según el registro, el plazo y la fecha de hoy. */
+export function estadoDevolucion(dev: { estado: EstadoDevolucionRegistro; at: string } | null | undefined, ultimoDia: string, limite: string, hoy: string): EstadoDevolucion {
+  if (dev?.estado === 'lavado') return { clave: 'devuelto', label: `Devuelto lavado${dev.at ? ` · ${fechaCorta(dev.at)}` : ''}`, tag: 'tag-verde' };
+  if (dev?.estado === 'rechazado') return { clave: 'rechazado', label: 'No recibido · sin lavar', tag: 'tag-alerta' };
+  if (ultimoDia > hoy) return { clave: 'en-curso', label: `Devolver hasta el ${fechaCorta(limite)}`, tag: 'tag-neutral' };
+  if (hoy > limite) return { clave: 'vencido', label: `Vencido · era hasta el ${fechaCorta(limite)}`, tag: 'tag-alerta' };
+  return { clave: 'pendiente', label: `Pendiente · hasta el ${fechaCorta(limite)}`, tag: 'tag-outline' };
+}
+
+export type FaseDevolucion = 'inicio' | 'recordatorio' | 'vence' | 'vencido';
+
+/** Qué aviso toca hoy para una devolución pendiente: el día después del evento, 2 días antes del plazo, el día del plazo y el día después (vencido). */
+export function faseDevolucion(ultimoDia: string, limite: string, hoy: string): FaseDevolucion | null {
+  if (hoy === sumarDias(ultimoDia, 1)) return 'inicio';
+  if (hoy === limite) return 'vence';
+  if (hoy === sumarDias(limite, 1)) return 'vencido';
+  if (hoy === sumarDias(limite, -2) && hoy > ultimoDia) return 'recordatorio';
+  return null;
+}
 
 // ---------------------------------------------------------------- validación del pedido
 

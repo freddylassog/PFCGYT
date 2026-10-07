@@ -1,7 +1,7 @@
 // Cálculos derivados que comparten el panel, el portal del estudiante, el
 // reporte Excel y los correos. Todo puro: entra `Datos`, salen vistas.
-import { ACTIVIDADES, actividadesEtiquetasPedido, actividadesTextoPedido, cantidadDia, cantidadesDistintas, citaDevolucionTexto, citaEntregaTexto, comidasDias, compromisosPedido, convenioLabel, cruceClases, cuposTexto, DEVOLUCION, diasEstudiante, diasHasta, duracionTextoDias, estadoVisible, fechaCorta, fechaCortaDias, fechaLargaDias, horarioTextoDias, horarioUniformeTexto, horasDias, horasEstudiante, infoUniforme, lugaresTexto, MINIMO_EVENTOS, mismoLugar, pasa4hDias, redondear1, repartoDia, semanaDe, semCorto, semLabel, tagClass, tieneRepartoPorDia, tipoClass, tipoLabel, transporteDias, transporteMotivoDias, transporteTexto, type Compromiso, type EstadoVisible, type Transporte, ultimoDia, VESTIMENTA } from './reglas';
-import type { Clase, Datos, DiaEvento, Docente, Estudiante, Novedad, Pedido, Semestre } from './tipos';
+import { ACTIVIDADES, actividadesEtiquetasPedido, actividadesTextoPedido, cantidadDia, cantidadesDistintas, citaDevolucionTexto, citaEntregaTexto, comidasDias, compromisosPedido, convenioLabel, cruceClases, cuposTexto, DEVOLUCION, diasEstudiante, diasHasta, duracionTextoDias, estadoDevolucion, estadoVisible, fechaCorta, fechaCortaDias, fechaLarga, fechaLargaDias, horarioTextoDias, horarioUniformeTexto, horasDias, horasEstudiante, infoUniforme, limiteDevolucion, lugaresTexto, MINIMO_EVENTOS, mismoLugar, pasa4hDias, redondear1, repartoDia, semanaDe, semCorto, semLabel, tagClass, tieneRepartoPorDia, tipoClass, tipoLabel, transporteDias, transporteMotivoDias, transporteTexto, type Compromiso, type EstadoDevolucion, type EstadoVisible, type Transporte, ultimoDia, VESTIMENTA } from './reglas';
+import type { Clase, Datos, Devolucion, DiaEvento, Docente, Estudiante, Novedad, Pedido, Semestre } from './tipos';
 
 export interface PedidoVista extends Pedido {
   /** 'Guía de invitados (2), Acompañamiento en recorridos (2)' */
@@ -62,6 +62,14 @@ export interface PedidoVista extends Pedido {
   progreso: string;
   /** Qué hacer con el uniforme (solo eventos con uniforme institucional): la entrega y devolución fijadas para el evento o, si no hay, el horario fijo del periodo. */
   uniformeAvisoTexto: string | null;
+  /** Días de plazo para devolver el uniforme después del último día (ajuste del periodo). */
+  devolucionDias: number;
+  /** Último día para devolver, contado desde el último día del evento (por estudiante: limiteDevolucionDe). */
+  devolucionLimite: string;
+  /** Dónde y cuándo se devuelve: la devolución fijada para el evento o el horario fijo del periodo con el lugar. */
+  devolucionDondeTexto: string;
+  /** Devoluciones registradas de este evento. */
+  devoluciones: Devolucion[];
   confirmadosN: number;
   inscritosN: number;
   lleno: boolean;
@@ -113,9 +121,13 @@ export function vistaPedido(d: Datos, p: Pedido): PedidoVista {
   const progreso = p.dias.length > 1 ? cuposDias.map((c, i) => `D${i + 1} ${c.confirmados}/${c.cantidad}`).join(' · ') : `${confirmados.length}/${p.cantidad}`;
   const horarioFijo = d.ajustes.uniformeHorario.length ? `${horarioUniformeTexto(d.ajustes.uniformeHorario)}${d.ajustes.uniformeLugar ? ` · ${d.ajustes.uniformeLugar}` : ''}` : '';
   const citaEvento = p.uniformeCita && (p.uniformeCita.entregaFecha || p.uniformeCita.devolucionFecha) ? p.uniformeCita : null;
+  const devolucionDias = d.ajustes.uniformeDiasDevolucion;
+  // Si coordinación fijó una devolución especial para el evento, el plazo es ese día (o el último del periodo fijado).
+  const devolucionLimite = citaEvento?.devolucionFecha ? (citaEvento.devolucionHasta || citaEvento.devolucionFecha) : limiteDevolucion(ultimoDia(p.dias)?.fecha ?? p.fecha, devolucionDias);
+  const devolucionDondeTexto = citaEvento && citaDevolucionTexto(citaEvento) ? `${citaDevolucionTexto(citaEvento)}${citaEvento.lugar ? ` · ${citaEvento.lugar}` : ''}` : horarioFijo || d.ajustes.uniformeLugar;
   const uniformeAvisoTexto = p.vestimenta !== 'uniforme' ? null
-    : citaEvento ? [citaEntregaTexto(citaEvento) ? `entrega ${citaEntregaTexto(citaEvento)}` : '', citaDevolucionTexto(citaEvento) ? `devolución (lavado) ${citaDevolucionTexto(citaEvento)}` : '', citaEvento.lugar].filter(Boolean).join(' · ')
-    : horarioFijo ? `retíralo antes del evento y devuélvelo lavado después, en ${horarioFijo}` : null;
+    : citaEvento ? [citaEntregaTexto(citaEvento) ? `entrega ${citaEntregaTexto(citaEvento)}` : '', citaDevolucionTexto(citaEvento) ? `devolución (lavado) ${citaDevolucionTexto(citaEvento)}` : `devuélvelo lavado hasta el ${fechaLarga(devolucionLimite)}`, citaEvento.lugar].filter(Boolean).join(' · ')
+    : horarioFijo ? `retíralo antes del evento y devuélvelo lavado hasta el ${fechaLarga(devolucionLimite)} (${devolucionDias} días después), en ${horarioFijo}` : `devuélvelo lavado hasta el ${fechaLarga(devolucionLimite)}`;
   const v = VESTIMENTA[p.vestimenta] ?? VESTIMENTA.uniforme;
   const tm = transporteMotivoDias(p);
   const p4 = pasa4hDias(p.dias);
@@ -140,6 +152,7 @@ export function vistaPedido(d: Datos, p: Pedido): PedidoVista {
     bloqueo: p.tipo === 'externo' && p.convenio === 'no' ? 'No se puede aprobar: la institución no tiene convenio vigente con la UTE.' : null,
     confirmados, inscritos, confirmadosN: confirmados.length, inscritosN: inscritos.length, lleno,
     asistencia, cuposDias, cuposTexto: cuposTexto(p), cantidadesDistintas: cantidadesDistintas(p), progreso, uniformeAvisoTexto,
+    devolucionDias, devolucionLimite, devolucionDondeTexto, devoluciones: d.devoluciones.filter((x) => x.requestId === p.id),
     cruces, cruceAmbito: confirmados.length ? 'semestres confirmados' : 'todos los semestres',
     novedades, novedadesTexto: novedades.length ? novedades.map((n) => `${n.estudiante?.nombre ?? ''}: ${n.tipo}`).join(' · ') : '—',
     evidenciaTexto: p.evidenciaNombre || 'sin evidencia',
@@ -154,6 +167,32 @@ export function confirmadosEnDia(p: PedidoVista, fecha: string): Estudiante[] {
 /** Días (fechas) de un inscrito que ya tienen el cupo completo con los demás confirmados. */
 export function diasLlenosDe(p: PedidoVista, studentId: string): string[] {
   return diasDeEstudiante(p, studentId).map((d) => d.fecha).filter((f) => { const c = p.cuposDias.find((x) => x.fecha === f); return !!c && !p.confirmados.some((e) => e.id === studentId) && c.confirmados >= c.cantidad; });
+}
+
+/** Último día del estudiante en el evento (sus días o, si va a todos, el último del evento). */
+export function ultimoDiaDe(p: PedidoVista, studentId: string): string {
+  const dias = diasDeEstudiante(p, studentId);
+  return dias.length ? dias[dias.length - 1].fecha : p.ultimaFecha;
+}
+
+/** Último día para que ese estudiante devuelva el uniforme lavado. */
+export function limiteDevolucionDe(p: PedidoVista, studentId: string): string {
+  if (p.uniformeCita?.devolucionFecha) return p.devolucionLimite; // devolución especial fijada para el evento: igual para todos
+  return limiteDevolucion(ultimoDiaDe(p, studentId), p.devolucionDias);
+}
+
+export function devolucionDe(p: PedidoVista, studentId: string): Devolucion | null {
+  return p.devoluciones.find((x) => x.studentId === studentId) ?? null;
+}
+
+export function estadoDevolucionDe(p: PedidoVista, studentId: string, hoy: string): EstadoDevolucion {
+  return estadoDevolucion(devolucionDe(p, studentId), ultimoDiaDe(p, studentId), limiteDevolucionDe(p, studentId), hoy);
+}
+
+/** Confirmados que aún deben el uniforme (pendientes, vencidos o devueltos sin lavar); solo eventos con uniforme ya realizados. */
+export function pendientesDevolucion(p: PedidoVista, hoy: string): { e: Estudiante; estado: EstadoDevolucion; limite: string }[] {
+  if (p.vestimenta !== 'uniforme' || p.estado !== 'Aprobado') return [];
+  return p.confirmados.map((e) => ({ e, estado: estadoDevolucionDe(p, e.id, hoy), limite: limiteDevolucionDe(p, e.id) })).filter((x) => x.estado.clave === 'pendiente' || x.estado.clave === 'vencido' || x.estado.clave === 'rechazado');
 }
 
 /** Etiquetas de actividades solo de los días a los que asiste un estudiante. */
@@ -251,7 +290,10 @@ export interface UniformeVista extends Estudiante {
   semLabel: string;
   generoLabel: string;
   detalle: string;
-  devolucion: Datos['devoluciones'][number] | null;
+  /** Devolución por cada evento con uniforme del estudiante (plazo y estado). */
+  devoluciones: { p: PedidoVista; limite: string; estado: EstadoDevolucion }[];
+  pendientesN: number;
+  vencidosN: number;
   devLabel: string;
   devTag: string;
 }
@@ -261,13 +303,18 @@ export function vistaUniformes(d: Datos, pedidos?: PedidoVista[]): UniformeVista
   const conUniforme = todos.filter((p) => p.estado === 'Aprobado' && p.vestimenta === 'uniforme');
   return d.estudiantes.filter((e) => e.activo).map((e) => {
     const info = infoUniforme(e.genero, d.prendas.filter((p) => p.studentId === e.id).map((p) => p.item));
-    const dev = d.devoluciones.find((x) => x.studentId === e.id) ?? null;
     const eventosUniforme = conUniforme.filter((p) => p.confirmados.some((c) => c.id === e.id));
+    const devoluciones = eventosUniforme.map((p) => ({ p, limite: limiteDevolucionDe(p, e.id), estado: estadoDevolucionDe(p, e.id, d.hoy) }));
+    const pendientesN = devoluciones.filter((x) => x.estado.clave === 'pendiente' || x.estado.clave === 'vencido' || x.estado.clave === 'rechazado').length;
+    const vencidosN = devoluciones.filter((x) => x.estado.clave === 'vencido' || x.estado.clave === 'rechazado').length;
+    const terminados = devoluciones.filter((x) => x.estado.clave !== 'en-curso').length;
     return {
       ...e, info, eventosUniforme, requiere: eventosUniforme.length > 0 || info.n > 0,
       semLabel: semLabel(e.semestre), generoLabel: e.genero === 'F' ? 'femenino' : 'masculino',
       detalle: info.completo ? 'Uniforme completo entregado.' : info.n ? 'Falta: ' + info.faltan.join(', ') : 'Ninguna prenda entregada.',
-      devolucion: dev, devLabel: dev ? DEVOLUCION[dev.estado].label : info.n ? 'En uso' : '—', devTag: dev ? DEVOLUCION[dev.estado].tag : 'tag-neutral',
+      devoluciones, pendientesN, vencidosN,
+      devLabel: vencidosN ? `Vencido (${vencidosN})` : pendientesN ? `Pendiente (${pendientesN})` : terminados ? 'Al día' : eventosUniforme.length ? 'En curso' : '—',
+      devTag: vencidosN ? 'tag-alerta' : pendientesN ? 'tag-outline' : terminados ? 'tag-verde' : 'tag-neutral',
     };
   });
 }

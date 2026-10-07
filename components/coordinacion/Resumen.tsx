@@ -13,7 +13,7 @@ export function Resumen({ datos, pedidos }: { datos: Datos; pedidos: PedidoVista
   const h = resumenHoras(datos, pedidos);
   const [horas, setHoras] = useState(String(h.horasSemana));
   const a = datos.ajustes;
-  const [aj, setAj] = useState({ correoDecanato: a.correoDecanato, correoGrupoEstudiantes: a.correoGrupoEstudiantes, correoCoordinacion: a.correoCoordinacion, inicioSemestre: a.inicioSemestre, uniformeLugar: a.uniformeLugar, anticipacionHoras: a.anticipacionHoras, anticipacionHasta: a.anticipacionHasta });
+  const [aj, setAj] = useState({ correoDecanato: a.correoDecanato, correoGrupoEstudiantes: a.correoGrupoEstudiantes, correoCoordinacion: a.correoCoordinacion, inicioSemestre: a.inicioSemestre, uniformeLugar: a.uniformeLugar, anticipacionHoras: a.anticipacionHoras, anticipacionHasta: a.anticipacionHasta, uniformeDiasDevolucion: a.uniformeDiasDevolucion });
   // Horario fijo de uniformes: una fila por día (lunes a viernes); la casilla apaga el día.
   const [hu, setHu] = useState(() => [1, 2, 3, 4, 5].map((dia) => { const f = a.uniformeHorario.find((x) => x.dia === dia); return { dia, activo: !!f, inicio: f?.inicio ?? '', fin: f?.fin ?? '', atiende: f?.atiende ?? '' }; }));
   const huActivo = hu.filter((f) => f.activo).map(({ dia, inicio, fin, atiende }) => ({ dia, inicio, fin, atiende }));
@@ -148,6 +148,7 @@ export function Resumen({ datos, pedidos }: { datos: Datos; pedidos: PedidoVista
             <div className="muted fs-12 mt-2">{huActivo.length ? <>Los estudiantes verán: <strong>{horarioUniformeTexto(huActivo)}</strong>. Franjas de 2 horas, fijas todo el semestre; también salen en tu calendario suscrito.</> : 'Sin horario fijo: cada evento necesita su propia entrega y devolución (pestaña Uniformes).'}</div>
           </div>
           <div className="field"><label>Lugar de retiro y devolución de uniformes</label><input className="input" value={aj.uniformeLugar} onChange={(e) => setAj({ ...aj, uniformeLugar: e.target.value })} placeholder="ej. Oficina de coordinación de protocolo" /><div className="muted fs-12 mt-2">Se muestra junto al horario y se propone al fijar una entrega especial por evento.</div></div>
+          <div className="field" style={{ maxWidth: 260 }}><label htmlFor="dias-dev">Plazo para devolver el uniforme (días después del evento)</label><input id="dias-dev" className="input" type="number" min={1} max={60} value={aj.uniformeDiasDevolucion} onChange={(e) => setAj({ ...aj, uniformeDiasDevolucion: Number(e.target.value) })} /><div className="muted fs-12 mt-2">Cuenta desde el último día de cada estudiante en el evento. El bot recuerda el día después del evento, 2 días antes, el día del plazo y al vencer; a ti te llega la lista de vencidos.</div></div>
           <div className="cols-2">
             <div className="field"><label>Anticipación mínima de los pedidos (horas)</label><input className="input" type="number" min={1} max={720} value={aj.anticipacionHoras} onChange={(e) => setAj({ ...aj, anticipacionHoras: Number(e.target.value) })} /></div>
             <div className="field"><label>Esa anticipación vale hasta (opcional)</label><input className="input" type="date" value={aj.anticipacionHasta} onChange={(e) => setAj({ ...aj, anticipacionHasta: e.target.value })} /></div>

@@ -86,7 +86,7 @@ function mapAjustes(r: Fila): Ajustes {
     telegramChatId: s(r.telegram_chat_id), telegramChatNombre: s(r.telegram_chat_nombre),
     telegramCanalId: s(r.telegram_canal_id), telegramCanalNombre: s(r.telegram_canal_nombre), ultimoRecordatorio: s(r.ultimo_recordatorio),
     telegramBotUsername: s(r.telegram_bot_username), telegramWebhookUrl: s(r.telegram_webhook_url), uniformeLugar: s(r.uniforme_lugar), calendarioToken: s(r.calendario_token),
-    anticipacionHoras: Number(r.anticipacion_horas ?? 72) || 72, anticipacionHasta: s(r.anticipacion_hasta).slice(0, 10), uniformeHorario: mapHorarioUniforme(r.uniforme_horario),
+    anticipacionHoras: Number(r.anticipacion_horas ?? 72) || 72, anticipacionHasta: s(r.anticipacion_hasta).slice(0, 10), uniformeHorario: mapHorarioUniforme(r.uniforme_horario), uniformeDiasDevolucion: Math.max(1, Math.round(Number(r.uniforme_dias_devolucion ?? 7)) || 7),
   };
 }
 
@@ -113,7 +113,7 @@ export async function cargarDatos(): Promise<Datos> {
     sql`select e.* from enrollments e join requests r on r.id = e.request_id where r.periodo = ${p} order by e.created_at`,
     sql`select t.* from teacher_notices t join requests r on r.id = t.request_id where r.periodo = ${p} order by t.created_at desc`,
     sql`select u.* from uniform_items u join students st on st.id = u.student_id where st.periodo = ${p}`,
-    sql`select u.* from uniform_returns u join students st on st.id = u.student_id where st.periodo = ${p}`,
+    sql`select u.* from uniform_event_returns u join requests r on r.id = u.request_id where r.periodo = ${p}`,
     sql`select i.* from incidents i join requests r on r.id = i.request_id where r.periodo = ${p} order by i.created_at`,
   ]);
   return {
@@ -129,7 +129,7 @@ export async function cargarDatos(): Promise<Datos> {
     inscripciones: inscripciones.map((r): Inscripcion => ({ id: s(r.id), requestId: s(r.request_id), studentId: s(r.student_id), estado: r.estado as Inscripcion['estado'], dias: mapDiasInscripcion(r.dias), createdAt: iso(r.created_at) })),
     avisos: avisos.map((r): Aviso => ({ id: s(r.id), requestId: s(r.request_id), classId: s(r.class_id), studentIds: (r.student_ids as string[]) ?? [], sentAt: sn(r.sent_at), createdAt: iso(r.created_at) })),
     prendas: prendas.map((r): PrendaEntregada => ({ studentId: s(r.student_id), item: s(r.item), entregadoAt: s(r.entregado_at) })),
-    devoluciones: devoluciones.map((r): Devolucion => ({ studentId: s(r.student_id), estado: r.estado as Devolucion['estado'], at: s(r.at) })),
+    devoluciones: devoluciones.map((r): Devolucion => ({ requestId: s(r.request_id), studentId: s(r.student_id), estado: r.estado as Devolucion['estado'], at: s(r.at) })),
     novedades: novedades.map((r): Novedad => ({ id: s(r.id), requestId: s(r.request_id), studentId: s(r.student_id), tipo: s(r.tipo), nota: s(r.nota), fecha: s(r.fecha), reportadoAt: sn(r.reportado_at) })),
   };
 }

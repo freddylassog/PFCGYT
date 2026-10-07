@@ -107,8 +107,7 @@ paso('uniformes visibles (solo con evento de uniforme): ' + await p.locator('.co
 const tarjeta = p.locator('.blueprint:has(label.chip):has-text("Camila Ríos")').first(); // tarjeta de la estudiante (no la del evento)
 await tarjeta.locator('label.chip:has-text("Vestido")').click();
 await tarjeta.locator('text=Parcial 1/3').waitFor({ timeout: 20000 });
-await tarjeta.locator('button:has-text("Recibido lavado")').click();
-await tarjeta.locator('text=Devuelto lavado').waitFor({ timeout: 20000 });
+await tarjeta.locator('text=Devolver hasta el').first().waitFor({ timeout: 20000 }); // la Feria aún no pasa: solo se ve el plazo (la devolución se prueba en devolucion.mjs)
 paso('uniformes ok');
 await shot('uniformes');
 

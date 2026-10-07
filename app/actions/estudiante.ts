@@ -18,12 +18,14 @@ export async function loginEstudiante(_prev: { error?: string } | undefined, for
   const clave = normalizarClave(String(formData.get('clave') ?? ''));
   if (!correo || !clave) return { error: ERROR_LOGIN };
   const sql = db();
-  const { periodo } = await ajustesActuales();
+  const ajustes = await ajustesActuales();
+  const periodo = ajustes.periodo;
   const [st] = await sql`select id from students where periodo = ${periodo} and activo and correo = ${correo}`;
   if (!st) return { error: ERROR_LOGIN };
   const pedidos = await sql`select * from requests where periodo = ${periodo} and estado = 'Aprobado' and clave = ${clave}`;
   const hoy = hoyISO(), hora = horaAhora();
-  const vigente = pedidos.some((p) => claveVigente(mapPedido(p), hoy, hora));
+  // La clave de un evento con uniforme sigue sirviendo durante el plazo de devolución, para ver el estado en el portal.
+  const vigente = pedidos.some((p) => claveVigente(mapPedido(p), hoy, hora, ajustes.uniformeDiasDevolucion));
   if (!vigente) return { error: ERROR_LOGIN };
   await iniciarSesionEstudiante(String(st.id));
   redirect('/estudiante');

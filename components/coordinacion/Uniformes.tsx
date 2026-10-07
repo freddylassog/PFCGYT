@@ -1,11 +1,13 @@
 'use client';
 import { useState } from 'react';
 import { alternarPrenda, fijarDevolucion } from '@/app/actions/coordinacion';
+import { CorreoBox } from '@/components/CorreoBox';
 import { Marco } from '@/components/Marco';
 import { useAccion } from '@/components/useAccion';
+import { correoDevolucionPendiente } from '@/lib/correos';
 import type { Datos } from '@/lib/tipos';
 import { fechaCorta, horarioCitaTexto, horarioUniformeTexto } from '@/lib/reglas';
-import { vistaUniformes, type PedidoVista } from '@/lib/vista';
+import { estadoDevolucionDe, pendientesDevolucion, type PedidoVista, vistaUniformes } from '@/lib/vista';
 import { CitaUniforme } from './CitaUniforme';
 
 /** '8 oct 10:30' o '8 a 10 oct de 10:30 a 11:30' (resumen corto de una entrega o devolución). */
@@ -29,7 +31,7 @@ export function Uniformes({ datos, pedidos }: { datos: Datos; pedidos: PedidoVis
         {datos.ajustes.uniformeHorario.length
           ? <p className="m-0 fs-14"><strong>{horarioUniformeTexto(datos.ajustes.uniformeHorario)}</strong>{datos.ajustes.uniformeLugar ? ` · ${datos.ajustes.uniformeLugar}` : ''}</p>
           : <p className="falta fs-13 m-0">Sin horario fijo: cada evento necesita su propia entrega y devolución. Fíjalo en Resumen → Ajustes.</p>}
-        <p className="muted fs-12 m-0">Los estudiantes lo ven en su portal, en la convocatoria y en la confirmación de cada evento con uniforme; retiran antes del evento y devuelven lavado después, en cualquiera de esas franjas. También está en tu calendario suscrito como evento semanal.</p>
+        <p className="muted fs-12 m-0">Los estudiantes lo ven en su portal, en la convocatoria y en la confirmación de cada evento con uniforme; retiran antes del evento y devuelven lavado dentro de los {datos.ajustes.uniformeDiasDevolucion} días siguientes (el plazo se cambia en Ajustes), en cualquiera de esas franjas. El bot les avisa el día después del evento, 2 días antes del plazo, el día del plazo y si vencen. También está en tu calendario suscrito como evento semanal.</p>
       </Marco>
       <div className="mt-6"><h4 className="m-0">Excepciones por evento</h4><p className="muted fs-14" style={{ margin: 'var(--space-1) 0 0' }}>Solo si un evento necesita una entrega o devolución distinta del horario fijo: fija día y hora (o un periodo, p. ej. lunes a miércoles de 10:00 a 11:00) y avisa a los confirmados por Telegram o por correo. El día anterior a esa entrega o devolución la app envía un recordatorio.</p></div>
       {!eventos.length && <p className="muted mt-3">Aún no hay eventos aprobados con uniforme institucional y estudiantes confirmados.</p>}
@@ -40,6 +42,22 @@ export function Uniformes({ datos, pedidos }: { datos: Datos; pedidos: PedidoVis
             <div className="card-title" style={{ fontSize: 17 }}>{p.evento}</div>
             <div className="card-meta">{p.confirmadosN} confirmados: {p.confirmados.map((e) => e.nombre).join(', ')}</div>
             <CitaUniforme p={p} datos={datos} idPrefijo={`cita-${p.id}`} />
+            {(p.terminado || p.devoluciones.length > 0) && (() => { const pend = pendientesDevolucion(p, datos.hoy); const venc = pend.filter((x) => x.estado.clave !== 'pendiente').length; return (
+              <div className="borde-arriba stack-2" style={{ paddingTop: 'var(--space-2)' }}>
+                <div className="between"><span className="heading fs-12" style={{ letterSpacing: '.08em', textTransform: 'uppercase' }}>Devolución · hasta el {fechaCorta(p.devolucionLimite)}</span><span className={`tag ${pend.length ? (venc ? 'tag-alerta' : 'tag-outline') : 'tag-verde'}`}>{pend.length ? `${pend.length} por devolver` : 'Todos devolvieron'}</span></div>
+                {p.confirmados.map((e) => { const est = estadoDevolucionDe(p, e.id, datos.hoy); return (
+                  <div key={e.id} className="linea-item">
+                    <span style={{ minWidth: 0 }}>{e.nombre} <span className={`tag ${est.tag}`} style={{ fontSize: 10 }}>{est.label}</span></span>
+                    <span style={{ display: 'flex', gap: 4, flex: 'none' }}>
+                      {est.clave !== 'devuelto' && <button className="btn btn-secondary btn-sm" type="button" onClick={() => run(() => fijarDevolucion(p.id, e.id, 'lavado'))}>Recibido lavado</button>}
+                      {(est.clave === 'pendiente' || est.clave === 'vencido') && <button className="btn btn-ghost btn-sm" type="button" title="Llegó sin lavar: no se recibe" onClick={() => run(() => fijarDevolucion(p.id, e.id, 'rechazado'))}>Sin lavar</button>}
+                      {(est.clave === 'devuelto' || est.clave === 'rechazado') && <button className="btn btn-ghost btn-sm" type="button" onClick={() => run(() => fijarDevolucion(p.id, e.id, null))}>Deshacer</button>}
+                    </span>
+                  </div>
+                ); })}
+                {pend.length > 0 && <CorreoBox titulo="Correo a quienes no han devuelto" correo={correoDevolucionPendiente(p, pend)} />}
+              </div>
+            ); })()}
           </Marco>
         ))}
       </div>
@@ -72,12 +90,20 @@ export function Uniformes({ datos, pedidos }: { datos: Datos; pedidos: PedidoVis
             </div>
             <div className="muted fs-12">{u.detalle}</div>
             <div className="borde-arriba stack-2" style={{ paddingTop: 'var(--space-2)', gap: 6 }}>
-              <div className="between"><span className="heading fs-12" style={{ letterSpacing: '.08em', textTransform: 'uppercase' }}>Devolución</span><span className={`tag ${u.devTag}`}>{u.devLabel}</span></div>
-              <div className="row">
-                <button className="btn btn-secondary btn-sm" type="button" disabled={!u.info.n} onClick={() => run(() => fijarDevolucion(u.id, 'lavado'))}>Recibido lavado</button>
-                <button className="btn btn-ghost btn-sm" type="button" disabled={!u.info.n} onClick={() => run(() => fijarDevolucion(u.id, 'rechazado'))}>No recibido · sin lavar</button>
-                {u.devolucion && <button className="btn btn-ghost btn-sm" type="button" onClick={() => run(() => fijarDevolucion(u.id, null))}>Deshacer</button>}
-              </div>
+              <div className="between"><span className="heading fs-12" style={{ letterSpacing: '.08em', textTransform: 'uppercase' }}>Devolución por evento</span><span className={`tag ${u.devTag}`}>{u.devLabel}</span></div>
+              {u.devoluciones.length === 0 && <div className="muted fs-12">Sin eventos con uniforme.</div>}
+              {u.devoluciones.map(({ p, estado }) => (
+                <div key={p.id} className="between fs-12" style={{ gap: 6 }}>
+                  <span style={{ minWidth: 0 }}>{p.evento} · {p.fechaCorta} <span className={`tag ${estado.tag}`} style={{ fontSize: 10 }}>{estado.label}</span></span>
+                  {estado.clave !== 'en-curso' && (
+                    <span style={{ display: 'flex', gap: 4, flex: 'none' }}>
+                      {estado.clave !== 'devuelto' && <button className="btn btn-secondary btn-sm" type="button" onClick={() => run(() => fijarDevolucion(p.id, u.id, 'lavado'))}>Recibido lavado</button>}
+                      {(estado.clave === 'pendiente' || estado.clave === 'vencido') && <button className="btn btn-ghost btn-sm" type="button" title="Llegó sin lavar: no se recibe" onClick={() => run(() => fijarDevolucion(p.id, u.id, 'rechazado'))}>Sin lavar</button>}
+                      {(estado.clave === 'devuelto' || estado.clave === 'rechazado') && <button className="btn btn-ghost btn-sm" type="button" onClick={() => run(() => fijarDevolucion(p.id, u.id, null))}>Deshacer</button>}
+                    </span>
+                  )}
+                </div>
+              ))}
             </div>
           </Marco>
         ))}

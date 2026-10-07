@@ -1,5 +1,5 @@
 // Texto de las notificaciones (puro, sin dependencias de servidor).
-import { cantidadDia, citaDevolucionTexto, citaEntregaTexto, citaEsPeriodo, diasEstudiante, fechaCorta, fechaLarga, fechaLargaDias, horarioCitaTexto, horarioTextoDias, horasDias, lugarDia, lugaresTexto, MINIMO_EVENTOS, repartoTexto, tipoLabel } from './reglas';
+import { cantidadDia, citaDevolucionTexto, citaEntregaTexto, citaEsPeriodo, diasEstudiante, fechaCorta, fechaLarga, fechaLargaDias, horarioCitaTexto, horarioTextoDias, horasDias, lugarDia, lugaresTexto, MINIMO_EVENTOS, repartoTexto, tipoLabel, type FaseDevolucion } from './reglas';
 import type { CitaUniforme, DiaEvento, Estudiante, Pedido } from './tipos';
 import { confirmadosEnDia, type PedidoVista } from './vista';
 
@@ -187,6 +187,34 @@ export function mensajeUniformesRecordatorioPersonal(p: PedidoVista, c: CitaUnif
   }
   if (c.devolucionHasta && c.devolucionHasta !== c.devolucionFecha) return `↩️ ${primerNombre(e)}, desde mañana puedes devolver el uniforme de ${p.evento}: ${citaDevolucionTexto(c)}${lugar}. Recuerda entregarlo lavado.`;
   return `↩️ ${primerNombre(e)}, mañana ${fechaLarga(c.devolucionFecha)} ${c.devolucionHoraFin ? `de ${c.devolucionHora} a ${c.devolucionHoraFin}` : `a las ${c.devolucionHora}`} devuelves el uniforme de ${p.evento}${lugar}. Recuerda entregarlo lavado.`;
+}
+
+// ---------------------------------------------------------------- devolución del uniforme (plazo después del evento)
+
+/** Mensaje personal según la fase: día después del evento, 2 días antes del plazo, el día del plazo y vencido. */
+export function mensajeDevolucionPersonal(p: PedidoVista, e: Estudiante, limite: string, fase: FaseDevolucion): string {
+  const donde = p.devolucionDondeTexto ? ` Dónde y cuándo: ${p.devolucionDondeTexto}.` : '';
+  switch (fase) {
+    case 'inicio': return `👔 ${primerNombre(e)}, gracias por participar en ${p.evento}. Devuelve el uniforme lavado hasta el ${fechaLarga(limite)} (${p.devolucionDias} días).${donde} Si no está lavado no se recibe.`;
+    case 'recordatorio': return `⏰ ${primerNombre(e)}, te quedan 2 días para devolver el uniforme lavado de ${p.evento}: hasta el ${fechaLarga(limite)}.${donde}`;
+    case 'vence': return `⏰ ${primerNombre(e)}, hoy ${fechaLarga(limite)} vence el plazo para devolver el uniforme lavado de ${p.evento}.${donde}`;
+    default: return `⚠️ ${primerNombre(e)}, el plazo para devolver el uniforme de ${p.evento} venció el ${fechaLarga(limite)}. Devuélvelo lavado cuanto antes.${donde}`;
+  }
+}
+
+/** Aviso general en el canal (sin nombres): el día después del evento y 2 días antes del plazo. */
+export function mensajeDevolucionCanal(items: { p: PedidoVista; fase: FaseDevolucion }[]): string | null {
+  const lineas = items.filter((x) => x.fase === 'inicio' || x.fase === 'recordatorio').map(({ p, fase }) => `• ${p.evento}: devolver el uniforme lavado hasta el ${fechaLarga(p.devolucionLimite)}${fase === 'recordatorio' ? ' (quedan 2 días)' : ''}${p.devolucionDondeTexto ? ` · ${p.devolucionDondeTexto}` : ''}`);
+  return lineas.length ? [`👔 Devolución de uniformes (quienes participaron):`, ...lineas, `Si no está lavado no se recibe.`].join('\n') : null;
+}
+
+/** Resumen diario para coordinación: vencidos con nombre y cuántos siguen en plazo. */
+export function mensajeDevolucionCoordinacion(vencidos: { p: PedidoVista; e: Estudiante; limite: string }[], enPlazo: number): string | null {
+  if (!vencidos.length && !enPlazo) return null;
+  const partes = [];
+  if (vencidos.length) partes.push(`vencidos: ${vencidos.map(({ p, e, limite }) => `${e.nombre} (${p.evento}, hasta el ${fechaCorta(limite)})`).join(' · ')}`);
+  if (enPlazo) partes.push(`en plazo: ${enPlazo}`);
+  return `👔 Uniformes sin devolver · ${partes.join(' · ')}.`;
 }
 
 // ---------------------------------------------------------------- avisos a coordinación

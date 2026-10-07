@@ -1,11 +1,11 @@
 import 'server-only';
 import ExcelJS from 'exceljs';
-import { DEVOLUCION, DIAS_CLASE, infoUniforme, semLabel, citaDevolucionTexto, citaEntregaTexto } from './reglas';
+import { DIAS_CLASE, infoUniforme, semLabel, citaDevolucionTexto, citaEntregaTexto } from './reglas';
 import { CLAVES_HORA, normalizarClave, pad2, parsearCsv, type Fila } from './importar';
 export { parseDocentes, parseEstudiantes, parseHorarios, parseDia, parseGenero, parseHora, parseSemestre } from './importar';
 export type { Fila } from './importar';
 import type { Datos, Semestre } from './tipos';
-import { matrizSemestres, resumenHoras, vistaPedidos } from './vista';
+import { matrizSemestres, resumenHoras, vistaPedidos, vistaUniformes } from './vista';
 
 // ---------------------------------------------------------------- lectura
 
@@ -75,8 +75,9 @@ function hoja(wb: ExcelJS.Workbook, nombre: string, filas: (string | number)[][]
 }
 
 function devolucionTexto(d: Datos, studentId: string, enUso: boolean): string {
-  const dev = d.devoluciones.find((x) => x.studentId === studentId);
-  return dev ? DEVOLUCION[dev.estado].label : enUso ? 'En uso' : '—';
+  const u = vistaUniformes(d).find((x) => x.id === studentId);
+  if (!u || !u.devoluciones.length) return enUso ? 'En uso' : '—';
+  return u.devoluciones.map((x) => `${x.p.evento}: ${x.estado.label}`).join('; ');
 }
 
 /** Reporte del semestre: hojas Eventos, Horas, Estudiantes y Novedades. */

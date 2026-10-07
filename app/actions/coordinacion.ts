@@ -449,12 +449,13 @@ export async function alternarPrenda(studentId: string, item: string): Promise<R
   } catch (e) { return fallo(e); }
 }
 
-export async function fijarDevolucion(studentId: string, estado: 'lavado' | 'rechazado' | null): Promise<Resultado> {
+/** Devolución del uniforme de un estudiante en un evento: recibido lavado, no recibido (sin lavar) o sin registro (pendiente). */
+export async function fijarDevolucion(requestId: string, studentId: string, estado: 'lavado' | 'rechazado' | null): Promise<Resultado> {
   try {
     await exigir();
     const sql = db();
-    if (!estado) await sql`delete from uniform_returns where student_id = ${studentId}`;
-    else await sql`insert into uniform_returns (student_id, estado, at) values (${studentId}, ${estado}, ${hoyISO()}) on conflict (student_id) do update set estado = excluded.estado, at = excluded.at`;
+    if (!estado) await sql`delete from uniform_event_returns where request_id = ${requestId} and student_id = ${studentId}`;
+    else await sql`insert into uniform_event_returns (request_id, student_id, estado, at) values (${requestId}, ${studentId}, ${estado}, ${hoyISO()}) on conflict (request_id, student_id) do update set estado = excluded.estado, at = excluded.at`;
     refrescar();
     return { ok: true };
   } catch (e) { return fallo(e); }
@@ -462,7 +463,7 @@ export async function fijarDevolucion(studentId: string, estado: 'lavado' | 'rec
 
 // ---------------------------------------------------------------- ajustes
 
-export async function guardarAjustes(a: { horasSemana?: number; inicioSemestre?: string; correoDecanato?: string; correoGrupoEstudiantes?: string; correoCoordinacion?: string; uniformeLugar?: string; anticipacionHoras?: number; anticipacionHasta?: string; uniformeHorario?: FranjaUniforme[] }): Promise<Resultado> {
+export async function guardarAjustes(a: { horasSemana?: number; inicioSemestre?: string; correoDecanato?: string; correoGrupoEstudiantes?: string; correoCoordinacion?: string; uniformeLugar?: string; anticipacionHoras?: number; anticipacionHasta?: string; uniformeHorario?: FranjaUniforme[]; uniformeDiasDevolucion?: number }): Promise<Resultado> {
   try {
     await exigir();
     const sql = db();
@@ -484,6 +485,11 @@ export async function guardarAjustes(a: { horasSemana?: number; inicioSemestre?:
     if (a.anticipacionHasta != null) {
       if (a.anticipacionHasta && !esFechaISO(a.anticipacionHasta)) throw new Error('Fecha límite de la anticipación inválida');
       await sql`update settings set anticipacion_hasta = ${a.anticipacionHasta || null} where periodo = ${periodo}`;
+    }
+    if (a.uniformeDiasDevolucion != null) {
+      const n = Math.round(Number(a.uniformeDiasDevolucion));
+      if (!(n >= 1 && n <= 60)) throw new Error('El plazo para devolver el uniforme debe estar entre 1 y 60 días');
+      await sql`update settings set uniforme_dias_devolucion = ${n} where periodo = ${periodo}`;
     }
     if (a.uniformeHorario != null) {
       const h: FranjaUniforme[] = (Array.isArray(a.uniformeHorario) ? a.uniformeHorario : []).map((f) => ({ dia: Math.round(Number(f.dia)), inicio: String(f.inicio ?? '').trim(), fin: String(f.fin ?? '').trim(), atiende: String(f.atiende ?? '').trim().slice(0, 120) }));
@@ -601,8 +607,8 @@ export async function nuevoPeriodo(periodo: string, inicioSemestre: string): Pro
     const actual = await ajustesActuales();
     await sql.begin(async (tx) => {
       await tx`update settings set actual = false where actual`;
-      await tx`insert into settings (periodo, actual, inicio_semestre, semanas, horas_semana, correo_decanato, correo_grupo_estudiantes, correo_coordinacion, telegram_chat_id, telegram_chat_nombre, telegram_canal_id, telegram_canal_nombre, telegram_bot_username, telegram_webhook_url, uniforme_lugar, calendario_token, uniforme_horario)
-        values (${p}, true, ${inicioSemestre}, ${actual.semanas}, ${actual.horasSemana}, ${actual.correoDecanato}, ${actual.correoGrupoEstudiantes}, ${actual.correoCoordinacion}, ${actual.telegramChatId || null}, ${actual.telegramChatNombre || null}, ${actual.telegramCanalId || null}, ${actual.telegramCanalNombre || null}, ${actual.telegramBotUsername || null}, ${actual.telegramWebhookUrl || null}, ${actual.uniformeLugar || ''}, ${actual.calendarioToken || null}, ${actual.uniformeHorario.length ? tx.json(actual.uniformeHorario as unknown as JSONValue) : null})
+      await tx`insert into settings (periodo, actual, inicio_semestre, semanas, horas_semana, correo_decanato, correo_grupo_estudiantes, correo_coordinacion, telegram_chat_id, telegram_chat_nombre, telegram_canal_id, telegram_canal_nombre, telegram_bot_username, telegram_webhook_url, uniforme_lugar, calendario_token, uniforme_horario, uniforme_dias_devolucion)
+        values (${p}, true, ${inicioSemestre}, ${actual.semanas}, ${actual.horasSemana}, ${actual.correoDecanato}, ${actual.correoGrupoEstudiantes}, ${actual.correoCoordinacion}, ${actual.telegramChatId || null}, ${actual.telegramChatNombre || null}, ${actual.telegramCanalId || null}, ${actual.telegramCanalNombre || null}, ${actual.telegramBotUsername || null}, ${actual.telegramWebhookUrl || null}, ${actual.uniformeLugar || ''}, ${actual.calendarioToken || null}, ${actual.uniformeHorario.length ? tx.json(actual.uniformeHorario as unknown as JSONValue) : null}, ${actual.uniformeDiasDevolucion || 7})
         on conflict (periodo) do update set actual = true, inicio_semestre = excluded.inicio_semestre`;
       await tx`insert into grade_subjects (periodo, semestre, materia) select ${p}, semestre, materia from grade_subjects where periodo = ${actual.periodo} on conflict do nothing`;
     });

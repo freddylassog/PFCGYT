@@ -214,6 +214,24 @@ export function correoUniformes(p: PedidoVista): Correo {
   return { para: [], cco: p.confirmados.map((e) => e.correo), asunto: `Uniformes · ${p.evento} · ${entrega ? `entrega ${entrega}` : `devolución ${devolucion}`}`, cuerpo };
 }
 
+// ---------------------------------------------------------------- 6c. uniformes: recordatorio de devolución
+
+/** Correo (Outlook) a los confirmados que aún no devuelven el uniforme de un evento. */
+export function correoDevolucionPendiente(p: PedidoVista, pendientes: { e: Estudiante; limite: string }[]): Correo {
+  const limite = pendientes.length ? pendientes.map((x) => x.limite).sort()[0] : p.devolucionLimite;
+  const cuerpo = [
+    `Hola:`,
+    ``,
+    `Gracias por participar en ${p.evento} (${p.fechaLarga}). Recuerda devolver el uniforme institucional lavado hasta el ${fechaLarga(limite)} (${p.devolucionDias} días después del evento).`,
+    p.devolucionDondeTexto ? `Dónde y cuándo: ${p.devolucionDondeTexto}.` : null,
+    ``,
+    `El uniforme se recibe únicamente lavado; si no está lavado no se recibe y el plazo sigue corriendo.`,
+    ``,
+    FIRMA,
+  ].filter((l) => l !== null).join('\n');
+  return { para: [], cco: pendientes.map((x) => x.e.correo), asunto: `Devolución del uniforme · ${p.evento} · hasta el ${fechaLarga(limite)}`, cuerpo };
+}
+
 // ---------------------------------------------------------------- 7. respuesta al solicitante
 
 export function correoSolicitante(p: PedidoVista): Correo {

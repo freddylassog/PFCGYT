@@ -3,8 +3,8 @@ import { useState } from 'react';
 import { inscribirme, retirarme } from '@/app/actions/estudiante';
 import { Marco } from '@/components/Marco';
 import { useAccion } from '@/components/useAccion';
-import { citaDevolucionTexto, citaEntregaTexto, fechaCorta, horarioTextoDias, horarioUniformeTexto, horasDias, infoUniforme, MINIMO_EVENTOS, redondear1, semLabel } from '@/lib/reglas';
-import { actividadesDeEstudiante, diasDeEstudiante } from '@/lib/vista';
+import { citaDevolucionTexto, citaEntregaTexto, fechaCorta, fechaLarga, horarioTextoDias, horarioUniformeTexto, horasDias, infoUniforme, MINIMO_EVENTOS, redondear1, semLabel } from '@/lib/reglas';
+import { actividadesDeEstudiante, diasDeEstudiante, estadoDevolucionDe, limiteDevolucionDe } from '@/lib/vista';
 import type { Datos, Estudiante } from '@/lib/tipos';
 import { avanceEstudiante, vistaPedidos } from '@/lib/vista';
 
@@ -13,9 +13,14 @@ export function MisEventos({ datos, yo }: { datos: Datos; yo: Estudiante }) {
   const pedidos = vistaPedidos(datos);
   const avance = avanceEstudiante(datos, yo.id, pedidos);
   const uni = infoUniforme(yo.genero, datos.prendas.filter((p) => p.studentId === yo.id).map((p) => p.item));
-  const dev = datos.devoluciones.find((d) => d.studentId === yo.id) ?? null;
-  const devTexto = dev?.estado === 'lavado' ? 'Uniforme devuelto y recibido lavado.' : dev?.estado === 'rechazado' ? 'Tu uniforme no fue recibido porque llegó sin lavar. Debes volver a entregarlo lavado.' : 'Al final del semestre devuelve el uniforme lavado; si no está lavado no se recibe.';
   const misEventos = avance.eventos;
+  // Devoluciones pendientes (por evento, con plazo).
+  const misDevoluciones = misEventos.filter((e) => e.vestimenta === 'uniforme').map((e) => ({ e, estado: estadoDevolucionDe(e, yo.id, datos.hoy), limite: limiteDevolucionDe(e, yo.id) }));
+  const porDevolver = misDevoluciones.filter((x) => x.estado.clave === 'pendiente' || x.estado.clave === 'vencido' || x.estado.clave === 'rechazado');
+  const devAlerta = porDevolver.some((x) => x.estado.clave !== 'pendiente');
+  const devTexto = porDevolver.length
+    ? `Por devolver (lavado): ${porDevolver.map((x) => `${x.e.evento} hasta el ${fechaCorta(x.limite)}${x.estado.clave === 'vencido' ? ' (plazo vencido)' : x.estado.clave === 'rechazado' ? ' (llegó sin lavar: vuelve a entregarlo lavado)' : ''}`).join(' · ')}.`
+    : `Después de cada evento tienes ${datos.ajustes.uniformeDiasDevolucion} días para devolver el uniforme lavado; si no está lavado no se recibe.`;
   const horarioFijo = datos.ajustes.uniformeHorario.length ? `${horarioUniformeTexto(datos.ajustes.uniformeHorario)}${datos.ajustes.uniformeLugar ? ` · ${datos.ajustes.uniformeLugar}` : ''}` : '';
   const [diasElegidos, setDiasElegidos] = useState<Record<string, string[]>>({});
   /** Fechas de un evento que aún tienen cupo (los días llenos quedan bloqueados). */
@@ -40,7 +45,7 @@ export function MisEventos({ datos, yo }: { datos: Datos; yo: Estudiante }) {
       <Marco className="mt-6 max-720 p-4 stack-2">
         <div className="between"><h6 className="m-0">Mi uniforme</h6><span className={`tag ${uni.tagClass}`}>{uni.estado}</span></div>
         <div className="row" style={{ gap: 6 }}>{uni.items.map((l) => <span key={l} className={`tag ${uni.tiene.includes(l) ? 'tag-accent' : 'tag-outline'}`}>{l}{uni.tiene.includes(l) ? '' : ' · pendiente'}</span>)}</div>
-        <p className={`fs-12 m-0 ${dev?.estado === 'rechazado' ? 'falta' : 'muted'}`}>{devTexto}</p>
+        <p className={`fs-12 m-0 ${devAlerta ? 'falta' : 'muted'}`}>{devTexto}</p>
         {horarioFijo && <p className="fs-12 m-0"><strong>Retiro y devolución:</strong> {horarioFijo}. Retira el uniforme antes de cada evento y devuélvelo lavado después, en cualquiera de esas franjas.</p>}
       </Marco>
       {datos.notificaciones.botUsername && (
@@ -92,9 +97,8 @@ export function MisEventos({ datos, yo }: { datos: Datos; yo: Estudiante }) {
               <div><div className="etiqueta">Responsable en sitio</div>{e.responsable}{e.responsableTelefono && <div className="muted fs-12">{e.responsableTelefono}</div>}</div>
               <div><div className="etiqueta">Vestimenta</div>{e.vestLabel}<div className="muted fs-12">{e.vestNotaEst}</div></div>
               {(e.comidas > 0 || e.transporteTexto) && <div><div className="etiqueta">Alimentación y transporte</div>{e.comidas > 0 ? `${e.comidas} ${e.comidas > 1 ? 'alimentaciones' : 'alimentación'}` : 'Sin alimentación'}{e.transporteTexto ? ` · transporte: ${e.transporteTexto.toLowerCase()}` : ''}<div className="muted fs-12">A cargo del organizador.</div></div>}
-              {e.vestimenta === 'uniforme' && citaEntregaTexto(e.uniformeCita) && <div><div className="etiqueta">Entrega del uniforme</div>{citaEntregaTexto(e.uniformeCita)}{e.uniformeCita?.lugar && <div className="muted fs-12">{e.uniformeCita.lugar}</div>}</div>}
-              {e.vestimenta === 'uniforme' && citaDevolucionTexto(e.uniformeCita) && <div><div className="etiqueta">Devolución del uniforme (lavado)</div>{citaDevolucionTexto(e.uniformeCita)}{e.uniformeCita?.lugar && <div className="muted fs-12">{e.uniformeCita.lugar}</div>}</div>}
-              {e.vestimenta === 'uniforme' && !citaEntregaTexto(e.uniformeCita) && !citaDevolucionTexto(e.uniformeCita) && horarioFijo && <div><div className="etiqueta">Retiro y devolución del uniforme</div>{horarioFijo}<div className="muted fs-12">Antes del evento; devuélvelo lavado después.</div></div>}
+              {e.vestimenta === 'uniforme' && (citaEntregaTexto(e.uniformeCita) ? <div><div className="etiqueta">Entrega del uniforme</div>{citaEntregaTexto(e.uniformeCita)}{e.uniformeCita?.lugar && <div className="muted fs-12">{e.uniformeCita.lugar}</div>}</div> : horarioFijo ? <div><div className="etiqueta">Retiro del uniforme</div>{horarioFijo}<div className="muted fs-12">Antes del evento.</div></div> : null)}
+              {e.vestimenta === 'uniforme' && (() => { const dv = estadoDevolucionDe(e, yo.id, datos.hoy); return <div><div className="etiqueta">Devolución del uniforme (lavado)</div>{citaDevolucionTexto(e.uniformeCita) ?? `Hasta el ${fechaLarga(limiteDevolucionDe(e, yo.id))}`}<div className={`fs-12 ${dv.clave === 'vencido' || dv.clave === 'rechazado' ? 'falta' : 'muted'}`}>{dv.clave === 'en-curso' ? (e.uniformeCita?.lugar || e.devolucionDondeTexto || `${e.devolucionDias} días después del evento`) : dv.label}</div></div>; })()}
             </div>
             <div><div className="etiqueta" style={{ marginBottom: 4 }}>{e.repartoPorDia ? 'Tus actividades' : 'Actividades del evento'}</div><div className="row" style={{ gap: 4 }}>{(e.repartoPorDia ? actividadesDeEstudiante(e, yo.id) : e.actividadesEtiquetas).map((a) => <span key={a} className="tag tag-neutral">{a}</span>)}</div></div>
           </Marco>
