@@ -801,7 +801,7 @@ export function diagnosticoCruce(e: { dias: DiaEvento[] }, clases: Clase[], st: 
     else {
       const mismoDia = mias.filter((c) => dias.some((d) => diaSemana(d.fecha) === c.dia));
       motivo = mismoDia.length
-        ? `ese día sus clases son en otra hora: ${mismoDia.map((c) => `${c.materia} ${c.inicio}–${c.fin}`).join(', ')} (evento: ${cuando})`
+        ? `ese día sus clases son en otra hora: ${mismoDia.map((c) => `${c.materia}${c.paralelo || c.nrc ? ` (${[c.paralelo, c.nrc ? `NRC ${c.nrc}` : ''].filter(Boolean).join(' · ')})` : ''} ${c.inicio}–${c.fin}`).join(', ')} (evento: ${cuando})`
         : `no tiene clases el ${cuando}`;
       if (nrcsSinHorario.length) motivo += ` · ${nrcsSinHorario.length} de sus NRC no están en el horario (${nrcsSinHorario.join(', ')})`;
     }

@@ -1,7 +1,7 @@
 // Cálculos derivados que comparten el panel, el portal del estudiante, el
 // reporte Excel y los correos. Todo puro: entra `Datos`, salen vistas.
 import { ACTIVIDADES, actividadesEtiquetasPedido, actividadesTextoPedido, cantidadDia, cantidadesDistintas, citaDevolucionTexto, citaEntregaTexto, comidasDias, compromisosPedido, convenioLabel, cruceClases, cruceTexto, diagnosticoCruce, cuposTexto, diasEstudiante, diasHasta, duracionTextoDias, estadoDevolucion, estadoVisible, estudiantesAfectados, fechaCorta, fechaCortaDias, fechaLarga, fechaLargaDias, fechasCruce, horarioTextoDias, horarioUniformeTexto, horasDias, horasEstudiante, infoUniforme, limiteDevolucion, lugaresTexto, MINIMO_EVENTOS, mismoLugar, pasa4hDias, redondear1, repartoDia, semanaDe, semCorto, semLabel, tagClass, tieneRepartoPorDia, tipoClass, tipoLabel, transporteDias, transporteMotivoDias, transporteTexto, type Compromiso, type EstadoDevolucion, type EstadoVisible, type Transporte, ultimoDia, VESTIMENTA } from './reglas';
-import type { Clase, Datos, Devolucion, DiaEvento, Docente, Estudiante, Novedad, Pedido, Semestre } from './tipos';
+import type { Aviso, Clase, Datos, Devolucion, DiaEvento, Docente, Estudiante, Novedad, Pedido, Semestre } from './tipos';
 
 export interface PedidoVista extends Pedido {
   /** 'Guía de invitados (2), Acompañamiento en recorridos (2)' */
@@ -209,6 +209,15 @@ export function pendientesDevolucion(p: PedidoVista, hoy: string): { e: Estudian
 /** Confirmados a los que les choca esa clase (cursan la materia y van a un día del evento en que se cruza). */
 export function estudiantesDeCruce(p: PedidoVista, c: Clase): Estudiante[] {
   return estudiantesAfectados(p, c, p.confirmados.map((e) => ({ ...e, dias: diasDeEstudiante(p, e.id) }))).map(({ dias: _d, ...e }) => { void _d; return e; });
+}
+
+/** Estudiantes que lleva el correo a un docente: si ya se envió, los que se mandaron (registro); si está pendiente
+ *  o aún no existe, los que hoy le chocan esa clase (matrícula y días de asistencia al día). */
+export function estudiantesDeAviso(p: PedidoVista, c: Clase, aviso: Aviso | null, estudiantes: Estudiante[]): Estudiante[] {
+  const guardados = aviso ? aviso.studentIds.map((id) => estudiantes.find((e) => e.id === id)).filter((e): e is Estudiante => !!e) : [];
+  if (aviso?.sentAt) return guardados;
+  const vivos = estudiantesDeCruce(p, c);
+  return vivos.length ? vivos : guardados.length ? guardados : p.confirmados;
 }
 
 /** Etiquetas de actividades solo de los días a los que asiste un estudiante. */

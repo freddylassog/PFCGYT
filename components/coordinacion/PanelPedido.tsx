@@ -12,7 +12,7 @@ import { CitaUniforme } from './CitaUniforme';
 import { correoAvisoDocente, correoConvocatoria, correoDecanato, correoEstudianteDecision, correoRecordatorio, correoSolicitante, mailtoUrl, outlookWebUrl } from '@/lib/correos';
 import { TIPOS_NOVEDAD, fechaCorta, infoUniforme, semCorto } from '@/lib/reglas';
 import type { Datos, Estado, Estudiante } from '@/lib/tipos';
-import { diasDeEstudiante, diasLlenosDe, estudiantesDeCruce, type CruceVista, type PedidoVista } from '@/lib/vista';
+import { diasDeEstudiante, diasLlenosDe, estudiantesDeAviso, type CruceVista, type PedidoVista } from '@/lib/vista';
 import type { CruceEvento } from '@/lib/reglas';
 
 export function PanelPedido({ p, datos, pedidos, cruceEvento, onCerrar }: { p: PedidoVista; datos: Datos; pedidos: PedidoVista[]; cruceEvento: CruceEvento<PedidoVista> | null; onCerrar: () => void }) {
@@ -42,11 +42,8 @@ export function PanelPedido({ p, datos, pedidos, cruceEvento, onCerrar }: { p: P
   const pendientes = p.novedades.filter((n) => n.pendiente);
   const disponibles = datos.estudiantes.filter((e) => e.activo && !p.confirmados.some((c) => c.id === e.id) && !p.inscritos.some((c) => c.id === e.id));
 
-  function estudiantesAviso(c: CruceVista): Estudiante[] {
-    if (c.aviso) return c.aviso.studentIds.map((id) => datos.estudiantes.find((e) => e.id === id)).filter((e): e is Estudiante => !!e);
-    const afectados = estudiantesDeCruce(p, c);
-    return afectados.length ? afectados : p.confirmados;
-  }
+  // Pendiente: quienes hoy le chocan esa clase (días de asistencia al día); enviado: lo que se mandó.
+  const estudiantesAviso = (c: CruceVista): Estudiante[] => estudiantesDeAviso(p, c, c.aviso, datos.estudiantes);
 
   const cambiar = (estado: Estado) => run(() => cambiarEstado(p.id, estado));
   /** En eventos de varios días: botones D1, D2… para marcar a qué días va el estudiante. */

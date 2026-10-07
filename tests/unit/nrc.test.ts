@@ -105,7 +105,7 @@ test('diagnóstico: por qué a un confirmado no le choca ninguna clase', () => {
   assert.match(d2.motivo ?? '', /ninguno de sus 2 NRC \(5807, 5808\) está en el horario cargado: revisa la columna NRC del horario de 2\.º semestre/);
   // Va solo el viernes por la tarde: ese día tiene clase en otra hora
   const d3 = diagnosticoCruce(ev, clases, { ...ana, dias: [vie] });
-  assert.match(d3.motivo ?? '', /^ese día sus clases son en otra hora: Carnicería 07:00–12:00 \(evento: viernes 16 oct 14:00–16:00\) · 1 de sus NRC no están en el horario \(2809\)$/);
+  assert.match(d3.motivo ?? '', /^ese día sus clases son en otra hora: Carnicería \(A · NRC 2808\) 07:00–12:00 \(evento: viernes 16 oct 14:00–16:00\) · 1 de sus NRC no están en el horario \(2809\)$/);
   // Evento un lunes: no tiene clases ese día
   const d4 = diagnosticoCruce({ dias: [{ fecha: '2026-10-12', inicio: '08:00', fin: '10:00' }] }, clases, { ...ana, nrcs: ['2807'] });
   assert.equal(d4.motivo, 'no tiene clases el lunes 12 oct 08:00–10:00');

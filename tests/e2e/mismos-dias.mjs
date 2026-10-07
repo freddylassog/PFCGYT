@@ -99,6 +99,25 @@ if (confirmados !== 3) throw new Error('deberían ser 3 confirmados (2 cupos × 
 paso('lleno con 3 personas: Andrés (D1), Camila (D1 y D2), Valeria (D2); Mateo sin cupo');
 await p.screenshot({ path: shots + '/mismos-lleno.png', fullPage: false, caret: 'initial' });
 
+// Correo al docente del día 1 (Técnicas Culinarias I, miércoles 09:00–11:00): solo quienes van ese día.
+// Al apagar D1 a Camila, sale de ese correo sin tocar nada más.
+const cruce = p.locator('aside .punteado:has(h6:has-text("Cruce con clases"))');
+const textoAviso = async () => {
+  await cruce.locator('button:has-text("Ver / copiar")').first().click();
+  const caja = cruce.locator('.correo').first();
+  await caja.waitFor({ timeout: 10000 });
+  const t = (await caja.textContent()).replace(/\s+/g, ' ');
+  await cruce.locator('button:has-text("Ocultar")').first().click();
+  return t;
+};
+let aviso = await textoAviso();
+if (!/Técnicas Culinarias I/.test(aviso) || !/Andrés Molina/.test(aviso) || !/Camila Ríos/.test(aviso) || /Valeria Suárez/.test(aviso)) throw new Error('el correo del miércoles debería llevar a Andrés y Camila, no a Valeria (solo día 2): ' + aviso.slice(0, 400));
+await fila('Camila').locator('button:has-text("D1")').click();
+await p.waitForSelector('text=/día 1 \\(16 dic\\): 1\\/2 · día 2 \\(17 dic\\): 2\\/2/', { timeout: 15000 });
+aviso = await textoAviso();
+if (/Camila Ríos/.test(aviso) || !/Andrés Molina/.test(aviso)) throw new Error('al apagar D1 a Camila, el correo del miércoles no debe incluirla: ' + aviso.slice(0, 400));
+paso('correo al docente del miércoles: solo quienes van ese día, y se actualiza al cambiar los días');
+
 // Portal de Valeria: solo su día
 await valeria.reload();
 await valeria.waitForSelector('text=Tus días');

@@ -242,11 +242,7 @@ export async function editarPedido(id: string, c: CambiosPedido): Promise<Result
     // Si cambiaron los días u horarios, los avisos a docentes pendientes se recalculan.
     const antes = JSON.stringify(ordenarDias((Array.isArray(actual.dias) ? actual.dias : []) as DiaEvento[]).map((d) => [d.fecha, String(d.inicio).slice(0, 5), String(d.fin).slice(0, 5)]));
     const cambioHorario = antes !== JSON.stringify(dias.map((d) => [d.fecha, d.inicio, d.fin]));
-    if (cambioHorario) {
-      await sql`delete from teacher_notices where request_id = ${id} and sent_at is null`;
-      const sems = await sql`select distinct s.semestre from enrollments e join students s on s.id = e.student_id where e.request_id = ${id} and e.estado = 'confirmado'`;
-      for (const r of sems) await prepararAvisos(id, Number(r.semestre));
-    }
+    if (cambioHorario) await recalcularAvisos(id);
     refrescar();
     return { ok: true };
   } catch (e) { return fallo(e); }
@@ -270,21 +266,26 @@ export async function marcarConvenio(id: string, convenio: 'si' | 'no'): Promise
   } catch (e) { return fallo(e); }
 }
 
-/** Crea o actualiza los avisos pendientes a docentes para las clases que
- *  chocan con el evento y aplican a los estudiantes confirmados del semestre. */
-async function prepararAvisos(requestId: string, semestre: number): Promise<void> {
+/** Crea o actualiza los avisos pendientes a docentes para las clases que chocan con el evento
+ *  y aplican a los estudiantes confirmados (matrícula por NRC y días de asistencia de cada uno). */
+async function prepararAvisos(requestId: string): Promise<void> {
   const sql = db();
   const datos = await cargarDatos();
   const p = datos.pedidos.find((x) => x.id === requestId);
   if (!p) return;
   const confirmados = datos.inscripciones.filter((i) => i.requestId === requestId && i.estado === 'confirmado').map((i) => { const e = datos.estudiantes.find((x) => x.id === i.studentId); return e ? { ...e, dias: diasEstudiante(p, i.dias) } : null; }).filter((e): e is NonNullable<typeof e> => !!e);
-  const delSemestre = confirmados.filter((e) => e.semestre === semestre);
-  for (const c of cruceClases(p, datos.clases, delSemestre)) {
-    const ids = estudiantesAfectados(p, c, delSemestre).map((e) => e.id);
+  for (const c of cruceClases(p, datos.clases, confirmados)) {
+    const ids = estudiantesAfectados(p, c, confirmados).map((e) => e.id);
     if (!ids.length) continue;
     await sql`insert into teacher_notices (request_id, class_id, student_ids) values (${requestId}, ${c.id}, ${ids})
       on conflict (request_id, class_id) do update set student_ids = excluded.student_ids where teacher_notices.sent_at is null`;
   }
+}
+
+/** Rehace los avisos pendientes (los ya enviados no se tocan): al quitar a alguien, cambiar sus días o el horario del evento. */
+async function recalcularAvisos(requestId: string): Promise<void> {
+  await db()`delete from teacher_notices where request_id = ${requestId} and sent_at is null`;
+  await prepararAvisos(requestId);
 }
 
 export async function decidirInscripcion(requestId: string, studentId: string, decision: 'aceptar' | 'rechazar' | 'quitar'): Promise<Resultado> {
@@ -311,18 +312,13 @@ export async function decidirInscripcion(requestId: string, studentId: string, d
       }
       await sql`insert into enrollments (request_id, student_id, estado, dias) values (${requestId}, ${studentId}, 'confirmado', ${valorDias ? sql.json(valorDias) : null})
         on conflict (request_id, student_id) do update set estado = 'confirmado', dias = excluded.dias, updated_at = now()`;
-      const [st] = await sql`select semestre from students where id = ${studentId}`;
-      if (st) await prepararAvisos(requestId, Number(st.semestre));
+      await prepararAvisos(requestId);
     } else if (decision === 'rechazar') {
       await sql`update enrollments set estado = 'rechazado', updated_at = now() where request_id = ${requestId} and student_id = ${studentId}`;
     } else {
       await sql`delete from enrollments where request_id = ${requestId} and student_id = ${studentId}`;
-      const [st] = await sql`select semestre from students where id = ${studentId}`;
-      if (st) {
-        // Los avisos pendientes de ese semestre se recalculan; si ya no queda nadie, se eliminan.
-        await sql`delete from teacher_notices t using classes c where t.class_id = c.id and t.request_id = ${requestId} and t.sent_at is null and c.semestre = ${Number(st.semestre)}`;
-        await prepararAvisos(requestId, Number(st.semestre));
-      }
+      // Los avisos pendientes se recalculan; si ya no queda nadie en una clase, desaparece.
+      await recalcularAvisos(requestId);
     }
     // Mensaje personal de Telegram al estudiante (si vinculó su cuenta).
     const datos = await cargarDatos();
@@ -356,6 +352,8 @@ export async function fijarDiasEstudiante(requestId: string, studentId: string, 
     if (dias && !elegidos.length) throw new Error('El estudiante debe asistir al menos un día.');
     const valor = elegidos.length && elegidos.length < fechas.length ? elegidos : null;
     await sql`update enrollments set dias = ${valor ? sql.json(valor) : null}, updated_at = now() where request_id = ${requestId} and student_id = ${studentId}`;
+    // Los correos pendientes a docentes llevan solo a quienes van ese día.
+    await recalcularAvisos(requestId);
     refrescar();
     return { ok: true };
   } catch (e) { return fallo(e); }
@@ -381,8 +379,8 @@ export async function crearAviso(requestId: string, classId: string): Promise<Re
     if (!p) throw new Error('Pedido no encontrado');
     const confirmados = datos.inscripciones.filter((i) => i.requestId === requestId && i.estado === 'confirmado').map((i) => { const e = datos.estudiantes.find((x) => x.id === i.studentId); return e ? { ...e, dias: diasEstudiante(p, i.dias) } : null; }).filter((e): e is NonNullable<typeof e> => !!e);
     // Por matrícula real (NRC) cuando existe; si no, por semestre y paralelo; y solo los días del evento a los que va cada uno. Sin coincidencias: todos.
-    let ids = estudiantesAfectados(p, clase, confirmados).map((e) => e.id);
-    if (!ids.length) ids = confirmados.map((e) => e.id);
+    const ids = estudiantesAfectados(p, clase, confirmados).map((e) => e.id);
+    if (!ids.length) throw new Error('A ningún estudiante confirmado le choca esta clase en los días a los que va.');
     await sql`insert into teacher_notices (request_id, class_id, student_ids) values (${requestId}, ${classId}, ${ids})
       on conflict (request_id, class_id) do update set student_ids = excluded.student_ids where teacher_notices.sent_at is null`;
     refrescar();
