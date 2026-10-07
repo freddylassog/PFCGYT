@@ -23,11 +23,14 @@ export function mailtoUrl(c: Correo): string {
   return `mailto:${c.para.map(encodeURIComponent).join(',')}?${q}`;
 }
 
-/** Redacción en Outlook web (la cuenta institucional abierta en el navegador). Solo para correos sin CCO:
- *  el enlace no admite copia oculta y se mandaría sin ella. */
+/** Redacción en Outlook web (la cuenta institucional abierta en el navegador), independiente del programa
+ *  de correo del equipo. Sin CCO van los campos directos (to, subject, body); con CCO va el mailto completo en
+ *  `mailtouri`, el parámetro con que Outlook web recibe los enlaces mailto del navegador (incluye la copia oculta). */
 export function outlookWebUrl(c: Correo): string {
-  const params = new URLSearchParams({ to: c.para.join(';'), subject: c.asunto, body: c.cuerpo, online: '1' });
-  return `https://outlook.office.com/mail/deeplink/compose?${params.toString().replace(/\+/g, '%20')}`;
+  const q = c.cco?.length
+    ? `mailtouri=${encodeURIComponent(mailtoUrl(c))}`
+    : new URLSearchParams({ to: c.para.join(';'), subject: c.asunto, body: c.cuerpo, online: '1' }).toString().replace(/\+/g, '%20');
+  return `https://outlook.office.com/mail/deeplink/compose?${q}`;
 }
 
 export function textoCorreo(c: Correo): string {

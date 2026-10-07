@@ -100,6 +100,9 @@ t = await cruceTexto();
 const bloque = t.slice(t.indexOf('Cruce con clases'));
 if (!/Lenguaje/.test(bloque)) throw new Error('con Andrés confirmado debe aparecer Lenguaje');
 paso('Andrés confirmado: aparece el cruce con Lenguaje');
+// En la fila del cruce: Outlook web directo y Abrir correo (mailto)
+if (!/^https:\/\/outlook\.office\.com\/mail\/deeplink\/compose\?to=mcobo%40ute\.edu\.ec/.test((await p.locator('aside .punteado:has(h6:has-text("Cruce con clases")) a:has-text("Outlook web")').first().getAttribute('href')) || '')) throw new Error('la fila del cruce no tiene el enlace a Outlook web');
+if (!/^mailto:mcobo%40ute\.edu\.ec\?subject=/.test((await p.locator('aside .punteado:has(h6:has-text("Cruce con clases")) a:has-text("Abrir correo")').first().getAttribute('href')) || '')) throw new Error('la fila del cruce no tiene el mailto');
 // Ver / copiar: el correo al docente se ve completo con Outlook web y Copiar texto
 await p.click('aside button:has-text("Ver / copiar")');
 const caja = p.locator('aside .correo', { hasText: 'Ausencia justificada en Lenguaje' });

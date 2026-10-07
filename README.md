@@ -17,7 +17,7 @@ Costo mensual: **$0** (Supabase + Vercel en sus planes gratuitos).
 No se necesita acceso de TI ni servicios de correo. En cada punto donde hace falta un correo (convocatoria, aviso a docentes por cruce de clases, matriz al docente, reporte a decanato, confirmación al estudiante, respuesta al solicitante, recordatorio 24 h) la app muestra el correo listo con dos botones:
 
 - **Abrir en Outlook**: abre Outlook con destinatarios, asunto y texto ya escritos.
-- **Outlook web**: abre la redacción en outlook.office.com con la cuenta institucional del navegador (solo en correos sin copia oculta, porque ese enlace no la admite). Sirve cuando Outlook de escritorio se abre vacío.
+- **Outlook web**: abre la redacción en outlook.office.com con la cuenta institucional del navegador, sin depender del programa de correo del equipo (sirve cuando el Outlook nuevo de Windows abre la bandeja pero no crea el mensaje). Con copia oculta el enlace lleva el mailto completo; conviene revisar destinatarios y texto antes de enviar.
 - **Copiar texto**: para pegarlo donde prefieras.
 
 Coordinación lo envía desde su propia cuenta y luego marca **"Marcar como enviado"** para que quede registrado. Para las convocatorias, en *Resumen → Ajustes* se puede fijar el **grupo de Outlook de estudiantes**; si no hay grupo, el correo pone a todos los estudiantes activos en copia oculta (y hay un botón para copiar la lista).

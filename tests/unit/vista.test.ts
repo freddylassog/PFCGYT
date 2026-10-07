@@ -59,4 +59,7 @@ test('correo de convocatoria y mailto', () => {
   assert.match(web, /^https:\/\/outlook\.office\.com\/mail\/deeplink\/compose\?to=docente%40ute\.edu\.ec&subject=Ausencia%20justificada/);
   assert.match(web, /body=Hola%0A%0AAdi%C3%B3s/);
   assert.doesNotMatch(web, /\+/);
+  const conCco = outlookWebUrl(c);
+  assert.match(conCco, /^https:\/\/outlook\.office\.com\/mail\/deeplink\/compose\?mailtouri=mailto%3A%3Fbcc%3Dcamila\.rios%2540ute\.edu\.ec%252Candres\.molina%2540ute\.edu\.ec%26subject%3D/, 'con CCO va el mailto completo');
+  assert.doesNotMatch(conCco, /\+/);
 });

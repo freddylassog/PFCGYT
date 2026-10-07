@@ -9,7 +9,7 @@ import { Marco } from '@/components/Marco';
 import { useAccion } from '@/components/useAccion';
 import { EditarPedido } from './EditarPedido';
 import { CitaUniforme } from './CitaUniforme';
-import { correoAvisoDocente, correoConvocatoria, correoDecanato, correoEstudianteDecision, correoRecordatorio, correoSolicitante, mailtoUrl } from '@/lib/correos';
+import { correoAvisoDocente, correoConvocatoria, correoDecanato, correoEstudianteDecision, correoRecordatorio, correoSolicitante, mailtoUrl, outlookWebUrl } from '@/lib/correos';
 import { TIPOS_NOVEDAD, fechaCorta, infoUniforme, semCorto } from '@/lib/reglas';
 import type { Datos, Estado, Estudiante } from '@/lib/tipos';
 import { diasDeEstudiante, diasLlenosDe, estudiantesDeCruce, type CruceVista, type PedidoVista } from '@/lib/vista';
@@ -233,7 +233,8 @@ export function PanelPedido({ p, datos, pedidos, cruceEvento, onCerrar }: { p: P
                 ) : c.aviso ? (
                   <span className="row" style={{ gap: 4 }}>
                     <span className="tag tag-outline">Pendiente de envío</span>
-                    <a className="btn btn-secondary btn-sm" href={mailtoUrl(correo)}>Abrir correo</a>
+                    <a className="btn btn-secondary btn-sm" href={outlookWebUrl(correo)} target="_blank" rel="noreferrer" title="Redactar en outlook.office.com">Outlook web</a>
+                    <a className="btn btn-ghost btn-sm" href={mailtoUrl(correo)} title="Abrir en el programa de correo del equipo">Abrir correo</a>
                     {verBoton}
                     <button className="btn btn-ghost btn-sm" type="button" onClick={() => run(() => marcarAviso(c.aviso!.id, true))}>Marcar enviado</button>
                   </span>
