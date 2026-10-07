@@ -755,11 +755,13 @@ async function importarEstudiantesNrc(nombreArchivo: string, hojas: HojaCruda[],
   const { periodo } = await ajustesActuales();
   const clasesNrc = await sql`select distinct nrc, semestre from classes where periodo = ${periodo} and activo and nrc is not null`;
   const semPorNrc = new Map(clasesNrc.map((c) => [String(c.nrc), Number(c.semestre)]));
+  // Si el horario cargado no tiene ese NRC, vale el semestre que dice el nombre de la hoja ("LENGUAJE - 1C" → 1.º).
+  const semPorHoja = new Map(materias.filter((m) => m.semestre).map((m) => [m.nrc, m.semestre as number]));
   const existentes = await sql`select id, nombre, correo, semestre, activo from students where periodo = ${periodo}`;
   const semestres = new Set<number>(); const sinSemestre: string[] = []; const usados = new Set<string>();
   const plan: { e: (typeof ok)[number]; sem: number; id: string | null; nuevo: boolean }[] = [];
   for (const e of ok) {
-    const porNrc = e.nrcs.map((x) => semPorNrc.get(x)).filter((x): x is number => !!x);
+    const porNrc = e.nrcs.map((x) => semPorNrc.get(x) ?? semPorHoja.get(x)).filter((x): x is number => !!x);
     const sem = semArchivo ?? (porNrc.length ? Number([...porNrc].sort((a, b) => porNrc.filter((v) => v === b).length - porNrc.filter((v) => v === a).length || a - b)[0]) : 0);
     if (!sem) { sinSemestre.push(e.nombre); continue; }
     semestres.add(sem);
@@ -767,6 +769,7 @@ async function importarEstudiantesNrc(nombreArchivo: string, hojas: HojaCruda[],
     if (match) usados.add(String(match.id));
     plan.push({ e, sem, id: match ? String(match.id) : null, nuevo: !match });
   }
+  if (!plan.length) throw new Error(`No se importó ningún estudiante porque no se pudo saber su semestre (el horario cargado no tiene estos NRC y las hojas no indican el nivel). Elige 1.º, 2.º o 3.º en el selector y vuelve a cargar el archivo. Ejemplos: ${sinSemestre.slice(0, 3).join(', ')}.`);
   let desactivados = 0;
   await sql.begin(async (tx) => {
     // Nuevos: una inserción masiva (sin correo, género estimado por el nombre); los id se recuperan por nombre.
@@ -812,7 +815,7 @@ async function importarEstudiantesNrc(nombreArchivo: string, hojas: HojaCruda[],
   const sems = [...semestres];
   const [n] = await sql`select count(*)::int as n, count(*) filter (where correo is null or correo = '')::int as sin from students where periodo = ${periodo} and activo`;
   const nrcSinHorario = materias.filter((m) => !semPorNrc.has(m.nrc)).length;
-  if (nrcSinHorario) errores.push(`${nrcSinHorario} materia(s) del listado no están en el horario cargado (revisa los NRC en Horarios)`);
+  if (nrcSinHorario) errores.push(`${nrcSinHorario} materia(s) del listado no están en el horario cargado: vuelve a cargar en Horarios el archivo de la universidad (trae la columna NRC) para que el cruce con clases sea por matrícula`);
   await registrarArchivo('estudiantes', nombreArchivo, `${n.n} estudiantes activos · matrícula por NRC`);
   refrescar();
   const nuevos = plan.filter((p) => p.nuevo).length, actualizados = plan.length - nuevos;

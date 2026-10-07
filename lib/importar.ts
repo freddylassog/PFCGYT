@@ -188,7 +188,14 @@ export function parseHorarios(filas: Fila[]): { ok: ClaseImportada[]; errores: s
 /** Una hoja de Excel tal cual: nombre y filas con sus celdas como texto. */
 export interface HojaCruda { nombre: string; filas: string[][] }
 export interface EstudianteNrcImportado { clave: string; nombre: string; primerNombre: string; paralelo: string; nrcs: string[] }
-export interface MateriaNrc { nrc: string; materia: string; paralelo: string }
+export interface MateriaNrc { nrc: string; materia: string; paralelo: string; /** Semestre deducido del nombre de la hoja ("LENGUAJE - 1C" → 1), si se puede. */ semestre: number | null }
+
+/** Semestre a partir del nombre de una hoja del listado por materia: termina en nivel + paralelo ("1C", "2A", "3B1"). */
+export function semestreDeHoja(nombreHoja: string): number | null {
+  const m = (nombreHoja || '').trim().match(/(\d)\s*[A-Z]\d?$/i);
+  const n = m ? Number(m[1]) : 0;
+  return n >= 1 && n <= 3 ? n : null;
+}
 
 /** Clave para comparar nombres de estudiantes entre archivos: sin tildes, en mayúsculas y solo letras. */
 export function claveNombreEstudiante(s: string): string {
@@ -284,7 +291,7 @@ export function parseEstudiantesNrc(hojas: HojaCruda[]): { ok: EstudianteNrcImpo
       porClave.set(clave, e); n++; nrcHoja = nrcHoja || nrc; parHoja = parHoja || paralelo;
     }
     if (!n) errores.push(`Hoja "${h.nombre}": sin estudiantes legibles`);
-    else if (!materias.some((m) => m.nrc === nrcHoja)) materias.push({ nrc: nrcHoja, materia, paralelo: parHoja });
+    else if (!materias.some((m) => m.nrc === nrcHoja)) materias.push({ nrc: nrcHoja, materia, paralelo: parHoja, semestre: semestreDeHoja(h.nombre) });
   }
   const ok = [...porClave.entries()].map(([clave, e]) => ({ clave, nombre: e.nombre, primerNombre: e.primerNombre, paralelo: moda(e.paralelos), nrcs: [...e.nrcs].sort() }));
   return { ok, materias, errores };

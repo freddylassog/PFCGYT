@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { candidatosPorNombre, claveNombreEstudiante, coincideNombre, esFormatoNrc, formatearNombreNrc, generoPorNombre, parseEstudiantesNrc, parseHorariosAncho, tituloNombre } from '../../lib/importar';
+import { candidatosPorNombre, claveNombreEstudiante, semestreDeHoja, coincideNombre, esFormatoNrc, formatearNombreNrc, generoPorNombre, parseEstudiantesNrc, parseHorariosAncho, tituloNombre } from '../../lib/importar';
 import { claseAplica, claveDocente, cruceClases } from '../../lib/reglas';
 import type { Clase } from '../../lib/tipos';
 
@@ -40,10 +40,15 @@ test('listado por materia: un estudiante por nombre con todos sus NRC, paralelo 
     ['Ricardo M. Pacheco Toapanta', 'C', ['3176']],
   ]);
   assert.deepEqual(materias, [
-    { nrc: '3175', materia: 'LENGUAJE Y ESCRITURA APLICADA A LA CULINARIA', paralelo: 'C' },
-    { nrc: '3180', materia: 'TECNICAS BASICAS DE COCINA I', paralelo: 'C1' },
-    { nrc: '3176', materia: 'MATEMÁTICA PARA LA ADMINISTRACIÓN GASTRONÓMICA', paralelo: 'C' },
+    { nrc: '3175', materia: 'LENGUAJE Y ESCRITURA APLICADA A LA CULINARIA', paralelo: 'C', semestre: 1 },
+    { nrc: '3180', materia: 'TECNICAS BASICAS DE COCINA I', paralelo: 'C1', semestre: 1 },
+    { nrc: '3176', materia: 'MATEMÁTICA PARA LA ADMINISTRACIÓN GASTRONÓMICA', paralelo: 'C', semestre: 1 },
   ]);
+  assert.equal(semestreDeHoja('CONTABILIDAD 2A'), 2);
+  assert.equal(semestreDeHoja('TGCYA - 3B1'), 3);
+  assert.equal(semestreDeHoja('TBC I - 1C1'), 1);
+  assert.equal(semestreDeHoja('Hoja1'), null);
+  assert.equal(semestreDeHoja('MATEMÁTICA - 1C'), 1);
   assert.deepEqual(errores, []);
 });
 

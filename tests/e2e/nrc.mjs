@@ -19,20 +19,7 @@ await p.fill('#password', 'protocolo2026');
 await p.click('button:has-text("Ingresar")');
 await p.waitForSelector('h1:has-text("Coordinación")');
 
-// 1. Horario con NRC y docentes
-await p.goto(base + '/horarios');
-const inputs = p.locator('input[type=file]');
-await inputs.nth(1).setInputFiles(fx + 'docentes.csv');
-await p.waitForSelector('text=Activos: 7', { timeout: 20000 });
-await inputs.nth(0).setInputFiles(fx + 'horarios.xlsx');
-await p.waitForSelector('text=15 clases cargadas', { timeout: 20000 });
-await p.click('label:has-text("1.º")');
-await p.waitForSelector('text=Lenguaje');
-const filaLenguaje = (await p.locator('table tbody tr:has-text("Lenguaje")').first().textContent()).replace(/\s+/g, ' ');
-if (!/1002/.test(filaLenguaje)) throw new Error('el horario no muestra el NRC de Lenguaje: ' + filaLenguaje);
-paso('horario cargado con NRC (Lenguaje = 1002)');
-
-// 2. Listado por materia de 1.º: detecta el semestre por los NRC del horario
+// 1. Listado por materia de 1.º ANTES del horario: el semestre sale del nombre de las hojas ("… - 1A")
 await p.goto(base + '/coordinacion?tab=estudiantes');
 await p.selectOption('#sem-archivo', '0');
 await p.setInputFiles('input[type=file]', fx + 'estudiantes-nrc-1.xlsx');
@@ -57,6 +44,19 @@ if ((await p.locator('text=sin correo').count()) !== 0) throw new Error('quedaro
 const r = await fetch(base + '/api/plantilla-estudiantes', { headers: { cookie: (await ctx.cookies()).map((c) => `${c.name}=${c.value}`).join('; ') } });
 if (!r.ok || !/spreadsheetml/.test(r.headers.get('content-type') || '')) throw new Error('la plantilla no se descarga: ' + r.status);
 paso('correos completados por nombre; plantilla descargable');
+
+// 3b. Horario con NRC y docentes (después de los estudiantes: el orden no importa)
+await p.goto(base + '/horarios');
+const inputs = p.locator('input[type=file]');
+await inputs.nth(1).setInputFiles(fx + 'docentes.csv');
+await p.waitForSelector('text=Activos: 7', { timeout: 20000 });
+await inputs.nth(0).setInputFiles(fx + 'horarios.xlsx');
+await p.waitForSelector('text=15 clases cargadas', { timeout: 20000 });
+await p.click('label:has-text("1.º")');
+await p.waitForSelector('text=Lenguaje');
+const filaLenguaje = (await p.locator('table tbody tr:has-text("Lenguaje")').first().textContent()).replace(/\s+/g, ' ');
+if (!/1002/.test(filaLenguaje)) throw new Error('el horario no muestra el NRC de Lenguaje: ' + filaLenguaje);
+paso('horario cargado con NRC (Lenguaje = 1002)');
 
 // 4. Cruce real: evento un martes 10:00–12:00 (Lenguaje 1.º es martes 10:00–13:00)
 const martes = new Date(); martes.setDate(martes.getDate() + 5); while (martes.getDay() !== 2) martes.setDate(martes.getDate() + 1);
