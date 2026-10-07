@@ -723,18 +723,20 @@ export function normalizarParalelo(p: string | null | undefined): string {
 
 /** ¿La clase aplica a este estudiante? Mismo semestre y, si ambos tienen
  *  paralelo, el mismo paralelo. Sin paralelo en alguno de los dos = aplica. */
-export function claseAplica(c: { semestre: number; paralelo: string | null }, e: { semestre: number; paralelo: string | null }): boolean {
+export function claseAplica(c: { semestre: number; paralelo: string | null; nrc?: string | null }, e: { semestre: number; paralelo: string | null; nrcs?: string[] }): boolean {
+  // Con matrícula por NRC (listado por materia) la clase aplica solo si el estudiante cursa ese NRC.
+  if (c.nrc && e.nrcs && e.nrcs.length) return e.nrcs.includes(c.nrc);
   if (c.semestre !== e.semestre) return false;
   const cp = normalizarParalelo(c.paralelo), ep = normalizarParalelo(e.paralelo);
   return !cp || !ep || cp === ep;
 }
 
 /** Clases que chocan con el evento ese día de la semana, filtradas a los
- *  estudiantes indicados (semestre y paralelo). Sin estudiantes = todas. */
+ *  estudiantes indicados (por NRC si lo tienen; si no, semestre y paralelo). Sin estudiantes = todas. */
 export function cruceClases(
   e: { dias: DiaEvento[] },
   clases: Clase[],
-  estudiantes: { semestre: number; paralelo: string | null }[],
+  estudiantes: { semestre: number; paralelo: string | null; nrcs?: string[] }[],
 ): Clase[] {
   const vistas = new Set<string>();
   const resultado: Clase[] = [];

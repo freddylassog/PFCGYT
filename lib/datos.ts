@@ -67,7 +67,7 @@ export function mapPedido(r: Fila): Pedido {
 }
 
 export function mapEstudiante(r: Fila): Estudiante {
-  return { id: s(r.id), nombre: s(r.nombre), correo: s(r.correo), semestre: Number(r.semestre) as Semestre, paralelo: sn(r.paralelo), genero: r.genero as Estudiante['genero'], activo: !!r.activo, telegramChatId: sn(r.telegram_chat_id) };
+  return { id: s(r.id), nombre: s(r.nombre), correo: s(r.correo), semestre: Number(r.semestre) as Semestre, paralelo: sn(r.paralelo), genero: r.genero as Estudiante['genero'], activo: !!r.activo, telegramChatId: sn(r.telegram_chat_id), nrcs: Array.isArray(r.nrcs) ? (r.nrcs as unknown[]).map(String) : [] };
 }
 
 function mapDocente(r: Fila): Docente {
@@ -75,7 +75,7 @@ function mapDocente(r: Fila): Docente {
 }
 
 function mapClase(r: Fila): Clase {
-  return { id: s(r.id), semestre: Number(r.semestre) as Semestre, paralelo: sn(r.paralelo), dia: Number(r.dia), inicio: hhmm(s(r.inicio)), fin: hhmm(s(r.fin)), materia: s(r.materia), teacherId: sn(r.teacher_id), activo: !!r.activo };
+  return { id: s(r.id), semestre: Number(r.semestre) as Semestre, paralelo: sn(r.paralelo), dia: Number(r.dia), inicio: hhmm(s(r.inicio)), fin: hhmm(s(r.fin)), materia: s(r.materia), teacherId: sn(r.teacher_id), nrc: sn(r.nrc), activo: !!r.activo };
 }
 
 function mapAjustes(r: Fila): Ajustes {
@@ -106,7 +106,7 @@ export async function cargarDatos(): Promise<Datos> {
   const p = ajustes.periodo;
   const [pedidos, estudiantes, docentes, clases, materias, inscripciones, avisos, prendas, devoluciones, novedades] = await Promise.all([
     sql`select * from requests where periodo = ${p} order by fecha, inicio, numero`,
-    sql`select st.*, t.chat_id as telegram_chat_id from students st left join telegram_estudiantes t on t.correo = st.correo where st.periodo = ${p} order by st.semestre, st.nombre`,
+    sql`select st.*, t.chat_id as telegram_chat_id, coalesce(array_agg(sc.nrc order by sc.nrc) filter (where sc.nrc is not null), '{}') as nrcs from students st left join telegram_estudiantes t on t.correo = st.correo left join student_classes sc on sc.student_id = st.id where st.periodo = ${p} group by st.id, t.chat_id order by st.semestre, st.nombre`,
     sql`select * from teachers where periodo = ${p} order by nombre`,
     sql`select * from classes where periodo = ${p} order by semestre, dia, inicio`,
     sql`select * from grade_subjects where periodo = ${p} order by semestre`,

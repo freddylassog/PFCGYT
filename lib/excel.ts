@@ -1,8 +1,9 @@
 import 'server-only';
 import ExcelJS from 'exceljs';
 import { DIAS_CLASE, infoUniforme, semLabel, citaDevolucionTexto, citaEntregaTexto } from './reglas';
-import { CLAVES_HORA, normalizarClave, pad2, parsearCsv, type Fila } from './importar';
-export { parseDocentes, parseEstudiantes, parseHorarios, parseDia, parseGenero, parseHora, parseSemestre } from './importar';
+import { CLAVES_HORA, normalizarClave, pad2, parsearCsv, type Fila, type HojaCruda } from './importar';
+export { parseDocentes, parseEstudiantes, parseEstudiantesNrc, esFormatoNrc, coincideNombre, generoPorNombre, parseHorarios, parseDia, parseGenero, parseHora, parseSemestre } from './importar';
+export type { HojaCruda } from './importar';
 export type { Fila } from './importar';
 import type { Datos, Semestre } from './tipos';
 import { matrizSemestres, resumenHoras, vistaPedidos, vistaUniformes } from './vista';
@@ -30,6 +31,31 @@ function celdaATexto(v: ExcelJS.CellValue, esHora: boolean): string {
     return '';
   }
   return String(v).trim();
+}
+
+/** Lee todas las hojas de un .xlsx tal cual (celdas como texto), para archivos con una hoja por materia. */
+export async function leerHojas(buffer: Buffer): Promise<HojaCruda[]> {
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(buffer as unknown as ArrayBuffer);
+  return wb.worksheets.map((ws) => {
+    const filas: string[][] = [];
+    ws.eachRow({ includeEmpty: false }, (row) => {
+      const valores = row.values as ExcelJS.CellValue[]; // índice 1-based
+      const celdas: string[] = [];
+      for (let c = 1; c < valores.length; c++) celdas.push(celdaATexto(valores[c], false));
+      if (celdas.some((x) => x.trim())) filas.push(celdas);
+    });
+    return { nombre: ws.name, filas };
+  });
+}
+
+/** Plantilla para completar correos y género: Nombre, Correo, Semestre, Paralelo, Género de los estudiantes activos. */
+export async function generarPlantillaEstudiantes(d: Datos): Promise<Buffer> {
+  const wb = new ExcelJS.Workbook();
+  const filas: (string | number)[][] = [['Nombre', 'Correo', 'Semestre', 'Paralelo', 'Género']];
+  for (const e of d.estudiantes.filter((x) => x.activo).sort((a, b) => a.semestre - b.semestre || a.nombre.localeCompare(b.nombre))) filas.push([e.nombre, e.correo, e.semestre, e.paralelo ?? '', e.genero === 'F' ? 'Femenino' : 'Masculino']);
+  hoja(wb, 'Estudiantes', filas, [36, 36, 10, 10, 12]);
+  return Buffer.from(await wb.xlsx.writeBuffer());
 }
 
 /** Lee la primera hoja (o el CSV) y devuelve filas como {columna normalizada: texto}. */

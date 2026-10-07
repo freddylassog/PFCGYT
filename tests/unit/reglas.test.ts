@@ -64,11 +64,11 @@ test('eventos de varios días: horas, textos, reglas', () => {
 
 test('cruce con clases por día de la semana y semestres', () => {
   const clases: Clase[] = [
-    { id: 'c2', semestre: 1, paralelo: 'A', dia: 2, inicio: '10:00', fin: '13:00', materia: 'Lenguaje', teacherId: null, activo: true },
-    { id: 'c2c', semestre: 1, paralelo: 'C', dia: 2, inicio: '09:00', fin: '11:00', materia: 'Lenguaje', teacherId: null, activo: true },
-    { id: 'c7', semestre: 2, paralelo: null, dia: 2, inicio: '08:00', fin: '10:00', materia: 'Investigación', teacherId: null, activo: true },
-    { id: 'c12', semestre: 3, paralelo: 'A', dia: 2, inicio: '14:00', fin: '17:00', materia: 'Cultura', teacherId: null, activo: true },
-    { id: 'c1', semestre: 1, paralelo: 'A', dia: 1, inicio: '07:00', fin: '09:00', materia: 'Turismo', teacherId: null, activo: true },
+    { id: 'c2', semestre: 1, paralelo: 'A', dia: 2, inicio: '10:00', fin: '13:00', materia: 'Lenguaje', teacherId: null, nrc: null, activo: true },
+    { id: 'c2c', semestre: 1, paralelo: 'C', dia: 2, inicio: '09:00', fin: '11:00', materia: 'Lenguaje', teacherId: null, nrc: null, activo: true },
+    { id: 'c7', semestre: 2, paralelo: null, dia: 2, inicio: '08:00', fin: '10:00', materia: 'Investigación', teacherId: null, nrc: null, activo: true },
+    { id: 'c12', semestre: 3, paralelo: 'A', dia: 2, inicio: '14:00', fin: '17:00', materia: 'Cultura', teacherId: null, nrc: null, activo: true },
+    { id: 'c1', semestre: 1, paralelo: 'A', dia: 1, inicio: '07:00', fin: '09:00', materia: 'Turismo', teacherId: null, nrc: null, activo: true },
   ];
   const ev = { dias: [{ fecha: '2026-09-22', inicio: '08:00', fin: '12:00' }] }; // martes
   assert.deepEqual(cruceClases(ev, clases, []).map((c) => c.id), ['c2', 'c2c', 'c7'], 'sin confirmados: todas');

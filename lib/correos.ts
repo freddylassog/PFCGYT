@@ -70,7 +70,7 @@ export function correoConvocatoria(d: Datos, p: PedidoVista): Correo {
   ].filter((l) => l !== '').join('\n');
   return {
     para: grupo ? [grupo] : [],
-    cco: grupo ? undefined : activos.map((e) => e.correo),
+    cco: grupo ? undefined : activos.map((e) => e.correo).filter(Boolean),
     asunto: `Convocatoria de apoyo protocolario · ${p.evento} · ${p.fechaLarga}`,
     cuerpo,
   };
@@ -84,7 +84,7 @@ export function correoAvisoDocente(p: PedidoVista, c: CruceVista, estudiantes: E
     ``,
     `Los siguientes estudiantes participarán en el evento ${p.evento} (${p.horarioTexto}) el ${p.fechaLarga} como apoyo protocolario de la facultad, por lo que no asistirán a su clase de ${c.materia} de ${c.inicio}–${c.fin}.`,
     ``,
-    lista(estudiantes.map((e) => `${e.nombre} · ${e.correo}`)),
+    lista(estudiantes.map((e) => `${e.nombre}${e.correo ? ` · ${e.correo}` : ''}`)),
     ``,
     `Agradecemos considerar la ausencia como justificada.`,
     ``,
@@ -189,7 +189,7 @@ export function correoRecordatorio(p: PedidoVista): Correo {
     ``,
     FIRMA,
   ].join('\n');
-  return { para: [], cco: p.confirmados.map((e) => e.correo), asunto: `Recordatorio · ${p.evento} · ${p.fechaLarga}`, cuerpo };
+  return { para: [], cco: p.confirmados.map((e) => e.correo).filter(Boolean), asunto: `Recordatorio · ${p.evento} · ${p.fechaLarga}`, cuerpo };
 }
 
 // ---------------------------------------------------------------- 6b. uniformes: entrega y devolución
@@ -211,7 +211,7 @@ export function correoUniformes(p: PedidoVista): Correo {
     ``,
     FIRMA,
   ].filter((l) => l !== null).join('\n');
-  return { para: [], cco: p.confirmados.map((e) => e.correo), asunto: `Uniformes · ${p.evento} · ${entrega ? `entrega ${entrega}` : `devolución ${devolucion}`}`, cuerpo };
+  return { para: [], cco: p.confirmados.map((e) => e.correo).filter(Boolean), asunto: `Uniformes · ${p.evento} · ${entrega ? `entrega ${entrega}` : `devolución ${devolucion}`}`, cuerpo };
 }
 
 // ---------------------------------------------------------------- 6c. uniformes: recordatorio de devolución
@@ -229,7 +229,7 @@ export function correoDevolucionPendiente(p: PedidoVista, pendientes: { e: Estud
     ``,
     FIRMA,
   ].filter((l) => l !== null).join('\n');
-  return { para: [], cco: pendientes.map((x) => x.e.correo), asunto: `Devolución del uniforme · ${p.evento} · hasta el ${fechaLarga(limite)}`, cuerpo };
+  return { para: [], cco: pendientes.map((x) => x.e.correo).filter(Boolean), asunto: `Devolución del uniforme · ${p.evento} · hasta el ${fechaLarga(limite)}`, cuerpo };
 }
 
 // ---------------------------------------------------------------- 7. respuesta al solicitante

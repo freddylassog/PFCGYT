@@ -83,7 +83,7 @@ export function parseHora(s: string): string | null {
 
 export interface EstudianteImportado { nombre: string; correo: string; semestre: Semestre; paralelo: string; genero: Genero }
 export interface DocenteImportado { nombre: string; correo: string }
-export interface ClaseImportada { semestre: Semestre; paralelo: string; dia: number; inicio: string; fin: string; materia: string; correoDocente: string; docenteNombre: string }
+export interface ClaseImportada { semestre: Semestre; paralelo: string; dia: number; inicio: string; fin: string; materia: string; correoDocente: string; docenteNombre: string; nrc: string }
 
 /** Extrae todos los rangos de hora de un texto como "9:00-11:00", "07:00 -09:00",
  *  "9:00 10:00" o "7:00-9:00 / 10:00-11:00". */
@@ -118,6 +118,7 @@ export function parseHorariosAncho(filas: Fila[]): { ok: ClaseImportada[]; error
     const paralelo = limpiarTexto(col(f, 'Paralelo')).toUpperCase();
     const docenteNombre = limpiarTexto(col(f, 'Docente', 'Profesor'));
     const correoDocente = col(f, 'Correo docente', 'Correo').toLowerCase();
+    const nrc = limpiarTexto(col(f, 'NRC', 'Nrc', 'Código', 'Codigo'));
     if (!materia || !semestre) {
       if (materia || docenteNombre) errores.push(`Fila ${i + 2}: ${!materia ? 'falta asignatura' : 'nivel fuera de 1–3'}`);
       return;
@@ -126,7 +127,7 @@ export function parseHorariosAncho(filas: Fila[]): { ok: ClaseImportada[]; error
     for (const [dia, n] of DIAS_ANCHO) {
       for (const r of parseRangos(f[dia] ?? '')) {
         alguno = true;
-        ok.push({ semestre, paralelo, dia: n, inicio: r.inicio, fin: r.fin, materia, correoDocente: correoDocente.includes('@') ? correoDocente : '', docenteNombre });
+        ok.push({ semestre, paralelo, dia: n, inicio: r.inicio, fin: r.fin, materia, correoDocente: correoDocente.includes('@') ? correoDocente : '', docenteNombre, nrc });
       }
     }
     if (!alguno) errores.push(`Fila ${i + 2}: ${materia} (${paralelo || 'sin paralelo'}) no tiene horas legibles`);
@@ -172,11 +173,108 @@ export function parseHorarios(filas: Fila[]): { ok: ClaseImportada[]; errores: s
     const paralelo = limpiarTexto(col(f, 'Paralelo')).toUpperCase();
     const correoDocente = col(f, 'Correo docente', 'Docente correo', 'Correo del docente', 'Email docente', 'Correo').toLowerCase();
     const docenteNombre = limpiarTexto(col(f, 'Docente', 'Profesor', 'Nombre docente'));
+    const nrc = limpiarTexto(col(f, 'NRC', 'Nrc'));
     const faltan = [!semestre && 'semestre', !dia && 'día (Lunes…Viernes)', !inicio && 'inicio (HH:MM)', !fin && 'fin (HH:MM)', !materia && 'materia'].filter(Boolean);
     if (faltan.length) errores.push(`Fila ${i + 2}: falta ${faltan.join(', ')}`);
     else if (inicio! >= fin!) errores.push(`Fila ${i + 2}: la hora de fin debe ser mayor que la de inicio`);
-    else ok.push({ semestre: semestre!, paralelo, dia: dia!, inicio: inicio!, fin: fin!, materia, correoDocente: correoDocente.includes('@') ? correoDocente : '', docenteNombre: docenteNombre.includes('@') ? '' : docenteNombre });
+    else ok.push({ semestre: semestre!, paralelo, dia: dia!, inicio: inicio!, fin: fin!, materia, correoDocente: correoDocente.includes('@') ? correoDocente : '', docenteNombre: docenteNombre.includes('@') ? '' : docenteNombre, nrc });
   });
   return { ok, errores };
 }
 
+
+// ---------------------------------------------------------------- listados de estudiantes por materia (NRC)
+
+/** Una hoja de Excel tal cual: nombre y filas con sus celdas como texto. */
+export interface HojaCruda { nombre: string; filas: string[][] }
+export interface EstudianteNrcImportado { clave: string; nombre: string; primerNombre: string; paralelo: string; nrcs: string[] }
+export interface MateriaNrc { nrc: string; materia: string; paralelo: string }
+
+/** Clave para comparar nombres de estudiantes entre archivos: sin tildes, en mayúsculas y solo letras. */
+export function claveNombreEstudiante(s: string): string {
+  return (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z\u00d1 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+const PARTICULAS = new Set(['DE', 'DEL', 'LA', 'LAS', 'LOS', 'Y', 'E', 'DA', 'DO', 'DOS', 'VAN', 'VON', 'SAN']);
+
+/** ¿Son la misma persona? Las palabras del nombre más corto deben estar todas en el otro (mínimo dos). */
+export function coincideNombre(a: string, b: string): boolean {
+  const tokens = (x: string) => claveNombreEstudiante(x).split(' ').filter((t) => t.length > 1 && !PARTICULAS.has(t));
+  const ta = tokens(a), tb = tokens(b);
+  const [corto, largo] = ta.length <= tb.length ? [ta, tb] : [tb, ta];
+  return corto.length >= 2 && corto.every((t) => largo.includes(t));
+}
+
+/** "CARRIÓN" → "Carrión"; "DE LA TORRE" → "de la Torre" (la primera palabra siempre con mayúscula). */
+export function tituloNombre(s: string): string {
+  return limpiarTexto(s).toLowerCase().split(' ').map((w, i) => (i > 0 && PARTICULAS.has(w.toUpperCase()) ? w : w.charAt(0).toUpperCase() + w.slice(1))).join(' ');
+}
+
+/** "ANDREI, CARRIÓN/TISCAMA R." → "Andrei R. Carrión Tiscama"; "ANETH, LINCANGO/" → "Aneth Lincango". */
+export function formatearNombreNrc(crudo: string): { nombre: string; primerNombre: string } {
+  const t = limpiarTexto(crudo);
+  const coma = t.indexOf(',');
+  const nombresRaw = coma >= 0 ? t.slice(0, coma).trim() : '';
+  const apellidosRaw = coma >= 0 ? t.slice(coma + 1).trim() : t;
+  const partes = apellidosRaw.split('/').map((x) => x.trim());
+  const ap1 = partes[0] ?? '';
+  const resto = (partes[1] ?? '').split(/\s+/).filter(Boolean);
+  const inicial = resto.find((x) => /^[A-Z\u00c0-\u00dc]\.?$/i.test(x) && x.length <= 2) ?? '';
+  const ap2 = resto.filter((x) => x !== inicial).join(' ');
+  const nombre = tituloNombre([nombresRaw, inicial ? inicial.toUpperCase().replace(/\.?$/, '.') : '', ap1, ap2].filter(Boolean).join(' '));
+  const primerNombre = (nombresRaw || ap1).split(/\s+/)[0] ?? '';
+  return { nombre, primerNombre };
+}
+
+const FEMENINOS_SIN_A = new Set(['ESTEFANY', 'ESTEFANI', 'LESLY', 'LESLIE', 'EMILY', 'EMILIE', 'ODALIS', 'SKARLETH', 'SCARLETH', 'MELANIE', 'MELANY', 'ZOE', 'BELEN', 'ANETH', 'NICOLE', 'NICOL', 'DENISSE', 'DENISE', 'LISBETH', 'LIZBETH', 'LISSETTE', 'LIZETH', 'ELIZABETH', 'ELIZABET', 'JENNIFER', 'JENIFFER', 'KAREN', 'CAROL', 'NAHOMI', 'NAOMI', 'ASHLEY', 'MISHELL', 'MICHELLE', 'MICHELL', 'SCARLETT', 'GENESIS', 'NAYELI', 'MAYERLI', 'ARLETH', 'JOSELYN', 'JOSSELYN', 'KERLY', 'ANAHI', 'ABIGAIL', 'RAQUEL', 'ISABEL', 'CARMEN', 'MERCEDES', 'DOLORES', 'INES', 'BEATRIZ', 'PILAR', 'ROCIO', 'SOLEDAD', 'EVELYN', 'EVELIN', 'JAZMIN', 'YAZMIN', 'NOEMI', 'RUTH', 'ESTHER', 'MIRIAM', 'LILIAN', 'MARISOL', 'ARACELI', 'ARACELY', 'MARYPAZ', 'DORIS', 'NATHALY', 'NATALY', 'NATHALIE', 'YULEISY', 'KIMBERLY', 'DAYANNE', 'SOLANGE', 'SHIRLEY', 'ANGIE', 'MAITE', 'MAYTE', 'MILAGROS', 'GUADALUPE', 'BRIGITTE', 'DANIELLE', 'VALERIE', 'SHARON', 'CELESTE', 'YADIRA', 'JOHANNA', 'LIZ', 'ANGELES', 'DULCE', 'MARYORI', 'MAYORI', 'YESENIA', 'LUZ', 'NOELY', 'DAYSI', 'DAISY', 'GRACE', 'KATHERINE', 'CATHERINE', 'KATERIN', 'KATHERIN', 'JAEL', 'MELISSA', 'ALEXIS']);
+const MASCULINOS_CON_A = new Set(['JOSHUA', 'LUCA', 'JONA', 'NOA', 'AKIRA', 'MUSTAFA', 'DAVID', 'JOSIAS', 'ELIAS', 'ISAIAS', 'JEREMIAS', 'ZACARIAS', 'MATIAS', 'TOBIAS', 'NICOLA', 'JUAN', 'BAUTISTA']);
+
+/** Género estimado por el primer nombre (para el uniforme); se puede corregir en la tabla. */
+export function generoPorNombre(primerNombre: string): Genero {
+  const n = claveNombreEstudiante(primerNombre).split(' ')[0] ?? '';
+  if (!n) return 'F';
+  if (MASCULINOS_CON_A.has(n)) return 'M';
+  if (FEMENINOS_SIN_A.has(n)) return 'F';
+  return n.endsWith('A') ? 'F' : 'M';
+}
+
+function moda(valores: string[]): string {
+  const c = new Map<string, number>();
+  for (const v of valores) if (v) c.set(v, (c.get(v) ?? 0) + 1);
+  return [...c.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0]?.[0] ?? '';
+}
+
+/** ¿Es el listado por materia de la universidad? (alguna hoja con columnas NRC y PARALELO) */
+export function esFormatoNrc(hojas: HojaCruda[]): boolean {
+  return hojas.some((h) => { const enc = (h.filas[0] ?? []).map(normalizarClave); return enc.includes('nrc') && enc.some((x) => x.startsWith('paralelo')); });
+}
+
+/** Listado por materia: una hoja por materia-paralelo (fila 1: nombre de la materia, PARALELO, NRC; filas: N.º, "NOMBRE, APELLIDO/APELLIDO I.", paralelo, NRC).
+ *  Devuelve cada estudiante una sola vez con todos sus NRC, el paralelo más frecuente y las materias encontradas. */
+export function parseEstudiantesNrc(hojas: HojaCruda[]): { ok: EstudianteNrcImportado[]; materias: MateriaNrc[]; errores: string[] } {
+  const porClave = new Map<string, { nombre: string; primerNombre: string; paralelos: string[]; nrcs: Set<string> }>();
+  const materias: MateriaNrc[] = []; const errores: string[] = [];
+  for (const h of hojas) {
+    const enc = (h.filas[0] ?? []).map(normalizarClave);
+    const iNrc = enc.indexOf('nrc'); const iPar = enc.findIndex((x) => x.startsWith('paralelo'));
+    if (iNrc < 0) { if (h.filas.length) errores.push(`Hoja "${h.nombre}": sin columna NRC`); continue; }
+    const materia = limpiarTexto((h.filas[0] ?? []).filter((c, i) => i !== iNrc && i !== iPar && /[a-z\u00e1\u00e9\u00ed\u00f3\u00fa\u00f1]/i.test(c)).sort((a, b) => b.length - a.length)[0] ?? h.nombre);
+    let nrcHoja = '', parHoja = '', n = 0;
+    for (const f of h.filas.slice(1)) {
+      const nrc = limpiarTexto(f[iNrc] ?? '').replace(/\D/g, '');
+      const crudo = limpiarTexto(f.find((c, i) => i !== iNrc && i !== iPar && /[a-z\u00e1\u00e9\u00ed\u00f3\u00fa\u00f1]/i.test(c)) ?? '');
+      if (!crudo || !nrc) continue;
+      const paralelo = limpiarTexto(iPar >= 0 ? f[iPar] ?? '' : '').toUpperCase();
+      const clave = claveNombreEstudiante(crudo);
+      const nf = formatearNombreNrc(crudo);
+      const e = porClave.get(clave) ?? { nombre: nf.nombre, primerNombre: nf.primerNombre, paralelos: [], nrcs: new Set<string>() };
+      e.nrcs.add(nrc);
+      if (paralelo) e.paralelos.push(paralelo.replace(/\d+$/, '') || paralelo); // C1 → C (subgrupo de laboratorio)
+      porClave.set(clave, e); n++; nrcHoja = nrcHoja || nrc; parHoja = parHoja || paralelo;
+    }
+    if (!n) errores.push(`Hoja "${h.nombre}": sin estudiantes legibles`);
+    else if (!materias.some((m) => m.nrc === nrcHoja)) materias.push({ nrc: nrcHoja, materia, paralelo: parHoja });
+  }
+  const ok = [...porClave.entries()].map(([clave, e]) => ({ clave, nombre: e.nombre, primerNombre: e.primerNombre, paralelo: moda(e.paralelos), nrcs: [...e.nrcs].sort() }));
+  return { ok, materias, errores };
+}

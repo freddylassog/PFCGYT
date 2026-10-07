@@ -17,13 +17,31 @@ await wb.xlsx.writeFile(dir + 'estudiantes.xlsx');
 writeFileSync(dir + 'docentes.csv', '﻿Nombre;Correo\n' + Object.values(DOC).map(([n, c]) => `"${n}";${c}`).join('\n') + '\n');
 
 const wb2 = new ExcelJS.Workbook(); const ws2 = wb2.addWorksheet('Horarios');
-ws2.addRow(['Semestre', 'Día', 'Inicio', 'Fin', 'Materia', 'Correo docente']);
-CLASES.forEach(([s, d, i, f, m, doc]) => {
-  const r = ws2.addRow([s, d, null, null, m, DOC[doc][1]]);
+ws2.addRow(['Semestre', 'Día', 'Inicio', 'Fin', 'Materia', 'Correo docente', 'NRC']);
+// NRC sintético y estable por clase: 1001, 1002… (sem. 1: 1001–1005, sem. 2: 1006–1010, sem. 3: 1011–1015)
+const nrcDe = (i) => String(1001 + i);
+CLASES.forEach(([s, d, i, f, m, doc], idx) => {
+  const r = ws2.addRow([s, d, null, null, m, DOC[doc][1], nrcDe(idx)]);
   // Horas como celdas de tiempo reales de Excel (fracción de día)
   const frac = (t) => { const [h, mi] = t.split(':').map(Number); return (h * 60 + mi) / 1440; };
   r.getCell(3).value = frac(i); r.getCell(3).numFmt = 'hh:mm';
   r.getCell(4).value = frac(f); r.getCell(4).numFmt = 'hh:mm';
 });
 await wb2.xlsx.writeFile(dir + 'horarios.xlsx');
+// Listado por materia de la universidad para 1.º semestre: una hoja por materia (fila 1: código, materia, PARALELO, NRC;
+// filas: N.º, "NOMBRE, APELLIDO/ I.", paralelo, NRC). Camila Ríos NO está matriculada en Lenguaje (índice 1) para probar el cruce real.
+const crudo = (n) => { const [nom, ...ap] = n.normalize('NFC').split(' '); return `${nom.toUpperCase()}, ${ap.join(' ').toUpperCase()}/`; };
+const wb3 = new ExcelJS.Workbook();
+const sem1 = POOL.filter(([, s]) => s === 1);
+CLASES.forEach(([s, , , , m], idx) => {
+  if (s !== 1) return;
+  const ws = wb3.addWorksheet(`${m.slice(0, 20)} - 1A`);
+  ws.addRow([262651, m.toUpperCase(), 'PARALELO', 'NRC']);
+  let n = 0;
+  for (const [nombre] of sem1) {
+    if (idx === 1 && nombre === 'Camila Ríos') continue;
+    ws.addRow([++n, crudo(nombre), 'A', Number(nrcDe(idx))]);
+  }
+});
+await wb3.xlsx.writeFile(dir + 'estudiantes-nrc-1.xlsx');
 console.log('fixtures listos');

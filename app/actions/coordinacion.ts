@@ -10,7 +10,7 @@ import { activarWebhook, avisarCoordinacion, desactivarWebhook, detectarCanalTel
 import { mensajeConvocatoriaCanal, mensajeEstudianteConfirmado, mensajeEstudianteNoConfirmado, mensajeEstudianteRetirado, mensajeUniformesCanal, mensajeUniformesPersonal } from '@/lib/notificar-texto';
 import { appUrl } from '@/lib/app-url';
 import { avanceEstudiante, vistaPedido } from '@/lib/vista';
-import { leerTabla, parseDocentes, parseEstudiantes, parseHorarios } from '@/lib/excel';
+import { coincideNombre, esFormatoNrc, generoPorNombre, leerHojas, leerTabla, parseDocentes, parseEstudiantes, parseEstudiantesNrc, parseHorarios, type HojaCruda } from '@/lib/excel';
 import { borrarEvidencia, evidenciaExiste, prepararSubida } from '@/lib/storage';
 import { ACTIVIDADES, cantidadDia, claseAplica, claveNombre, cruceClases, diasEstudiante, diasLlenos, esFechaISO, faltasCantidadesDias, faltasCitaUniforme, faltasDias, faltasHorarioUniforme, faltasReparto, genClave, hoyISO, MAX_ESTUDIANTES, nombrarDias, normalizarCorreo, normalizarParalelo, ordenarDias, telefonoValido, TIPOS_NOVEDAD, UNIFORME, unirRepartos, VESTIMENTA } from '@/lib/reglas';
 import { iniciarSesionCoordinacion, passwordCoordinacionOk, sesionCoordinacion } from '@/lib/sesion';
@@ -374,15 +374,13 @@ export async function crearAviso(requestId: string, classId: string): Promise<Re
   try {
     await exigir();
     const sql = db();
-    const [c] = await sql`select semestre, paralelo from classes where id = ${classId}`;
-    if (!c) throw new Error('Clase no encontrada');
-    const filas = await sql`select e.student_id, s.semestre, s.paralelo from enrollments e join students s on s.id = e.student_id where e.request_id = ${requestId} and e.estado = 'confirmado' and s.semestre = ${Number(c.semestre)}`;
-    const clase = { semestre: Number(c.semestre), paralelo: (c.paralelo as string | null) ?? null };
-    let ids = filas.filter((f) => claseAplica(clase, { semestre: Number(f.semestre), paralelo: (f.paralelo as string | null) ?? null })).map((f) => String(f.student_id));
-    if (!ids.length) {
-      const todos = await sql`select student_id from enrollments where request_id = ${requestId} and estado = 'confirmado'`;
-      ids = todos.map((f) => String(f.student_id));
-    }
+    const datos = await cargarDatos();
+    const clase = datos.clases.find((x) => x.id === classId);
+    if (!clase) throw new Error('Clase no encontrada');
+    const confirmados = datos.inscripciones.filter((i) => i.requestId === requestId && i.estado === 'confirmado').map((i) => datos.estudiantes.find((e) => e.id === i.studentId)).filter((e): e is NonNullable<typeof e> => !!e);
+    // Por matrícula real (NRC) cuando existe; si no, por semestre y paralelo. Sin coincidencias: todos los confirmados.
+    let ids = confirmados.filter((e) => claseAplica(clase, e)).map((e) => e.id);
+    if (!ids.length) ids = confirmados.map((e) => e.id);
     await sql`insert into teacher_notices (request_id, class_id, student_ids) values (${requestId}, ${classId}, ${ids})
       on conflict (request_id, class_id) do update set student_ids = excluded.student_ids where teacher_notices.sent_at is null`;
     refrescar();
@@ -624,12 +622,15 @@ export async function guardarEstudiante(e: { id?: string; nombre: string; correo
     await exigir();
     const sql = db();
     const { periodo } = await ajustesActuales();
-    const correo = normalizarCorreo(e.correo);
-    if (!e.nombre.trim() || !correo.includes('@')) throw new Error('Nombre y correo son obligatorios');
+    const correo = normalizarCorreo(e.correo || '');
+    if (!e.nombre.trim()) throw new Error('El nombre es obligatorio');
+    if (correo && !correo.includes('@')) throw new Error('Correo inválido');
     if (![1, 2, 3].includes(e.semestre)) throw new Error('Semestre inválido');
     const paralelo = normalizarParalelo(e.paralelo) || null;
     if (e.id) {
-      await sql`update students set nombre = ${e.nombre.trim()}, correo = ${correo}, semestre = ${e.semestre}, paralelo = ${paralelo}, genero = ${e.genero}, activo = ${e.activo} where id = ${e.id}`;
+      await sql`update students set nombre = ${e.nombre.trim()}, correo = ${correo || null}, semestre = ${e.semestre}, paralelo = ${paralelo}, genero = ${e.genero}, activo = ${e.activo} where id = ${e.id}`;
+    } else if (!correo) {
+      await sql`insert into students (periodo, nombre, correo, semestre, paralelo, genero, activo) values (${periodo}, ${e.nombre.trim()}, null, ${e.semestre}, ${paralelo}, ${e.genero}, ${e.activo})`;
     } else {
       await sql`insert into students (periodo, nombre, correo, semestre, paralelo, genero, activo) values (${periodo}, ${e.nombre.trim()}, ${correo}, ${e.semestre}, ${paralelo}, ${e.genero}, ${e.activo})
         on conflict (periodo, correo) do update set nombre = excluded.nombre, semestre = excluded.semestre, paralelo = excluded.paralelo, genero = excluded.genero, activo = excluded.activo`;
@@ -654,7 +655,7 @@ export async function guardarDocente(d: { id?: string; nombre: string; correo: s
   } catch (e) { return fallo(e); }
 }
 
-export async function guardarClase(c: { id?: string; semestre: number; paralelo?: string | null; dia: number; inicio: string; fin: string; materia: string; teacherId: string | null; activo: boolean }): Promise<Resultado> {
+export async function guardarClase(c: { id?: string; semestre: number; paralelo?: string | null; dia: number; inicio: string; fin: string; materia: string; teacherId: string | null; nrc?: string | null; activo: boolean }): Promise<Resultado> {
   try {
     await exigir();
     const sql = db();
@@ -662,9 +663,10 @@ export async function guardarClase(c: { id?: string; semestre: number; paralelo?
     if (!c.materia.trim()) throw new Error('Escribe la materia');
     if (c.inicio >= c.fin) throw new Error('La hora de fin debe ser mayor que la de inicio');
     const paralelo = normalizarParalelo(c.paralelo) || null;
-    if (c.id) await sql`update classes set semestre = ${c.semestre}, paralelo = ${paralelo}, dia = ${c.dia}, inicio = ${c.inicio}, fin = ${c.fin}, materia = ${c.materia.trim()}, teacher_id = ${c.teacherId || null}, activo = ${c.activo} where id = ${c.id}`;
-    else await sql`insert into classes (periodo, semestre, paralelo, dia, inicio, fin, materia, teacher_id, activo) values (${periodo}, ${c.semestre}, ${paralelo}, ${c.dia}, ${c.inicio}, ${c.fin}, ${c.materia.trim()}, ${c.teacherId || null}, ${c.activo})
-      on conflict (periodo, semestre, dia, inicio, materia, coalesce(paralelo, '')) do update set fin = excluded.fin, teacher_id = excluded.teacher_id, activo = excluded.activo`;
+    const nrc = (c.nrc ?? '').trim() || null;
+    if (c.id) await sql`update classes set semestre = ${c.semestre}, paralelo = ${paralelo}, dia = ${c.dia}, inicio = ${c.inicio}, fin = ${c.fin}, materia = ${c.materia.trim()}, teacher_id = ${c.teacherId || null}, nrc = ${nrc}, activo = ${c.activo} where id = ${c.id}`;
+    else await sql`insert into classes (periodo, semestre, paralelo, dia, inicio, fin, materia, teacher_id, nrc, activo) values (${periodo}, ${c.semestre}, ${paralelo}, ${c.dia}, ${c.inicio}, ${c.fin}, ${c.materia.trim()}, ${c.teacherId || null}, ${nrc}, ${c.activo})
+      on conflict (periodo, semestre, dia, inicio, materia, coalesce(paralelo, '')) do update set fin = excluded.fin, teacher_id = excluded.teacher_id, nrc = coalesce(excluded.nrc, classes.nrc), activo = excluded.activo`;
     refrescar();
     return { ok: true };
   } catch (e) { return fallo(e); }
@@ -698,25 +700,94 @@ export async function importarEstudiantes(formData: FormData): Promise<Resultado
   try {
     await exigir();
     const { nombre, buffer } = await archivoDe(formData);
+    const semForm = parseInt(String(formData.get('semestre') ?? ''), 10);
+    const semArchivo = [1, 2, 3].includes(semForm) ? (semForm as Semestre) : null;
+    // Listado por materia de la universidad (una hoja por materia con NRC) o listado simple (Nombre, Correo, Semestre, Paralelo, Género).
+    const hojas = /\.csv$/i.test(nombre) ? [] : await leerHojas(buffer);
+    if (hojas.length && esFormatoNrc(hojas)) return await importarEstudiantesNrc(nombre, hojas, semArchivo);
     const filas = await leerTabla(buffer, nombre);
     const { ok, errores } = parseEstudiantes(filas);
-    if (!ok.length) throw new Error('No se encontraron filas válidas. Columnas esperadas: Nombre, Correo, Semestre, Género.' + (errores.length ? ' ' + errores[0] : ''));
+    if (!ok.length) throw new Error('No se encontraron filas válidas. Se acepta el listado por materia (hojas con NRC) o columnas Nombre, Correo, Semestre, Género.' + (errores.length ? ' ' + errores[0] : ''));
     const sql = db();
     const { periodo } = await ajustesActuales();
-    const correos = [...new Set(ok.map((e) => e.correo))];
+    const existentes = await sql`select id, nombre, correo from students where periodo = ${periodo}`;
+    const tocados: string[] = []; const semestres = new Set<number>();
     await sql.begin(async (tx) => {
       for (const e of ok) {
-        await tx`insert into students (periodo, nombre, correo, semestre, paralelo, genero, activo) values (${periodo}, ${e.nombre}, ${e.correo}, ${e.semestre}, ${e.paralelo || null}, ${e.genero}, true)
-          on conflict (periodo, correo) do update set nombre = excluded.nombre, semestre = excluded.semestre, paralelo = excluded.paralelo, genero = excluded.genero, activo = true`;
+        semestres.add(e.semestre);
+        const porCorreo = existentes.find((x) => String(x.correo ?? '') === e.correo);
+        // Quien vino del listado por materia (sin correo) se completa por nombre.
+        const porNombre = !porCorreo ? existentes.find((x) => !x.correo && !tocados.includes(String(x.id)) && coincideNombre(String(x.nombre), e.nombre)) : null;
+        if (porNombre) {
+          await tx`update students set correo = ${e.correo}, nombre = ${e.nombre}, semestre = ${e.semestre}, paralelo = ${e.paralelo || null}, genero = ${e.genero}, activo = true where id = ${porNombre.id}`;
+          tocados.push(String(porNombre.id));
+        } else {
+          const [r] = await tx`insert into students (periodo, nombre, correo, semestre, paralelo, genero, activo) values (${periodo}, ${e.nombre}, ${e.correo}, ${e.semestre}, ${e.paralelo || null}, ${e.genero}, true)
+            on conflict (periodo, correo) do update set nombre = excluded.nombre, semestre = excluded.semestre, paralelo = excluded.paralelo, genero = excluded.genero, activo = true returning id`;
+          tocados.push(String(r.id));
+        }
       }
-      await tx`update students set activo = false where periodo = ${periodo} and correo <> all(${correos})`;
+      // Reemplaza el listado de los semestres que trae el archivo: quien no aparece queda inactivo (nunca se borra historial).
+      const sems = [...semestres];
+      await tx`update students set activo = false where periodo = ${periodo} and semestre = any(${sems}) and id <> all(${tocados})`;
     });
-    const [n] = await sql`select count(*)::int as n from students where periodo = ${periodo} and activo`;
+    const [n] = await sql`select count(*)::int as n, count(*) filter (where correo is null or correo = '')::int as sin from students where periodo = ${periodo} and activo`;
     const resumen = `${n.n} estudiantes · 1.º a 3.º semestre`;
     await registrarArchivo('estudiantes', nombre, resumen);
     refrescar();
-    return { ok: true, datos: { resumen: `${ok.length} filas procesadas. Activos: ${n.n}.`, errores } };
+    return { ok: true, datos: { resumen: `${ok.length} filas procesadas. Activos: ${n.n}${n.sin ? ` (${n.sin} sin correo)` : ''}.`, errores } };
   } catch (e) { return { ok: false, error: (e as Error).message }; }
+}
+
+/** Listado por materia (NRC): crea o actualiza cada estudiante una sola vez (por nombre), guarda sus NRC y desactiva a quienes ya no aparecen en ese semestre. */
+async function importarEstudiantesNrc(nombreArchivo: string, hojas: HojaCruda[], semArchivo: Semestre | null): Promise<Resultado<{ resumen: string; errores: string[] }>> {
+  const { ok, materias, errores } = parseEstudiantesNrc(hojas);
+  if (!ok.length) throw new Error('No se encontraron estudiantes. Cada hoja debe tener la columna NRC y los nombres.' + (errores.length ? ' ' + errores[0] : ''));
+  const sql = db();
+  const { periodo } = await ajustesActuales();
+  const clasesNrc = await sql`select distinct nrc, semestre from classes where periodo = ${periodo} and activo and nrc is not null`;
+  const semPorNrc = new Map(clasesNrc.map((c) => [String(c.nrc), Number(c.semestre)]));
+  const existentes = await sql`select id, nombre, correo, semestre, activo from students where periodo = ${periodo}`;
+  let nuevos = 0, actualizados = 0;
+  const tocados: string[] = []; const semestres = new Set<number>(); const sinSemestre: string[] = [];
+  await sql.begin(async (tx) => {
+    for (const e of ok) {
+      const porNrc = e.nrcs.map((x) => semPorNrc.get(x)).filter((x): x is number => !!x);
+      const sem = semArchivo ?? (porNrc.length ? Number([...porNrc].sort((a, b) => porNrc.filter((v) => v === b).length - porNrc.filter((v) => v === a).length || a - b)[0]) : 0);
+      if (!sem) { sinSemestre.push(e.nombre); continue; }
+      semestres.add(sem);
+      const match = existentes.find((x) => !tocados.includes(String(x.id)) && coincideNombre(String(x.nombre), e.nombre));
+      let id: string;
+      if (match) { await tx`update students set semestre = ${sem}, paralelo = ${e.paralelo || null}, activo = true where id = ${match.id}`; id = String(match.id); actualizados++; }
+      else {
+        const [r] = await tx`insert into students (periodo, nombre, correo, semestre, paralelo, genero, activo) values (${periodo}, ${e.nombre}, null, ${sem}, ${e.paralelo || null}, ${generoPorNombre(e.primerNombre)}, true) returning id`;
+        id = String(r.id); nuevos++;
+      }
+      tocados.push(id);
+      // Se reemplazan solo las materias de este semestre (y las del archivo); si el estudiante también cursa materias de otro
+      // nivel (archivo de otro semestre), esas se conservan y su semestre queda donde tenga más materias.
+      const aBorrar = [...new Set([...clasesNrc.filter((c) => Number(c.semestre) === sem).map((c) => String(c.nrc)), ...materias.map((m) => m.nrc)])];
+      await tx`delete from student_classes where student_id = ${id} and nrc = any(${aBorrar})`;
+      for (const nrc of e.nrcs) await tx`insert into student_classes (student_id, nrc) values (${id}, ${nrc}) on conflict do nothing`;
+      const todas = await tx`select nrc from student_classes where student_id = ${id}`;
+      const conteo = new Map<number, number>();
+      for (const r of todas) { const s2 = semPorNrc.get(String(r.nrc)); if (s2) conteo.set(s2, (conteo.get(s2) ?? 0) + 1); }
+      const mejor = [...conteo.entries()].sort((a, b) => b[1] - a[1] || (a[0] === sem ? -1 : b[0] === sem ? 1 : 0))[0]?.[0] ?? sem;
+      if (mejor !== sem) await tx`update students set semestre = ${mejor} where id = ${id}`;
+    }
+    const sems = [...semestres];
+    if (sems.length) await tx`update students set activo = false where periodo = ${periodo} and semestre = any(${sems}) and id <> all(${tocados})`;
+  });
+  if (sinSemestre.length) errores.push(`Sin semestre (elige 1.º, 2.º o 3.º al cargar, o carga antes el horario con NRC): ${sinSemestre.slice(0, 5).join(', ')}${sinSemestre.length > 5 ? '…' : ''}`);
+  const sems = [...semestres];
+  const [n] = await sql`select count(*)::int as n, count(*) filter (where correo is null or correo = '')::int as sin from students where periodo = ${periodo} and activo`;
+  const [d] = sems.length ? await sql`select count(*)::int as n from students where periodo = ${periodo} and not activo and semestre = any(${sems})` : [{ n: 0 }];
+  const nrcSinHorario = materias.filter((m) => !semPorNrc.has(m.nrc)).length;
+  if (nrcSinHorario) errores.push(`${nrcSinHorario} materia(s) del listado no están en el horario cargado (revisa los NRC en Horarios)`);
+  await registrarArchivo('estudiantes', nombreArchivo, `${n.n} estudiantes activos · matrícula por NRC`);
+  refrescar();
+  const semTexto = sems.length ? sems.sort().map((x) => `${x}.º`).join(' y ') : '—';
+  return { ok: true, datos: { resumen: `${ok.length} estudiantes de ${semTexto} semestre en ${materias.length} materias (NRC): ${nuevos} nuevos, ${actualizados} ya existentes, ${Number(d.n)} inactivos por no estar en el archivo. Activos ahora: ${n.n}${n.sin ? ` (${n.sin} sin correo: descarga la plantilla, completa correos y género y vuelve a cargarla)` : ''}.`, errores } };
 }
 
 export async function importarDocentes(formData: FormData): Promise<Resultado<{ resumen: string; errores: string[] }>> {
@@ -777,13 +848,13 @@ export async function importarHorarios(formData: FormData): Promise<Resultado<{ 
       await tx`update classes set activo = false where periodo = ${periodo}`;
       for (const c of ok) {
         const teacherId = (c.correoDocente && idPorCorreo.get(c.correoDocente)) || (c.docenteNombre && idPorNombre.get(claveNombre(c.docenteNombre))) || null;
-        await tx`insert into classes (periodo, semestre, paralelo, dia, inicio, fin, materia, teacher_id, activo)
-          values (${periodo}, ${c.semestre}, ${c.paralelo || null}, ${c.dia}, ${c.inicio}, ${c.fin}, ${c.materia}, ${teacherId}, true)
-          on conflict (periodo, semestre, dia, inicio, materia, coalesce(paralelo, '')) do update set fin = excluded.fin, teacher_id = coalesce(excluded.teacher_id, classes.teacher_id), activo = true`;
+        await tx`insert into classes (periodo, semestre, paralelo, dia, inicio, fin, materia, teacher_id, nrc, activo)
+          values (${periodo}, ${c.semestre}, ${c.paralelo || null}, ${c.dia}, ${c.inicio}, ${c.fin}, ${c.materia}, ${teacherId}, ${c.nrc || null}, true)
+          on conflict (periodo, semestre, dia, inicio, materia, coalesce(paralelo, '')) do update set fin = excluded.fin, teacher_id = coalesce(excluded.teacher_id, classes.teacher_id), nrc = coalesce(excluded.nrc, classes.nrc), activo = true`;
       }
     });
-    const [n] = await sql`select count(distinct semestre)::int as s, count(distinct materia)::int as m from classes where periodo = ${periodo} and activo`;
-    const resumen = `${n.s} semestres · ${n.m} materias`;
+    const [n] = await sql`select count(distinct semestre)::int as s, count(distinct materia)::int as m, count(distinct nrc)::int as nrc from classes where periodo = ${periodo} and activo`;
+    const resumen = `${n.s} semestres · ${n.m} materias${n.nrc ? ` · ${n.nrc} NRC` : ''}`;
     await registrarArchivo('horarios', nombre, resumen);
     refrescar();
     return { ok: true, datos: { resumen: `${ok.length} clases cargadas.`, errores } };

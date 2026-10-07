@@ -104,6 +104,8 @@ export interface Estudiante {
   activo: boolean;
   /** Chat de Telegram vinculado (por correo), si el estudiante se registró con el bot. */
   telegramChatId: string | null;
+  /** NRC de las materias en que está matriculado (del listado por materia); vacío = se asume todo el semestre/paralelo. */
+  nrcs: string[];
 }
 
 export interface Docente {
@@ -122,6 +124,8 @@ export interface Clase {
   fin: string;
   materia: string;
   teacherId: string | null;
+  /** Código de la materia-paralelo en el sistema de la universidad (NRC); vacío si la clase se agregó a mano. */
+  nrc: string | null;
   activo: boolean;
 }
 

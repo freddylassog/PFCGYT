@@ -67,7 +67,7 @@ test('vista: cupos por día, lleno por días y confirmados de cada día', () => 
 test('los mismos estudiantes pedidos: el cupo es por día; uno puede ir un solo día y otro cubre el otro', () => {
   const d = datosDemo();
   d.pedidos[0].dias = [d1, d2]; d.pedidos[0].cantidad = 2; d.pedidos[0].mismosEstudiantes = true;
-  d.estudiantes.push({ id: 's4', nombre: 'Lucía Paz', correo: 'lucia.paz@ute.edu.ec', semestre: 2, paralelo: null, genero: 'F', activo: true, telegramChatId: null });
+  d.estudiantes.push({ id: 's4', nombre: 'Lucía Paz', correo: 'lucia.paz@ute.edu.ec', semestre: 2, paralelo: null, genero: 'F', activo: true, telegramChatId: null, nrcs: [] });
   d.inscripciones = [
     { id: 'i1', requestId: 'p1', studentId: 's1', estado: 'confirmado', dias: null, createdAt: '' }, // los dos días
     { id: 'i2', requestId: 'p1', studentId: 's2', estado: 'confirmado', dias: ['2026-10-20'], createdAt: '' }, // solo el día 1

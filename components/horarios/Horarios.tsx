@@ -9,7 +9,7 @@ import { DIAS_CLASE, SEMESTRES, fechaCorta, semLabel } from '@/lib/reglas';
 import type { Datos, Estudiante, Semestre } from '@/lib/tipos';
 import { docenteDe, vistaPedidos } from '@/lib/vista';
 
-const CLASE_VACIA = { id: '', semestre: 1, paralelo: '', dia: 1, inicio: '08:00', fin: '10:00', materia: '', teacherId: '', activo: true };
+const CLASE_VACIA = { id: '', semestre: 1, paralelo: '', dia: 1, inicio: '08:00', fin: '10:00', materia: '', teacherId: '', activo: true, nrc: '' };
 
 export function Horarios({ datos }: { datos: Datos }) {
   const { pending, error, run } = useAccion();
@@ -54,7 +54,7 @@ export function Horarios({ datos }: { datos: Datos }) {
     <div className={pending ? 'pendiente' : ''}>
       <div className="mt-8 max-760"><h1 className="m-0">Horarios y docentes</h1><p className="muted" style={{ margin: 'var(--space-1) 0 0' }}>Carga el horario de la universidad (1.º a 3.º) y el directorio de docentes con sus correos. El sistema detecta qué materias chocan con cada evento según el semestre y el paralelo de cada estudiante confirmado, y prepara el correo al docente; tú lo envías desde Outlook.</p></div>
       <div className="cols-auto mt-6">
-        {tarjeta('horarios', 'Horarios por semestre', 'el archivo de la universidad tal cual (ASIGNATURA, NIVEL, PARALELO, DOCENTE, LUNES…VIERNES)')}
+        {tarjeta('horarios', 'Horarios por semestre', 'el archivo de la universidad tal cual (ASIGNATURA, NIVEL, PARALELO, NRC, DOCENTE, LUNES…VIERNES)')}
         {tarjeta('docentes', 'Directorio de docentes', 'Nombre, Correo')}
       </div>
       {error && <p className="error mt-3">{error}</p>}
@@ -77,6 +77,7 @@ export function Horarios({ datos }: { datos: Datos }) {
             <div className="field"><label>Inicio</label><input className="input" type="time" value={clase.inicio} onChange={(e) => setClase({ ...clase, inicio: e.target.value })} required /></div>
             <div className="field"><label>Fin</label><input className="input" type="time" value={clase.fin} onChange={(e) => setClase({ ...clase, fin: e.target.value })} required /></div>
             <div className="field"><label>Materia</label><input className="input" value={clase.materia} onChange={(e) => setClase({ ...clase, materia: e.target.value })} required /></div>
+            <div className="field"><label>NRC (opcional)</label><input className="input" value={clase.nrc} onChange={(e) => setClase({ ...clase, nrc: e.target.value })} placeholder="ej. 3176" /></div>
             <div className="field"><label>Docente</label><select className="input" value={clase.teacherId} onChange={(e) => setClase({ ...clase, teacherId: e.target.value })}><option value="">—</option>{datos.docentes.filter((d) => d.activo).map((d) => <option key={d.id} value={d.id}>{d.nombre}</option>)}</select></div>
             <button className="btn btn-primary" type="submit">Guardar</button>
           </div>
@@ -95,15 +96,15 @@ export function Horarios({ datos }: { datos: Datos }) {
       )}
       <Marco className="mt-3 scroll-x">
         <table className="table" style={{ minWidth: 560 }}>
-          <thead><tr><th>Día</th><th>Hora</th><th>Materia</th><th>Paralelo</th><th>Docente</th><th>Correo</th><th></th></tr></thead>
+          <thead><tr><th>Día</th><th>Hora</th><th>Materia</th><th>NRC</th><th>Paralelo</th><th>Docente</th><th>Correo</th><th></th></tr></thead>
           <tbody>
-            {clases.length === 0 && <tr><td colSpan={7} className="muted">Sin clases cargadas para {sem}.º semestre.</td></tr>}
+            {clases.length === 0 && <tr><td colSpan={8} className="muted">Sin clases cargadas para {sem}.º semestre.</td></tr>}
             {clases.map((c) => {
               const d = docenteDe(datos, c.teacherId);
               return (
                 <tr key={c.id}>
-                  <td>{DIAS_CLASE[c.dia]}</td><td className="nowrap">{c.inicio}–{c.fin}</td><td>{c.materia}</td><td>{c.paralelo ?? '—'}</td><td>{d?.nombre ?? '—'}</td><td className="muted fs-13">{d?.correo ?? <span className="tag tag-outline">sin correo</span>}</td>
-                  <td className="nowrap"><button type="button" className="btn btn-ghost btn-sm" onClick={() => { setClase({ id: c.id, semestre: c.semestre, paralelo: c.paralelo ?? '', dia: c.dia, inicio: c.inicio, fin: c.fin, materia: c.materia, teacherId: c.teacherId ?? '', activo: true }); setVerClase(true); }}>Editar</button><button type="button" className="btn btn-ghost btn-sm" onClick={() => { if (confirm(`¿Eliminar ${c.materia} (${DIAS_CLASE[c.dia]} ${c.inicio})?`)) run(() => eliminarClase(c.id)); }}>Quitar</button></td>
+                  <td>{DIAS_CLASE[c.dia]}</td><td className="nowrap">{c.inicio}–{c.fin}</td><td>{c.materia}</td><td className="muted fs-13">{c.nrc ?? '—'}</td><td>{c.paralelo ?? '—'}</td><td>{d?.nombre ?? '—'}</td><td className="muted fs-13">{d?.correo ?? <span className="tag tag-outline">sin correo</span>}</td>
+                  <td className="nowrap"><button type="button" className="btn btn-ghost btn-sm" onClick={() => { setClase({ id: c.id, semestre: c.semestre, paralelo: c.paralelo ?? '', dia: c.dia, inicio: c.inicio, fin: c.fin, materia: c.materia, nrc: c.nrc ?? '', teacherId: c.teacherId ?? '', activo: true }); setVerClase(true); }}>Editar</button><button type="button" className="btn btn-ghost btn-sm" onClick={() => { if (confirm(`¿Eliminar ${c.materia} (${DIAS_CLASE[c.dia]} ${c.inicio})?`)) run(() => eliminarClase(c.id)); }}>Quitar</button></td>
                 </tr>
               );
             })}

@@ -5,7 +5,7 @@ import { mensajeUniformesCanal, mensajeUniformesRecordatorioCanal, mensajeUnifor
 import type { PedidoVista } from '../../lib/vista';
 
 const cita = { ...CITA_VACIA, entregaFecha: '2026-09-24', entregaHora: '10:30', devolucionFecha: '2026-10-06', devolucionHora: '16:00', lugar: 'Oficina de protocolo' };
-const est = { id: 's1', nombre: 'Camila Ríos', correo: 'camila.rios@ute.edu.ec', semestre: 1 as const, paralelo: null, genero: 'F' as const, activo: true, telegramChatId: '555' };
+const est = { id: 's1', nombre: 'Camila Ríos', correo: 'camila.rios@ute.edu.ec', semestre: 1 as const, paralelo: null, genero: 'F' as const, activo: true, telegramChatId: '555', nrcs: [] };
 const pedido = { evento: 'Feria Gastronómica', fechaCorta: '25 sep', confirmados: [est], confirmadosN: 1 } as unknown as PedidoVista;
 
 test('cita de uniformes: parejas fecha+hora completas y al menos una', () => {

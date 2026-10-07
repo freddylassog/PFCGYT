@@ -39,7 +39,7 @@ test('horarios', () => {
     { semestre: '1', dia: 'Martes', inicio: '13:00', fin: '10:00', materia: 'Al revés', 'correo docente': '' },
   ]);
   assert.equal(ok.length, 1);
-  assert.deepEqual(ok[0], { semestre: 1, paralelo: '', dia: 2, inicio: '10:00', fin: '13:00', materia: 'Lenguaje', correoDocente: 'mcobo@ute.edu.ec', docenteNombre: '' });
+  assert.deepEqual(ok[0], { semestre: 1, paralelo: '', dia: 2, inicio: '10:00', fin: '13:00', materia: 'Lenguaje', correoDocente: 'mcobo@ute.edu.ec', docenteNombre: '', nrc: '' });
   assert.equal(errores.length, 1);
 });
 
@@ -57,7 +57,7 @@ test('horario en formato ancho de la universidad', () => {
     { 'carrera programa': 'GASTRONOMIA', asignatura: 'SIN HORAS', nivel: '2', paralelo: 'A', horas: '3', nrc: '1', docente: 'ALGUIEN', lunes: '', martes: '', miercoles: '', jueves: '', viernes: '' },
   ]);
   assert.equal(ok.length, 2);
-  assert.deepEqual(ok[0], { semestre: 1, paralelo: 'C1', dia: 4, inicio: '13:30', fin: '17:30', materia: 'TÉCNICAS BÁSICAS DE COCINA I', correoDocente: '', docenteNombre: 'MARIN RIVADENEIRA FRANCISCO JAVIER' });
+  assert.deepEqual(ok[0], { semestre: 1, paralelo: 'C1', dia: 4, inicio: '13:30', fin: '17:30', materia: 'TÉCNICAS BÁSICAS DE COCINA I', correoDocente: '', docenteNombre: 'MARIN RIVADENEIRA FRANCISCO JAVIER', nrc: '3180' });
   assert.equal(ok[1].dia, 5);
   assert.equal(errores.length, 1);
 });
