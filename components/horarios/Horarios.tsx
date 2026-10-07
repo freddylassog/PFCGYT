@@ -44,7 +44,7 @@ export function Horarios({ datos }: { datos: Datos }) {
       <Marco className="p-4 stack-2">
         <div className="card-kicker">{titulo}</div>
         <div className="fs-14"><strong>{info?.nombre ?? 'Sin archivo cargado'}</strong><div className="muted fs-12">{info ? `${info.info} · cargado ${fechaCorta(info.fecha)} ${info.fecha.slice(0, 4)}` : `Columnas: ${columnas}. Formato .xlsx o .csv.`}</div></div>
-        <label className="btn btn-secondary" style={{ justifySelf: 'start', cursor: 'pointer' }}>{info ? 'Reemplazar archivo' : 'Cargar archivo'}<input type="file" accept=".xlsx,.csv" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) subir(clave, f); e.target.value = ''; }} /></label>
+        <label className="btn btn-secondary" style={{ justifySelf: 'start', cursor: 'pointer' }}>{info ? 'Reemplazar archivo' : 'Cargar archivo'}<input type="file" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) subir(clave, f); e.target.value = ''; }} /></label>
         {res[clave] && <p className="fs-12 m-0" style={{ color: 'var(--color-accent-800)' }}>{res[clave]}</p>}
       </Marco>
     );

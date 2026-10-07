@@ -8,6 +8,8 @@ import { normalizarCorreo } from '@/lib/reglas';
 import { avanceEstudiante } from '@/lib/vista';
 
 export const dynamic = 'force-dynamic';
+// Las importaciones de Excel y los avisos pueden tardar más de los 10 s por defecto de Vercel.
+export const maxDuration = 60;
 
 interface Chat { id: number; type: string; title?: string; first_name?: string; last_name?: string; username?: string }
 interface Update {

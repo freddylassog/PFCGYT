@@ -4,6 +4,8 @@ import { LoginCoordinacion } from '@/components/coordinacion/LoginCoordinacion';
 import { Panel } from '@/components/coordinacion/Panel';
 
 export const dynamic = 'force-dynamic';
+// Las importaciones de Excel y los avisos pueden tardar más de los 10 s por defecto de Vercel.
+export const maxDuration = 60;
 
 type Params = Promise<Record<string, string | string[] | undefined>>;
 

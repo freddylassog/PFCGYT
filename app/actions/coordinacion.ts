@@ -711,25 +711,32 @@ export async function importarEstudiantes(formData: FormData): Promise<Resultado
     const sql = db();
     const { periodo } = await ajustesActuales();
     const existentes = await sql`select id, nombre, correo from students where periodo = ${periodo}`;
-    const tocados: string[] = []; const semestres = new Set<number>();
+    const semestres = new Set<number>();
+    // Quien vino del listado por materia (sin correo) se completa por nombre; el resto se inserta o actualiza por correo en una sola consulta.
+    const porNombre: { id: string; e: (typeof ok)[number] }[] = [];
+    const porCorreo = new Map<string, (typeof ok)[number]>();
+    for (const e of ok) {
+      semestres.add(e.semestre);
+      const conCorreo = existentes.find((x) => String(x.correo ?? '') === e.correo);
+      const sinCorreo = !conCorreo ? existentes.find((x) => !x.correo && !porNombre.some((u) => u.id === String(x.id)) && coincideNombre(String(x.nombre), e.nombre)) : null;
+      if (sinCorreo) porNombre.push({ id: String(sinCorreo.id), e });
+      else porCorreo.set(e.correo, e);
+    }
+    const tocados: string[] = [];
     await sql.begin(async (tx) => {
-      for (const e of ok) {
-        semestres.add(e.semestre);
-        const porCorreo = existentes.find((x) => String(x.correo ?? '') === e.correo);
-        // Quien vino del listado por materia (sin correo) se completa por nombre.
-        const porNombre = !porCorreo ? existentes.find((x) => !x.correo && !tocados.includes(String(x.id)) && coincideNombre(String(x.nombre), e.nombre)) : null;
-        if (porNombre) {
-          await tx`update students set correo = ${e.correo}, nombre = ${e.nombre}, semestre = ${e.semestre}, paralelo = ${e.paralelo || null}, genero = ${e.genero}, activo = true where id = ${porNombre.id}`;
-          tocados.push(String(porNombre.id));
-        } else {
-          const [r] = await tx`insert into students (periodo, nombre, correo, semestre, paralelo, genero, activo) values (${periodo}, ${e.nombre}, ${e.correo}, ${e.semestre}, ${e.paralelo || null}, ${e.genero}, true)
-            on conflict (periodo, correo) do update set nombre = excluded.nombre, semestre = excluded.semestre, paralelo = excluded.paralelo, genero = excluded.genero, activo = true returning id`;
-          tocados.push(String(r.id));
-        }
+      for (const { id, e } of porNombre) {
+        await tx`update students set correo = ${e.correo}, nombre = ${e.nombre}, semestre = ${e.semestre}, paralelo = ${e.paralelo || null}, genero = ${e.genero}, activo = true where id = ${id}`;
+        tocados.push(id);
+      }
+      const lote = [...porCorreo.values()].map((e) => ({ periodo, nombre: e.nombre, correo: e.correo, semestre: e.semestre, paralelo: e.paralelo || null, genero: e.genero, activo: true }));
+      if (lote.length) {
+        const r = await tx`insert into students ${tx(lote, 'periodo', 'nombre', 'correo', 'semestre', 'paralelo', 'genero', 'activo')}
+          on conflict (periodo, correo) do update set nombre = excluded.nombre, semestre = excluded.semestre, paralelo = excluded.paralelo, genero = excluded.genero, activo = true returning id`;
+        for (const x of r) tocados.push(String(x.id));
       }
       // Reemplaza el listado de los semestres que trae el archivo: quien no aparece queda inactivo (nunca se borra historial).
       const sems = [...semestres];
-      await tx`update students set activo = false where periodo = ${periodo} and semestre = any(${sems}) and id <> all(${tocados})`;
+      await tx`update students set activo = false where periodo = ${periodo} and semestre = any(${sems}::int[]) and id <> all(${tocados}::uuid[])`;
     });
     const [n] = await sql`select count(*)::int as n, count(*) filter (where correo is null or correo = '')::int as sin from students where periodo = ${periodo} and activo`;
     const resumen = `${n.n} estudiantes · 1.º a 3.º semestre`;
@@ -739,7 +746,8 @@ export async function importarEstudiantes(formData: FormData): Promise<Resultado
   } catch (e) { return { ok: false, error: (e as Error).message }; }
 }
 
-/** Listado por materia (NRC): crea o actualiza cada estudiante una sola vez (por nombre), guarda sus NRC y desactiva a quienes ya no aparecen en ese semestre. */
+/** Listado por materia (NRC): crea o actualiza cada estudiante una sola vez (por nombre), guarda sus NRC y desactiva a quienes ya no aparecen en ese semestre.
+ *  Todo en pocas consultas masivas: en Vercel cada función tiene pocos segundos y la base está en otro servidor. */
 async function importarEstudiantesNrc(nombreArchivo: string, hojas: HojaCruda[], semArchivo: Semestre | null): Promise<Resultado<{ resumen: string; errores: string[] }>> {
   const { ok, materias, errores } = parseEstudiantesNrc(hojas);
   if (!ok.length) throw new Error('No se encontraron estudiantes. Cada hoja debe tener la columna NRC y los nombres.' + (errores.length ? ' ' + errores[0] : ''));
@@ -748,46 +756,68 @@ async function importarEstudiantesNrc(nombreArchivo: string, hojas: HojaCruda[],
   const clasesNrc = await sql`select distinct nrc, semestre from classes where periodo = ${periodo} and activo and nrc is not null`;
   const semPorNrc = new Map(clasesNrc.map((c) => [String(c.nrc), Number(c.semestre)]));
   const existentes = await sql`select id, nombre, correo, semestre, activo from students where periodo = ${periodo}`;
-  let nuevos = 0, actualizados = 0;
-  const tocados: string[] = []; const semestres = new Set<number>(); const sinSemestre: string[] = [];
+  const semestres = new Set<number>(); const sinSemestre: string[] = []; const usados = new Set<string>();
+  const plan: { e: (typeof ok)[number]; sem: number; id: string | null; nuevo: boolean }[] = [];
+  for (const e of ok) {
+    const porNrc = e.nrcs.map((x) => semPorNrc.get(x)).filter((x): x is number => !!x);
+    const sem = semArchivo ?? (porNrc.length ? Number([...porNrc].sort((a, b) => porNrc.filter((v) => v === b).length - porNrc.filter((v) => v === a).length || a - b)[0]) : 0);
+    if (!sem) { sinSemestre.push(e.nombre); continue; }
+    semestres.add(sem);
+    const match = existentes.find((x) => !usados.has(String(x.id)) && coincideNombre(String(x.nombre), e.nombre));
+    if (match) usados.add(String(match.id));
+    plan.push({ e, sem, id: match ? String(match.id) : null, nuevo: !match });
+  }
+  let desactivados = 0;
   await sql.begin(async (tx) => {
-    for (const e of ok) {
-      const porNrc = e.nrcs.map((x) => semPorNrc.get(x)).filter((x): x is number => !!x);
-      const sem = semArchivo ?? (porNrc.length ? Number([...porNrc].sort((a, b) => porNrc.filter((v) => v === b).length - porNrc.filter((v) => v === a).length || a - b)[0]) : 0);
-      if (!sem) { sinSemestre.push(e.nombre); continue; }
-      semestres.add(sem);
-      const match = existentes.find((x) => !tocados.includes(String(x.id)) && coincideNombre(String(x.nombre), e.nombre));
-      let id: string;
-      if (match) { await tx`update students set semestre = ${sem}, paralelo = ${e.paralelo || null}, activo = true where id = ${match.id}`; id = String(match.id); actualizados++; }
-      else {
-        const [r] = await tx`insert into students (periodo, nombre, correo, semestre, paralelo, genero, activo) values (${periodo}, ${e.nombre}, null, ${sem}, ${e.paralelo || null}, ${generoPorNombre(e.primerNombre)}, true) returning id`;
-        id = String(r.id); nuevos++;
+    // Nuevos: una inserción masiva (sin correo, género estimado por el nombre); los id se recuperan por nombre.
+    const aInsertar = plan.filter((p) => p.nuevo).map((p) => ({ periodo, nombre: p.e.nombre, correo: null as string | null, semestre: p.sem, paralelo: p.e.paralelo || null, genero: generoPorNombre(p.e.primerNombre), activo: true }));
+    if (aInsertar.length) {
+      const r = await tx`insert into students ${tx(aInsertar, 'periodo', 'nombre', 'correo', 'semestre', 'paralelo', 'genero', 'activo')} returning id, nombre`;
+      const idPorNombre = new Map(r.map((x) => [String(x.nombre), String(x.id)]));
+      for (const p of plan) if (p.nuevo) p.id = idPorNombre.get(p.e.nombre) ?? null;
+    }
+    // Ya existentes: una sola actualización (semestre, paralelo, activo); se conservan correo y género.
+    const upd = plan.filter((p) => !p.nuevo && p.id);
+    if (upd.length) await tx`update students s set semestre = v.semestre, paralelo = nullif(v.paralelo, ''), activo = true
+      from unnest(${upd.map((p) => p.id)}::uuid[], ${upd.map((p) => p.sem)}::int[], ${upd.map((p) => p.e.paralelo || '')}::text[]) as v(id, semestre, paralelo) where s.id = v.id`;
+    const ids = plan.map((p) => p.id).filter((x): x is string => !!x);
+    // Se reemplazan solo las materias de los semestres del archivo; las de otro nivel se conservan.
+    const aBorrar = [...new Set([...clasesNrc.filter((c) => semestres.has(Number(c.semestre))).map((c) => String(c.nrc)), ...materias.map((m) => m.nrc)])];
+    if (ids.length && aBorrar.length) await tx`delete from student_classes where student_id = any(${ids}::uuid[]) and nrc = any(${aBorrar}::text[])`;
+    const pares = plan.flatMap((p) => (p.id ? p.e.nrcs.map((nrc) => ({ student_id: p.id as string, nrc })) : []));
+    if (pares.length) await tx`insert into student_classes ${tx(pares, 'student_id', 'nrc')} on conflict do nothing`;
+    // Quien cursa materias de dos niveles queda en el semestre donde tiene más materias (empate: el del archivo).
+    if (ids.length) {
+      const todas = await tx`select student_id, nrc from student_classes where student_id = any(${ids}::uuid[])`;
+      const conteo = new Map<string, Map<number, number>>();
+      for (const r of todas) {
+        const s2 = semPorNrc.get(String(r.nrc)); if (!s2) continue;
+        const m = conteo.get(String(r.student_id)) ?? new Map<number, number>(); m.set(s2, (m.get(s2) ?? 0) + 1); conteo.set(String(r.student_id), m);
       }
-      tocados.push(id);
-      // Se reemplazan solo las materias de este semestre (y las del archivo); si el estudiante también cursa materias de otro
-      // nivel (archivo de otro semestre), esas se conservan y su semestre queda donde tenga más materias.
-      const aBorrar = [...new Set([...clasesNrc.filter((c) => Number(c.semestre) === sem).map((c) => String(c.nrc)), ...materias.map((m) => m.nrc)])];
-      await tx`delete from student_classes where student_id = ${id} and nrc = any(${aBorrar})`;
-      for (const nrc of e.nrcs) await tx`insert into student_classes (student_id, nrc) values (${id}, ${nrc}) on conflict do nothing`;
-      const todas = await tx`select nrc from student_classes where student_id = ${id}`;
-      const conteo = new Map<number, number>();
-      for (const r of todas) { const s2 = semPorNrc.get(String(r.nrc)); if (s2) conteo.set(s2, (conteo.get(s2) ?? 0) + 1); }
-      const mejor = [...conteo.entries()].sort((a, b) => b[1] - a[1] || (a[0] === sem ? -1 : b[0] === sem ? 1 : 0))[0]?.[0] ?? sem;
-      if (mejor !== sem) await tx`update students set semestre = ${mejor} where id = ${id}`;
+      const cambios: { id: string; sem: number }[] = [];
+      for (const p of plan) {
+        const m = p.id ? conteo.get(p.id) : null; if (!m) continue;
+        const mejor = [...m.entries()].sort((a, b) => b[1] - a[1] || (a[0] === p.sem ? -1 : b[0] === p.sem ? 1 : 0))[0]?.[0];
+        if (mejor && mejor !== p.sem) cambios.push({ id: p.id as string, sem: mejor });
+      }
+      if (cambios.length) await tx`update students s set semestre = v.semestre from unnest(${cambios.map((c) => c.id)}::uuid[], ${cambios.map((c) => c.sem)}::int[]) as v(id, semestre) where s.id = v.id`;
     }
     const sems = [...semestres];
-    if (sems.length) await tx`update students set activo = false where periodo = ${periodo} and semestre = any(${sems}) and id <> all(${tocados})`;
+    if (sems.length) {
+      const r = await tx`update students set activo = false where periodo = ${periodo} and activo and semestre = any(${sems}::int[]) and id <> all(${ids}::uuid[]) returning id`;
+      desactivados = r.length;
+    }
   });
   if (sinSemestre.length) errores.push(`Sin semestre (elige 1.º, 2.º o 3.º al cargar, o carga antes el horario con NRC): ${sinSemestre.slice(0, 5).join(', ')}${sinSemestre.length > 5 ? '…' : ''}`);
   const sems = [...semestres];
   const [n] = await sql`select count(*)::int as n, count(*) filter (where correo is null or correo = '')::int as sin from students where periodo = ${periodo} and activo`;
-  const [d] = sems.length ? await sql`select count(*)::int as n from students where periodo = ${periodo} and not activo and semestre = any(${sems})` : [{ n: 0 }];
   const nrcSinHorario = materias.filter((m) => !semPorNrc.has(m.nrc)).length;
   if (nrcSinHorario) errores.push(`${nrcSinHorario} materia(s) del listado no están en el horario cargado (revisa los NRC en Horarios)`);
   await registrarArchivo('estudiantes', nombreArchivo, `${n.n} estudiantes activos · matrícula por NRC`);
   refrescar();
+  const nuevos = plan.filter((p) => p.nuevo).length, actualizados = plan.length - nuevos;
   const semTexto = sems.length ? sems.sort().map((x) => `${x}.º`).join(' y ') : '—';
-  return { ok: true, datos: { resumen: `${ok.length} estudiantes de ${semTexto} semestre en ${materias.length} materias (NRC): ${nuevos} nuevos, ${actualizados} ya existentes, ${Number(d.n)} inactivos por no estar en el archivo. Activos ahora: ${n.n}${n.sin ? ` (${n.sin} sin correo: descarga la plantilla, completa correos y género y vuelve a cargarla)` : ''}.`, errores } };
+  return { ok: true, datos: { resumen: `${ok.length} estudiantes de ${semTexto} semestre en ${materias.length} materias (NRC): ${nuevos} nuevos, ${actualizados} ya existentes, ${desactivados} inactivos por no estar en el archivo. Activos ahora: ${n.n}${n.sin ? ` (${n.sin} sin correo: descarga la plantilla, completa correos y género y vuelve a cargarla)` : ''}.`, errores } };
 }
 
 export async function importarDocentes(formData: FormData): Promise<Resultado<{ resumen: string; errores: string[] }>> {
@@ -846,12 +876,15 @@ export async function importarHorarios(formData: FormData): Promise<Resultado<{ 
         }
       }
       await tx`update classes set activo = false where periodo = ${periodo}`;
+      // Una sola inserción masiva (sin repetir la misma clave) para no agotar el tiempo de la función en Vercel.
+      const filas = new Map<string, { periodo: string; semestre: number; paralelo: string | null; dia: number; inicio: string; fin: string; materia: string; teacher_id: string | null; nrc: string | null; activo: boolean }>();
       for (const c of ok) {
         const teacherId = (c.correoDocente && idPorCorreo.get(c.correoDocente)) || (c.docenteNombre && idPorNombre.get(claveDocente(c.docenteNombre))) || null;
-        await tx`insert into classes (periodo, semestre, paralelo, dia, inicio, fin, materia, teacher_id, nrc, activo)
-          values (${periodo}, ${c.semestre}, ${c.paralelo || null}, ${c.dia}, ${c.inicio}, ${c.fin}, ${c.materia}, ${teacherId}, ${c.nrc || null}, true)
-          on conflict (periodo, semestre, dia, inicio, materia, coalesce(paralelo, '')) do update set fin = excluded.fin, teacher_id = coalesce(excluded.teacher_id, classes.teacher_id), nrc = coalesce(excluded.nrc, classes.nrc), activo = true`;
+        filas.set(`${c.semestre}|${c.dia}|${c.inicio}|${c.materia}|${c.paralelo || ''}`, { periodo, semestre: c.semestre, paralelo: c.paralelo || null, dia: c.dia, inicio: c.inicio, fin: c.fin, materia: c.materia, teacher_id: teacherId, nrc: c.nrc || null, activo: true });
       }
+      const lote = [...filas.values()];
+      if (lote.length) await tx`insert into classes ${tx(lote, 'periodo', 'semestre', 'paralelo', 'dia', 'inicio', 'fin', 'materia', 'teacher_id', 'nrc', 'activo')}
+        on conflict (periodo, semestre, dia, inicio, materia, coalesce(paralelo, '')) do update set fin = excluded.fin, teacher_id = coalesce(excluded.teacher_id, classes.teacher_id), nrc = coalesce(excluded.nrc, classes.nrc), activo = true`;
     });
     const [n] = await sql`select count(distinct semestre)::int as s, count(distinct materia)::int as m, count(distinct nrc)::int as nrc from classes where periodo = ${periodo} and activo`;
     const resumen = `${n.s} semestres · ${n.m} materias${n.nrc ? ` · ${n.nrc} NRC` : ''}`;
