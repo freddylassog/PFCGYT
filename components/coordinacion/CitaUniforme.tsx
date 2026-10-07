@@ -4,7 +4,7 @@ import { guardarCitaUniforme } from '@/app/actions/coordinacion';
 import { CorreoBox } from '@/components/CorreoBox';
 import { useAccion } from '@/components/useAccion';
 import { correoUniformes } from '@/lib/correos';
-import { CITA_VACIA, citaDevolucionTexto, citaEntregaTexto, faltasCitaUniforme, fechaCorta } from '@/lib/reglas';
+import { CITA_VACIA, citaDevolucionTexto, citaEntregaTexto, faltasCitaUniforme, fechaCorta, horarioUniformeTexto } from '@/lib/reglas';
 import type { CitaUniforme as Cita, Datos } from '@/lib/tipos';
 import type { PedidoVista } from '@/lib/vista';
 
@@ -27,6 +27,7 @@ export function CitaUniforme({ p, datos, idPrefijo = 'cita' }: { p: PedidoVista;
 
   return (
     <div className={`stack-2 ${pending ? 'pendiente' : ''}`}>
+      {datos.ajustes.uniformeHorario.length > 0 && <p className="muted fs-12 m-0">Rige el horario fijo del periodo: <strong>{horarioUniformeTexto(datos.ajustes.uniformeHorario)}</strong>. Llena esto solo si este evento necesita otra fecha u horario.</p>}
       <p className="muted fs-12 m-0">Puede ser un solo día y hora o un periodo (p. ej. lunes a miércoles de 10:00 a 11:00): llena «hasta» solo si es más de un día o una franja horaria.</p>
       <div className="stack-2">
         <div className="etiqueta">Entrega del uniforme</div>

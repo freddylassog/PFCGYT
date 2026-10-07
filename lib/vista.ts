@@ -1,9 +1,6 @@
 // Cálculos derivados que comparten el panel, el portal del estudiante, el
 // reporte Excel y los correos. Todo puro: entra `Datos`, salen vistas.
-import {
-  ACTIVIDADES, DEVOLUCION, MINIMO_EVENTOS, VESTIMENTA, convenioLabel, cruceClases, diasHasta, duracionTextoDias, fechaCorta, fechaCortaDias, fechaLargaDias,
-  actividadesEtiquetasPedido, actividadesTextoPedido, cantidadDia, cantidadesDistintas, comidasDias, compromisosPedido, cuposTexto, diasEstudiante, estadoVisible, horasEstudiante, lugaresTexto, mismoLugar, repartoDia, tieneRepartoPorDia, horarioTextoDias, horasDias, infoUniforme, pasa4hDias, redondear1, semCorto, semLabel, semanaDe, tagClass, tipoClass, tipoLabel, transporteDias, transporteMotivoDias, transporteTexto, ultimoDia, type Compromiso, type EstadoVisible, type Transporte,
-} from './reglas';
+import { ACTIVIDADES, actividadesEtiquetasPedido, actividadesTextoPedido, cantidadDia, cantidadesDistintas, citaDevolucionTexto, citaEntregaTexto, comidasDias, compromisosPedido, convenioLabel, cruceClases, cuposTexto, DEVOLUCION, diasEstudiante, diasHasta, duracionTextoDias, estadoVisible, fechaCorta, fechaCortaDias, fechaLargaDias, horarioTextoDias, horarioUniformeTexto, horasDias, horasEstudiante, infoUniforme, lugaresTexto, MINIMO_EVENTOS, mismoLugar, pasa4hDias, redondear1, repartoDia, semanaDe, semCorto, semLabel, tagClass, tieneRepartoPorDia, tipoClass, tipoLabel, transporteDias, transporteMotivoDias, transporteTexto, type Compromiso, type EstadoVisible, type Transporte, ultimoDia, VESTIMENTA } from './reglas';
 import type { Clase, Datos, DiaEvento, Docente, Estudiante, Novedad, Pedido, Semestre } from './tipos';
 
 export interface PedidoVista extends Pedido {
@@ -63,6 +60,8 @@ export interface PedidoVista extends Pedido {
   cantidadesDistintas: boolean;
   /** Avance de cupos: '1/2' o, en varios días, 'D1 1/2 · D2 2/2' (cada día tiene su cupo). */
   progreso: string;
+  /** Qué hacer con el uniforme (solo eventos con uniforme institucional): la entrega y devolución fijadas para el evento o, si no hay, el horario fijo del periodo. */
+  uniformeAvisoTexto: string | null;
   confirmadosN: number;
   inscritosN: number;
   lleno: boolean;
@@ -112,6 +111,11 @@ export function vistaPedido(d: Datos, p: Pedido): PedidoVista {
   // Lleno solo cuando todos los días tienen su cupo: con los mismos estudiantes pedidos, uno puede ir un solo día y otro cubrir el otro.
   const lleno = cuposDias.length ? cuposDias.every((c) => c.confirmados >= c.cantidad) : confirmados.length >= p.cantidad;
   const progreso = p.dias.length > 1 ? cuposDias.map((c, i) => `D${i + 1} ${c.confirmados}/${c.cantidad}`).join(' · ') : `${confirmados.length}/${p.cantidad}`;
+  const horarioFijo = d.ajustes.uniformeHorario.length ? `${horarioUniformeTexto(d.ajustes.uniformeHorario)}${d.ajustes.uniformeLugar ? ` · ${d.ajustes.uniformeLugar}` : ''}` : '';
+  const citaEvento = p.uniformeCita && (p.uniformeCita.entregaFecha || p.uniformeCita.devolucionFecha) ? p.uniformeCita : null;
+  const uniformeAvisoTexto = p.vestimenta !== 'uniforme' ? null
+    : citaEvento ? [citaEntregaTexto(citaEvento) ? `entrega ${citaEntregaTexto(citaEvento)}` : '', citaDevolucionTexto(citaEvento) ? `devolución (lavado) ${citaDevolucionTexto(citaEvento)}` : '', citaEvento.lugar].filter(Boolean).join(' · ')
+    : horarioFijo ? `retíralo antes del evento y devuélvelo lavado después, en ${horarioFijo}` : null;
   const v = VESTIMENTA[p.vestimenta] ?? VESTIMENTA.uniforme;
   const tm = transporteMotivoDias(p);
   const p4 = pasa4hDias(p.dias);
@@ -135,7 +139,7 @@ export function vistaPedido(d: Datos, p: Pedido): PedidoVista {
     tagClass: tagClass(estadoVisible(p)),
     bloqueo: p.tipo === 'externo' && p.convenio === 'no' ? 'No se puede aprobar: la institución no tiene convenio vigente con la UTE.' : null,
     confirmados, inscritos, confirmadosN: confirmados.length, inscritosN: inscritos.length, lleno,
-    asistencia, cuposDias, cuposTexto: cuposTexto(p), cantidadesDistintas: cantidadesDistintas(p), progreso,
+    asistencia, cuposDias, cuposTexto: cuposTexto(p), cantidadesDistintas: cantidadesDistintas(p), progreso, uniformeAvisoTexto,
     cruces, cruceAmbito: confirmados.length ? 'semestres confirmados' : 'todos los semestres',
     novedades, novedadesTexto: novedades.length ? novedades.map((n) => `${n.estudiante?.nombre ?? ''}: ${n.tipo}`).join(' · ') : '—',
     evidenciaTexto: p.evidenciaNombre || 'sin evidencia',

@@ -46,3 +46,21 @@ test('calendario: un evento por día, pendientes como [Por aprobar], rechazados 
   assert.match(ics, /DTSTAMP:20260908T120000Z/);
   assert.equal((ics.match(/BEGIN:VEVENT/g) || []).length, 6);
 });
+
+test('calendario: el horario fijo de uniformes entra como evento semanal hasta el fin del semestre', () => {
+  const d = datosDemo();
+  d.ajustes.uniformeHorario = [{ dia: 1, inicio: '11:00', fin: '13:00', atiende: 'Estudiantes de apoyo' }, { dia: 2, inicio: '13:00', fin: '15:00', atiende: 'Coordinación' }];
+  d.ajustes.uniformeLugar = 'Oficina de protocolo';
+  const base = eventosCalendario(datosDemo(), 'https://protocolo.test').length;
+  const ev = eventosCalendario(d, 'https://protocolo.test');
+  assert.equal(ev.length, base + 2);
+  const lunes = ev.find((e) => e.uid === '2026-2-uniformes-1@protocolo-fcgt')!;
+  assert.equal(lunes.inicio, '20260907T160000Z', 'primer lunes del semestre (7 sep) a las 11:00 Ecuador');
+  assert.equal(lunes.fin, '20260907T180000Z');
+  assert.equal(lunes.rrule, 'FREQ=WEEKLY;UNTIL=20261227T235959Z', '16 semanas desde el 7 sep');
+  assert.equal(lunes.titulo, 'Uniformes · retiro y devolución (Estudiantes de apoyo)');
+  assert.equal(lunes.lugar, 'Oficina de protocolo');
+  assert.equal(ev.find((e) => e.uid === '2026-2-uniformes-2@protocolo-fcgt')!.inicio, '20260908T180000Z');
+  const ics = calendarioICS(d, 'https://protocolo.test', new Date('2026-09-08T12:00:00Z'));
+  assert.match(ics, /RRULE:FREQ=WEEKLY;UNTIL=20261227T235959Z/);
+});

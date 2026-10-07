@@ -4,7 +4,7 @@ import { activarMensajesPersonales, desactivarMensajesPersonales, detectarCanal,
 import { IconoDescargar } from '@/components/Iconos';
 import { Marco } from '@/components/Marco';
 import { useAccion } from '@/components/useAccion';
-import { ESTADOS_VISIBLES, ESTADO_PLURAL, anticipacionVigente, fechaLarga } from '@/lib/reglas';
+import { anticipacionVigente, DIAS_CLASE, ESTADO_PLURAL, ESTADOS_VISIBLES, fechaLarga, horarioUniformeTexto } from '@/lib/reglas';
 import type { Datos } from '@/lib/tipos';
 import { resumenHoras, type PedidoVista } from '@/lib/vista';
 
@@ -14,6 +14,10 @@ export function Resumen({ datos, pedidos }: { datos: Datos; pedidos: PedidoVista
   const [horas, setHoras] = useState(String(h.horasSemana));
   const a = datos.ajustes;
   const [aj, setAj] = useState({ correoDecanato: a.correoDecanato, correoGrupoEstudiantes: a.correoGrupoEstudiantes, correoCoordinacion: a.correoCoordinacion, inicioSemestre: a.inicioSemestre, uniformeLugar: a.uniformeLugar, anticipacionHoras: a.anticipacionHoras, anticipacionHasta: a.anticipacionHasta });
+  // Horario fijo de uniformes: una fila por día (lunes a viernes); la casilla apaga el día.
+  const [hu, setHu] = useState(() => [1, 2, 3, 4, 5].map((dia) => { const f = a.uniformeHorario.find((x) => x.dia === dia); return { dia, activo: !!f, inicio: f?.inicio ?? '', fin: f?.fin ?? '', atiende: f?.atiende ?? '' }; }));
+  const huActivo = hu.filter((f) => f.activo).map(({ dia, inicio, fin, atiende }) => ({ dia, inicio, fin, atiende }));
+  const setFila = (i: number, cambio: Partial<(typeof hu)[number]>) => setHu(hu.map((x, j) => (j === i ? { ...x, ...cambio } : x)));
   const [np, setNp] = useState({ periodo: '', inicio: '' });
   const [prueba, setPrueba] = useState<string | null>(null);
   const [copiado, setCopiado] = useState(false);
@@ -123,13 +127,27 @@ export function Resumen({ datos, pedidos }: { datos: Datos; pedidos: PedidoVista
         </Marco>
       )}
       <div className="cols-auto mt-4">
-        <Marco as="form" className="p-4 stack-3" onSubmit={(e: React.FormEvent) => { e.preventDefault(); run(() => guardarAjustes(aj)); }}>
+        <Marco as="form" className="p-4 stack-3" onSubmit={(e: React.FormEvent) => { e.preventDefault(); run(() => guardarAjustes({ ...aj, uniformeHorario: huActivo })); }}>
           <h6 className="h6-accent">Ajustes del periodo {a.periodo}</h6>
           <div className="field"><label>Inicio del semestre (lunes de la semana 1)</label><input className="input" type="date" value={aj.inicioSemestre} onChange={(e) => setAj({ ...aj, inicioSemestre: e.target.value })} /><div className="muted fs-12 mt-2">{fechaLarga(aj.inicioSemestre)}</div></div>
           <div className="field"><label>Correo de decanato (reporte de novedades)</label><input className="input" type="email" value={aj.correoDecanato} onChange={(e) => setAj({ ...aj, correoDecanato: e.target.value })} placeholder="decanato.fcgt@ute.edu.ec" /></div>
           <div className="field"><label>Grupo de Outlook de estudiantes (convocatorias)</label><input className="input" type="email" value={aj.correoGrupoEstudiantes} onChange={(e) => setAj({ ...aj, correoGrupoEstudiantes: e.target.value })} placeholder="protocolo.estudiantes@ute.edu.ec" /><div className="muted fs-12 mt-2">Si lo dejas vacío, el correo de convocatoria pone a todos los estudiantes activos en copia oculta.</div></div>
           <div className="field"><label>Correo de coordinación (para copia)</label><input className="input" type="email" value={aj.correoCoordinacion} onChange={(e) => setAj({ ...aj, correoCoordinacion: e.target.value })} /></div>
-          <div className="field"><label>Lugar habitual de entrega de uniformes</label><input className="input" value={aj.uniformeLugar} onChange={(e) => setAj({ ...aj, uniformeLugar: e.target.value })} placeholder="ej. Oficina de coordinación de protocolo" /><div className="muted fs-12 mt-2">Se propone al fijar la entrega y devolución de cada evento (pestaña Uniformes).</div></div>
+          <div className="field"><label>Horario de retiro y devolución de uniformes (todo el periodo)</label>
+            <div className="stack-2">
+              {hu.map((f, i) => (
+                <div key={f.dia} className="row" style={{ gap: 6, alignItems: 'center' }}>
+                  <label className="radio fs-13" style={{ minWidth: 104 }}><input id={`hu-${f.dia}-activo`} type="checkbox" checked={f.activo} onChange={(e) => setFila(i, { activo: e.target.checked })} /><span className="dot cuadro" />{DIAS_CLASE[f.dia]}</label>
+                  <input id={`hu-${f.dia}-inicio`} className="input" type="time" aria-label={`${DIAS_CLASE[f.dia]} · desde`} style={{ width: 112 }} value={f.inicio} disabled={!f.activo} onChange={(e) => setFila(i, { inicio: e.target.value })} />
+                  <span className="muted fs-12">a</span>
+                  <input id={`hu-${f.dia}-fin`} className="input" type="time" aria-label={`${DIAS_CLASE[f.dia]} · hasta`} style={{ width: 112 }} value={f.fin} disabled={!f.activo} onChange={(e) => setFila(i, { fin: e.target.value })} />
+                  <input id={`hu-${f.dia}-atiende`} className="input" aria-label={`${DIAS_CLASE[f.dia]} · quién atiende`} style={{ flex: 1, minWidth: 150 }} placeholder="Quién atiende" value={f.atiende} disabled={!f.activo} onChange={(e) => setFila(i, { atiende: e.target.value })} />
+                </div>
+              ))}
+            </div>
+            <div className="muted fs-12 mt-2">{huActivo.length ? <>Los estudiantes verán: <strong>{horarioUniformeTexto(huActivo)}</strong>. Franjas de 2 horas, fijas todo el semestre; también salen en tu calendario suscrito.</> : 'Sin horario fijo: cada evento necesita su propia entrega y devolución (pestaña Uniformes).'}</div>
+          </div>
+          <div className="field"><label>Lugar de retiro y devolución de uniformes</label><input className="input" value={aj.uniformeLugar} onChange={(e) => setAj({ ...aj, uniformeLugar: e.target.value })} placeholder="ej. Oficina de coordinación de protocolo" /><div className="muted fs-12 mt-2">Se muestra junto al horario y se propone al fijar una entrega especial por evento.</div></div>
           <div className="cols-2">
             <div className="field"><label>Anticipación mínima de los pedidos (horas)</label><input className="input" type="number" min={1} max={720} value={aj.anticipacionHoras} onChange={(e) => setAj({ ...aj, anticipacionHoras: Number(e.target.value) })} /></div>
             <div className="field"><label>Esa anticipación vale hasta (opcional)</label><input className="input" type="date" value={aj.anticipacionHasta} onChange={(e) => setAj({ ...aj, anticipacionHasta: e.target.value })} /></div>

@@ -4,7 +4,7 @@ import { alternarPrenda, fijarDevolucion } from '@/app/actions/coordinacion';
 import { Marco } from '@/components/Marco';
 import { useAccion } from '@/components/useAccion';
 import type { Datos } from '@/lib/tipos';
-import { fechaCorta, horarioCitaTexto } from '@/lib/reglas';
+import { fechaCorta, horarioCitaTexto, horarioUniformeTexto } from '@/lib/reglas';
 import { vistaUniformes, type PedidoVista } from '@/lib/vista';
 import { CitaUniforme } from './CitaUniforme';
 
@@ -23,7 +23,15 @@ export function Uniformes({ datos, pedidos }: { datos: Datos; pedidos: PedidoVis
   const eventos = pedidos.filter((p) => p.estado === 'Aprobado' && p.vestimenta === 'uniforme' && p.confirmadosN > 0);
   return (
     <div className={pending ? 'pendiente' : ''}>
-      <div className="mt-6"><h3 className="m-0">Entrega y devolución por evento</h3><p className="muted fs-14" style={{ margin: 'var(--space-1) 0 0' }}>Fija día y hora (o un periodo, p. ej. lunes a miércoles de 10:00 a 11:00) y lugar para cada evento con uniforme institucional y avisa a los confirmados por Telegram o por correo. El día anterior a cada entrega o devolución (o al inicio del periodo) la app envía un recordatorio.</p></div>
+      <div className="mt-6"><h3 className="m-0">Retiro y devolución de uniformes</h3></div>
+      <Marco className="p-4 stack-2 mt-3">
+        <div className="between"><h6 className="m-0">Horario fijo del periodo {datos.ajustes.periodo}</h6><a className="btn btn-ghost btn-sm" href="/coordinacion?tab=resumen">Cambiar en Ajustes</a></div>
+        {datos.ajustes.uniformeHorario.length
+          ? <p className="m-0 fs-14"><strong>{horarioUniformeTexto(datos.ajustes.uniformeHorario)}</strong>{datos.ajustes.uniformeLugar ? ` · ${datos.ajustes.uniformeLugar}` : ''}</p>
+          : <p className="falta fs-13 m-0">Sin horario fijo: cada evento necesita su propia entrega y devolución. Fíjalo en Resumen → Ajustes.</p>}
+        <p className="muted fs-12 m-0">Los estudiantes lo ven en su portal, en la convocatoria y en la confirmación de cada evento con uniforme; retiran antes del evento y devuelven lavado después, en cualquiera de esas franjas. También está en tu calendario suscrito como evento semanal.</p>
+      </Marco>
+      <div className="mt-6"><h4 className="m-0">Excepciones por evento</h4><p className="muted fs-14" style={{ margin: 'var(--space-1) 0 0' }}>Solo si un evento necesita una entrega o devolución distinta del horario fijo: fija día y hora (o un periodo, p. ej. lunes a miércoles de 10:00 a 11:00) y avisa a los confirmados por Telegram o por correo. El día anterior a esa entrega o devolución la app envía un recordatorio.</p></div>
       {!eventos.length && <p className="muted mt-3">Aún no hay eventos aprobados con uniforme institucional y estudiantes confirmados.</p>}
       <div className="cols-auto-340 mt-3">
         {eventos.map((p) => (

@@ -45,6 +45,7 @@ export function mensajeConvocatoriaCanal(p: PedidoVista, appUrl: string): string
     `Cupos: ${p.cuposTexto}`,
     p.multidia ? `Si solo puedes uno de los días, márcalo al inscribirte.` : '',
     `Vestimenta: ${p.vestLabel}. ${p.vestNotaEst}`,
+    ...(p.uniformeAvisoTexto ? [`Uniforme: ${p.uniformeAvisoTexto}`] : []),
     `Actividades: ${p.actividadesTexto}`,
     p.comidas > 0 ? `Alimentación: ${p.comidas} por estudiante, la cubre el organizador.` : '',
     p.transporteTexto ? `Transporte (${p.transporteTexto.toLowerCase()}): lo garantiza el organizador.` : '',
@@ -69,6 +70,7 @@ export function mensajeRecordatorioCanal(pedidos: PedidoVista[], manana: string)
       `Lugar: ${lugarDia(p, dia)}`,
       `Responsable en sitio: ${p.responsable}${p.responsableTelefono ? ` · ${p.responsableTelefono}` : ''}`,
       `Vestimenta: ${p.vestLabel}. ${p.vestNotaEst}`,
+    ...(p.uniformeAvisoTexto ? [`Uniforme: ${p.uniformeAvisoTexto}`] : []),
       `Confirmados${p.multidia ? ' ese día' : ''} (${confirmadosEnDia(p, dia.fecha).length}/${cantidadDia(p, dia)}): ${confirmadosEnDia(p, dia.fecha).map((e) => e.nombre).join(', ') || '—'}`,
     ].join('\n');
   }).filter((b): b is string => !!b);
@@ -107,6 +109,7 @@ export function mensajeEstudianteConfirmado(p: PedidoVista, e: Estudiante, event
     `Lugar: ${p.lugarTexto}`,
     `Responsable en sitio: ${p.responsable}${p.responsableTelefono ? ` · ${p.responsableTelefono}` : ''}`,
     `Vestimenta: ${p.vestLabel}. ${p.vestNotaEst}`,
+    ...(p.uniformeAvisoTexto ? [`Uniforme: ${p.uniformeAvisoTexto}`] : []),
     `Actividades del evento: ${p.actividadesTexto}`,
     ``,
     `Con este evento llevas ${eventosN} de ${MINIMO_EVENTOS} del semestre. Realiza solo las actividades asignadas y retírate a la hora de salida.`,
@@ -128,6 +131,7 @@ export function mensajeRecordatorioPersonal(p: PedidoVista, dia: DiaEvento, e: E
     `Lugar: ${lugarDia(p, dia)}`,
     `Responsable en sitio: ${p.responsable}${p.responsableTelefono ? ` · ${p.responsableTelefono}` : ''}`,
     `Vestimenta: ${p.vestLabel}. ${p.vestNotaEst}`,
+    ...(p.uniformeAvisoTexto ? [`Uniforme: ${p.uniformeAvisoTexto}`] : []),
     `Llega 15 minutos antes.`,
   ].join('\n');
 }

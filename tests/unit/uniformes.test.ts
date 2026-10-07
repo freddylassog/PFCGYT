@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CITA_VACIA, citaDevolucionTexto, citaEntregaTexto, citaEsPeriodo, faltasCitaUniforme, fechasCita, periodoTexto } from '../../lib/reglas';
+import { CITA_VACIA, citaDevolucionTexto, citaEntregaTexto, citaEsPeriodo, faltasCitaUniforme, faltasHorarioUniforme, fechasCita, horarioUniformeTexto, mapHorarioUniforme, periodoTexto, primeraFechaDia } from '../../lib/reglas';
 import { mensajeUniformesCanal, mensajeUniformesRecordatorioCanal, mensajeUniformesRecordatorioPersonal } from '../../lib/notificar-texto';
 import type { PedidoVista } from '../../lib/vista';
 
@@ -58,4 +58,25 @@ test('periodo de entrega: varios días y franja horaria (lunes a miércoles de 1
   assert.match(rec, /Entrega del uniforme · Feria Gastronómica: de 10:00 a 11:00 \(hasta el lunes 28 sep 2026\) · Oficina de protocolo/);
   assert.match(mensajeUniformesRecordatorioPersonal(pedido, per, 'entrega', est), /Camila, desde mañana puedes retirar el uniforme para Feria Gastronómica: jueves 24 a lunes 28 sep 2026 · de 10:00 a 11:00 en Oficina de protocolo/);
   assert.match(mensajeUniformesRecordatorioPersonal(pedido, { ...cita, entregaHoraFin: '11:30' }, 'entrega', est), /mañana jueves 24 sep 2026 de 10:30 a 11:30 retiras el uniforme/);
+});
+
+test('horario fijo de uniformes: agrupa días iguales, valida y se lee desde settings', () => {
+  const h = [
+    { dia: 1, inicio: '11:00', fin: '13:00', atiende: 'Estudiantes de apoyo' }, { dia: 2, inicio: '13:00', fin: '15:00', atiende: 'Coordinación' },
+    { dia: 3, inicio: '11:00', fin: '13:00', atiende: 'Estudiantes de apoyo' }, { dia: 4, inicio: '13:00', fin: '15:00', atiende: 'Coordinación' },
+    { dia: 5, inicio: '11:00', fin: '13:00', atiende: 'Estudiantes de apoyo' },
+  ];
+  assert.equal(horarioUniformeTexto(h), 'lunes, miércoles y viernes 11:00–13:00 (Estudiantes de apoyo) · martes y jueves 13:00–15:00 (Coordinación)');
+  assert.equal(horarioUniformeTexto([{ ...h[0], atiende: 'Valeria y Daniela' }, h[1], h[2]]), 'lunes 11:00–13:00 (Valeria y Daniela) · martes 13:00–15:00 (Coordinación) · miércoles 11:00–13:00 (Estudiantes de apoyo)');
+  assert.equal(horarioUniformeTexto([{ dia: 5, inicio: '09:00', fin: '11:00', atiende: '' }]), 'viernes 09:00–11:00');
+  assert.equal(horarioUniformeTexto([]), '');
+  assert.deepEqual(faltasHorarioUniforme(h), []);
+  assert.deepEqual(faltasHorarioUniforme([{ dia: 1, inicio: '13:00', fin: '11:00', atiende: '' }]), ['lunes: la hora final debe ser después de la inicial']);
+  assert.deepEqual(faltasHorarioUniforme([{ dia: 2, inicio: '', fin: '11:00', atiende: '' }, { dia: 2, inicio: '09:00', fin: '10:00', atiende: '' }]), ['martes: hora de inicio y fin', 'martes: repetido']);
+  assert.deepEqual(faltasHorarioUniforme([{ dia: 6, inicio: '09:00', fin: '10:00', atiende: '' }]), ['día 6: solo de lunes a viernes']);
+  assert.deepEqual(mapHorarioUniforme(JSON.stringify([h[2], h[0], { dia: 9, inicio: '09:00', fin: '10:00' }, { dia: 4, inicio: '10:00', fin: '09:00' }])).map((f) => f.dia), [1, 3], 'ordena por día y descarta franjas inválidas');
+  assert.deepEqual(mapHorarioUniforme(null), []);
+  assert.equal(primeraFechaDia('2026-09-07', 1), '2026-09-07', 'el lunes 7 sep ya es lunes');
+  assert.equal(primeraFechaDia('2026-09-07', 3), '2026-09-09');
+  assert.equal(primeraFechaDia('2026-09-09', 1), '2026-09-14', 'desde un miércoles, el próximo lunes');
 });

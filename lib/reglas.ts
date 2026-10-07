@@ -1,7 +1,7 @@
 // Reglas de negocio y formato. Solo funciones puras: se usan igual en el
 // navegador y en el servidor (validaciones, reporte, correos).
 import type {
-  CitaUniforme, Clase, DiaEvento, Estado, Genero, RepartoActividad, Semestre, Vestimenta,
+  CitaUniforme, Clase, DiaEvento, Estado, FranjaUniforme, Genero, RepartoActividad, Semestre, Vestimenta,
 } from './tipos';
 
 export const ZONA_HORARIA = 'America/Guayaquil';
@@ -577,6 +577,56 @@ export function citaEntregaTexto(c: CitaUniforme | null): string | null {
 
 export function citaDevolucionTexto(c: CitaUniforme | null): string | null {
   return c?.devolucionFecha ? `${periodoTexto(c.devolucionFecha, c.devolucionHasta)} · ${horarioCitaTexto(c.devolucionHora, c.devolucionHoraFin)}` : null;
+}
+
+// ---------------------------------------------------------------- horario fijo de uniformes (todo el periodo)
+
+/** Errores del horario fijo: día de lunes a viernes sin repetir, horas válidas y fin después del inicio. */
+export function faltasHorarioUniforme(h: FranjaUniforme[]): string[] {
+  const f: string[] = [];
+  const vistos = new Set<number>();
+  for (const x of h) {
+    const nombre = DIAS_CLASE[x.dia] ? DIAS_CLASE[x.dia].toLowerCase() : `día ${x.dia}`;
+    if (!(x.dia >= 1 && x.dia <= 5)) { f.push(`${nombre}: solo de lunes a viernes`); continue; }
+    if (vistos.has(x.dia)) f.push(`${nombre}: repetido`);
+    vistos.add(x.dia);
+    if (!esHora(x.inicio) || !esHora(x.fin)) f.push(`${nombre}: hora de inicio y fin`);
+    else if (x.fin <= x.inicio) f.push(`${nombre}: la hora final debe ser después de la inicial`);
+  }
+  return f;
+}
+
+/** 'lunes, miércoles y viernes' */
+function listaDiasSemana(dias: number[]): string {
+  const n = dias.map((d) => DIAS_CLASE[d].toLowerCase());
+  return n.length > 1 ? `${n.slice(0, -1).join(', ')} y ${n[n.length - 1]}` : (n[0] ?? '');
+}
+
+/** 'lunes, miércoles y viernes 11:00–13:00 (Estudiantes de apoyo) · martes y jueves 13:00–15:00 (Coordinación)' (días con la misma franja y responsable se agrupan). */
+export function horarioUniformeTexto(h: FranjaUniforme[]): string {
+  const grupos: { clave: string; dias: number[]; f: FranjaUniforme }[] = [];
+  for (const f of [...h].filter((x) => x.dia >= 1 && x.dia <= 5).sort((a, b) => a.dia - b.dia)) {
+    const clave = `${f.inicio}-${f.fin}-${f.atiende.trim().toLowerCase()}`;
+    const g = grupos.find((x) => x.clave === clave);
+    if (g) g.dias.push(f.dia); else grupos.push({ clave, dias: [f.dia], f });
+  }
+  return grupos.map((g) => `${listaDiasSemana(g.dias)} ${g.f.inicio}–${g.f.fin}${g.f.atiende.trim() ? ` (${g.f.atiende.trim()})` : ''}`).join(' · ');
+}
+
+/** Horario fijo de uniformes tal como viene de settings (jsonb o texto); descarta franjas inválidas y ordena por día. */
+export function mapHorarioUniforme(v: unknown): FranjaUniforme[] {
+  let x = v;
+  if (typeof x === 'string') { try { x = JSON.parse(x); } catch { return []; } }
+  if (!Array.isArray(x)) return [];
+  return x.map((o) => { const r = (o ?? {}) as Record<string, unknown>; const t = (v: unknown) => (typeof v === 'string' ? v : ''); return { dia: Number(r.dia), inicio: t(r.inicio), fin: t(r.fin), atiende: t(r.atiende) }; })
+    .filter((f) => f.dia >= 1 && f.dia <= 5 && esHora(f.inicio) && esHora(f.fin) && f.fin > f.inicio)
+    .sort((a, b) => a.dia - b.dia);
+}
+
+/** Primera fecha (ISO) a partir de 'desde' que cae en ese día de la semana (0 = domingo … 6 = sábado). */
+export function primeraFechaDia(desde: string, dia: number): string {
+  const dow = toDate(desde).getDay();
+  return sumarDias(desde, (dia - dow + 7) % 7);
 }
 
 // ---------------------------------------------------------------- etiquetas

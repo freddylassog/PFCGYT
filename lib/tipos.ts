@@ -178,6 +178,15 @@ export interface ArchivoInfo {
   info: string;
 }
 
+/** Franja fija semanal de retiro y devolución de uniformes (dia: 1 = lunes … 5 = viernes). */
+export interface FranjaUniforme {
+  dia: number;
+  inicio: string;
+  fin: string;
+  /** Quién atiende (p. ej. "Estudiantes de apoyo" o "Coordinación"). */
+  atiende: string;
+}
+
 export interface Ajustes {
   periodo: string;
   inicioSemestre: string;
@@ -203,6 +212,8 @@ export interface Ajustes {
   anticipacionHoras: number;
   /** Si tiene fecha, la anticipación anterior vale solo hasta ese día; después vuelve a 72 h. */
   anticipacionHasta: string;
+  /** Horario fijo de retiro y devolución de uniformes durante el periodo (vacío = solo citas por evento). */
+  uniformeHorario: FranjaUniforme[];
 }
 
 /** Todo lo que necesita el panel de coordinación, cargado en una sola pasada. */

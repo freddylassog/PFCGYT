@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { inscribirme, retirarme } from '@/app/actions/estudiante';
 import { Marco } from '@/components/Marco';
 import { useAccion } from '@/components/useAccion';
-import { MINIMO_EVENTOS, citaDevolucionTexto, citaEntregaTexto, fechaCorta, horarioTextoDias, horasDias, infoUniforme, redondear1, semLabel } from '@/lib/reglas';
+import { citaDevolucionTexto, citaEntregaTexto, fechaCorta, horarioTextoDias, horarioUniformeTexto, horasDias, infoUniforme, MINIMO_EVENTOS, redondear1, semLabel } from '@/lib/reglas';
 import { actividadesDeEstudiante, diasDeEstudiante } from '@/lib/vista';
 import type { Datos, Estudiante } from '@/lib/tipos';
 import { avanceEstudiante, vistaPedidos } from '@/lib/vista';
@@ -16,6 +16,7 @@ export function MisEventos({ datos, yo }: { datos: Datos; yo: Estudiante }) {
   const dev = datos.devoluciones.find((d) => d.studentId === yo.id) ?? null;
   const devTexto = dev?.estado === 'lavado' ? 'Uniforme devuelto y recibido lavado.' : dev?.estado === 'rechazado' ? 'Tu uniforme no fue recibido porque llegó sin lavar. Debes volver a entregarlo lavado.' : 'Al final del semestre devuelve el uniforme lavado; si no está lavado no se recibe.';
   const misEventos = avance.eventos;
+  const horarioFijo = datos.ajustes.uniformeHorario.length ? `${horarioUniformeTexto(datos.ajustes.uniformeHorario)}${datos.ajustes.uniformeLugar ? ` · ${datos.ajustes.uniformeLugar}` : ''}` : '';
   const [diasElegidos, setDiasElegidos] = useState<Record<string, string[]>>({});
   /** Fechas de un evento que aún tienen cupo (los días llenos quedan bloqueados). */
   const conCupo = (e: { cuposDias: { fecha: string; cantidad: number; confirmados: number }[] }) => e.cuposDias.filter((c) => c.confirmados < c.cantidad).map((c) => c.fecha);
@@ -40,6 +41,7 @@ export function MisEventos({ datos, yo }: { datos: Datos; yo: Estudiante }) {
         <div className="between"><h6 className="m-0">Mi uniforme</h6><span className={`tag ${uni.tagClass}`}>{uni.estado}</span></div>
         <div className="row" style={{ gap: 6 }}>{uni.items.map((l) => <span key={l} className={`tag ${uni.tiene.includes(l) ? 'tag-accent' : 'tag-outline'}`}>{l}{uni.tiene.includes(l) ? '' : ' · pendiente'}</span>)}</div>
         <p className={`fs-12 m-0 ${dev?.estado === 'rechazado' ? 'falta' : 'muted'}`}>{devTexto}</p>
+        {horarioFijo && <p className="fs-12 m-0"><strong>Retiro y devolución:</strong> {horarioFijo}. Retira el uniforme antes de cada evento y devuélvelo lavado después, en cualquiera de esas franjas.</p>}
       </Marco>
       {datos.notificaciones.botUsername && (
         <Marco className="mt-4 max-720 p-4 stack-2">
@@ -92,6 +94,7 @@ export function MisEventos({ datos, yo }: { datos: Datos; yo: Estudiante }) {
               {(e.comidas > 0 || e.transporteTexto) && <div><div className="etiqueta">Alimentación y transporte</div>{e.comidas > 0 ? `${e.comidas} ${e.comidas > 1 ? 'alimentaciones' : 'alimentación'}` : 'Sin alimentación'}{e.transporteTexto ? ` · transporte: ${e.transporteTexto.toLowerCase()}` : ''}<div className="muted fs-12">A cargo del organizador.</div></div>}
               {e.vestimenta === 'uniforme' && citaEntregaTexto(e.uniformeCita) && <div><div className="etiqueta">Entrega del uniforme</div>{citaEntregaTexto(e.uniformeCita)}{e.uniformeCita?.lugar && <div className="muted fs-12">{e.uniformeCita.lugar}</div>}</div>}
               {e.vestimenta === 'uniforme' && citaDevolucionTexto(e.uniformeCita) && <div><div className="etiqueta">Devolución del uniforme (lavado)</div>{citaDevolucionTexto(e.uniformeCita)}{e.uniformeCita?.lugar && <div className="muted fs-12">{e.uniformeCita.lugar}</div>}</div>}
+              {e.vestimenta === 'uniforme' && !citaEntregaTexto(e.uniformeCita) && !citaDevolucionTexto(e.uniformeCita) && horarioFijo && <div><div className="etiqueta">Retiro y devolución del uniforme</div>{horarioFijo}<div className="muted fs-12">Antes del evento; devuélvelo lavado después.</div></div>}
             </div>
             <div><div className="etiqueta" style={{ marginBottom: 4 }}>{e.repartoPorDia ? 'Tus actividades' : 'Actividades del evento'}</div><div className="row" style={{ gap: 4 }}>{(e.repartoPorDia ? actividadesDeEstudiante(e, yo.id) : e.actividadesEtiquetas).map((a) => <span key={a} className="tag tag-neutral">{a}</span>)}</div></div>
           </Marco>

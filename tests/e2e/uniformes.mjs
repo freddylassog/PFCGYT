@@ -23,17 +23,28 @@ await p.fill('#password', 'protocolo2026');
 await p.click('button:has-text("Ingresar")');
 await p.waitForSelector('h1:has-text("Coordinación")');
 
-// Ajustes: lugar habitual
+// Ajustes: lugar y horario fijo del periodo (viene propuesto por la migración; se fija explícito y se cambia el lunes)
 await p.goto(base + '/coordinacion?tab=resumen');
 await p.fill('input[placeholder="ej. Oficina de coordinación de protocolo"]', 'Oficina de protocolo, bloque B');
+const franjas = { 1: ['11:00', '13:00', 'Valeria y Daniela'], 2: ['13:00', '15:00', 'Coordinación'], 3: ['11:00', '13:00', 'Estudiantes de apoyo'], 4: ['13:00', '15:00', 'Coordinación'], 5: ['11:00', '13:00', 'Estudiantes de apoyo'] };
+for (const [dia, [ini, fin, quien]] of Object.entries(franjas)) {
+  if (!(await p.isChecked(`#hu-${dia}-activo`))) await p.click(`label:has(#hu-${dia}-activo)`);
+  await p.fill(`#hu-${dia}-inicio`, ini); await p.fill(`#hu-${dia}-fin`, fin); await p.fill(`#hu-${dia}-atiende`, quien);
+}
+const previa = (await p.locator('text=Los estudiantes verán:').textContent()).replace(/\s+/g, ' ');
+if (!/lunes 11:00–13:00 \(Valeria y Daniela\) · martes y jueves 13:00–15:00 \(Coordinación\) · miércoles y viernes 11:00–13:00 \(Estudiantes de apoyo\)/.test(previa)) throw new Error('vista previa del horario: ' + previa);
 await p.click('button:has-text("Guardar ajustes")');
 await p.waitForTimeout(1500);
-paso('Ajustes: lugar habitual guardado');
+paso('Ajustes: lugar y horario fijo guardados · ' + previa.trim());
 
-// Uniformes: cita del evento
+// Uniformes: horario fijo arriba y cita del evento (excepción) abajo
 await p.goto(base + '/coordinacion?tab=uniformes');
+const fijo = (await p.locator('.blueprint:has(h6:has-text("Horario fijo del periodo"))').first().textContent()).replace(/\s+/g, ' ');
+if (!/lunes 11:00–13:00 \(Valeria y Daniela\)/.test(fijo) || !/Oficina de protocolo, bloque B/.test(fijo)) throw new Error('la pestaña Uniformes no muestra el horario fijo: ' + fijo);
+paso('Uniformes: horario fijo visible');
 const card = p.locator('.card:has-text("Feria")').first();
 await card.waitFor();
+if ((await card.locator('text=Rige el horario fijo del periodo').count()) !== 1) throw new Error('la cita por evento no menciona el horario fijo');
 const lugar = await card.locator('input[id$="-lugar"]').inputValue();
 if (lugar !== 'Oficina de protocolo, bloque B') throw new Error('el lugar habitual no se propuso: ' + lugar);
 if (!(await card.locator('button:has-text("Guardar y avisar por Telegram")').isDisabled())) throw new Error('sin Telegram el botón de avisar debería estar apagado');
@@ -69,7 +80,9 @@ await est.waitForSelector('text=Entrega del uniforme', { timeout: 15000 });
 const txt = (await est.locator('text=Entrega del uniforme').locator('..').textContent()).replace(/\s+/g, ' ');
 if (!/ a .* · de 10:30 a 11:30/.test(txt) || !/bloque B/.test(txt)) throw new Error('el portal no muestra el periodo: ' + txt);
 await est.waitForSelector('text=Devolución del uniforme');
-paso('Estudiante: ve entrega y devolución del uniforme');
+const miUniforme = (await est.locator('p:has-text("Retiro y devolución:")').first().textContent()).replace(/\s+/g, ' ');
+if (!/lunes 11:00–13:00 \(Valeria y Daniela\)/.test(miUniforme) || !/bloque B/.test(miUniforme)) throw new Error('el portal no muestra el horario fijo: ' + miUniforme);
+paso('Estudiante: ve la cita del evento y el horario fijo del periodo');
 await shot(est, 'estudiante-uniforme-cita');
 
 // Cron: mañana hay entrega → responde sin error

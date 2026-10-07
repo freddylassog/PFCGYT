@@ -1,7 +1,7 @@
 // Calendario iCalendar (.ics) de coordinación: un evento por cada día de cada pedido
 // (menos los rechazados) y las citas de entrega y devolución de uniformes.
 // Puro: entra `Datos`, sale el texto del calendario.
-import { cantidadDia, citaDevolucionTexto, citaEntregaTexto, fechasCita, lugarDia } from './reglas';
+import { cantidadDia, citaDevolucionTexto, citaEntregaTexto, esFechaISO, fechasCita, horarioUniformeTexto, lugarDia, primeraFechaDia, sumarDias } from './reglas';
 import type { Datos } from './tipos';
 import { confirmadosEnDia, vistaPedidos, type PedidoVista } from './vista';
 
@@ -33,11 +33,11 @@ export function plegar(linea: string): string {
   return lineas.join('\r\n');
 }
 
-interface Evento { uid: string; inicio: string; fin: string; titulo: string; lugar?: string; descripcion?: string; estado: 'CONFIRMED' | 'TENTATIVE'; categoria: string }
+interface Evento { uid: string; inicio: string; fin: string; titulo: string; lugar?: string; descripcion?: string; estado: 'CONFIRMED' | 'TENTATIVE'; categoria: string; /** Repetición (p. ej. FREQ=WEEKLY;UNTIL=…). */ rrule?: string }
 
 function vevento(e: Evento, dtstamp: string): string[] {
   return [
-    'BEGIN:VEVENT', `UID:${e.uid}`, `DTSTAMP:${dtstamp}`, `DTSTART:${e.inicio}`, `DTEND:${e.fin}`, `SUMMARY:${escapar(e.titulo)}`,
+    'BEGIN:VEVENT', `UID:${e.uid}`, `DTSTAMP:${dtstamp}`, `DTSTART:${e.inicio}`, `DTEND:${e.fin}`, ...(e.rrule ? [`RRULE:${e.rrule}`] : []), `SUMMARY:${escapar(e.titulo)}`,
     ...(e.lugar ? [`LOCATION:${escapar(e.lugar)}`] : []),
     ...(e.descripcion ? [`DESCRIPTION:${escapar(e.descripcion)}`] : []),
     `STATUS:${e.estado}`, `CATEGORIES:${escapar(e.categoria)}`, 'END:VEVENT',
@@ -80,6 +80,20 @@ export function eventosCalendario(d: Datos, appUrl: string): Evento[] {
       // Un periodo (p. ej. lunes a miércoles de 10:00 a 11:00) genera un evento por día, con la franja horaria (o 30 min si es hora puntual).
       for (const fecha of fechasCita(c.entregaFecha, c.entregaHasta)) eventos.push({ uid: `${p.id}-uniforme-entrega-${fecha}@protocolo-fcgt`, inicio: aUTC(fecha, c.entregaHora), fin: c.entregaHoraFin ? aUTC(fecha, c.entregaHoraFin) : aUTC(fecha, c.entregaHora, 30), titulo: `Entrega de uniformes · ${p.evento}`, lugar: c.lugar || undefined, descripcion: `Entrega del uniforme a: ${quienes}.${c.entregaHasta ? ` Periodo: ${citaEntregaTexto(c)}.` : ''}`, estado: 'CONFIRMED', categoria: 'Uniformes' });
       for (const fecha of fechasCita(c.devolucionFecha, c.devolucionHasta)) eventos.push({ uid: `${p.id}-uniforme-devolucion-${fecha}@protocolo-fcgt`, inicio: aUTC(fecha, c.devolucionHora), fin: c.devolucionHoraFin ? aUTC(fecha, c.devolucionHoraFin) : aUTC(fecha, c.devolucionHora, 30), titulo: `Devolución de uniformes · ${p.evento}`, lugar: c.lugar || undefined, descripcion: `Devolución (lavado) del uniforme de: ${quienes}.${c.devolucionHasta ? ` Periodo: ${citaDevolucionTexto(c)}.` : ''}`, estado: 'CONFIRMED', categoria: 'Uniformes' });
+    }
+  }
+  // Horario fijo de uniformes: un evento semanal por franja durante el semestre (inicio + semanas).
+  const a = d.ajustes;
+  if (esFechaISO(a.inicioSemestre) && a.uniformeHorario.length) {
+    const hasta = sumarDias(a.inicioSemestre, Math.max(1, a.semanas || 16) * 7 - 1);
+    for (const f of a.uniformeHorario) {
+      const primera = primeraFechaDia(a.inicioSemestre, f.dia);
+      if (primera > hasta) continue;
+      eventos.push({
+        uid: `${a.periodo}-uniformes-${f.dia}@protocolo-fcgt`, inicio: aUTC(primera, f.inicio), fin: aUTC(primera, f.fin), rrule: `FREQ=WEEKLY;UNTIL=${hasta.replace(/-/g, '')}T235959Z`,
+        titulo: `Uniformes · retiro y devolución${f.atiende ? ` (${f.atiende})` : ''}`, lugar: a.uniformeLugar || undefined,
+        descripcion: `Horario fijo del periodo ${a.periodo}: ${horarioUniformeTexto(a.uniformeHorario)}.`, estado: 'CONFIRMED', categoria: 'Uniformes',
+      });
     }
   }
   return eventos;

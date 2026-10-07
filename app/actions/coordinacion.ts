@@ -12,9 +12,9 @@ import { appUrl } from '@/lib/app-url';
 import { avanceEstudiante, vistaPedido } from '@/lib/vista';
 import { leerTabla, parseDocentes, parseEstudiantes, parseHorarios } from '@/lib/excel';
 import { borrarEvidencia, evidenciaExiste, prepararSubida } from '@/lib/storage';
-import { ACTIVIDADES, cantidadDia, claseAplica, claveNombre, cruceClases, diasEstudiante, diasLlenos, esFechaISO, faltasCantidadesDias, faltasCitaUniforme, faltasDias, faltasReparto, genClave, hoyISO, MAX_ESTUDIANTES, nombrarDias, normalizarCorreo, normalizarParalelo, ordenarDias, telefonoValido, TIPOS_NOVEDAD, UNIFORME, unirRepartos, VESTIMENTA } from '@/lib/reglas';
+import { ACTIVIDADES, cantidadDia, claseAplica, claveNombre, cruceClases, diasEstudiante, diasLlenos, esFechaISO, faltasCantidadesDias, faltasCitaUniforme, faltasDias, faltasHorarioUniforme, faltasReparto, genClave, hoyISO, MAX_ESTUDIANTES, nombrarDias, normalizarCorreo, normalizarParalelo, ordenarDias, telefonoValido, TIPOS_NOVEDAD, UNIFORME, unirRepartos, VESTIMENTA } from '@/lib/reglas';
 import { iniciarSesionCoordinacion, passwordCoordinacionOk, sesionCoordinacion } from '@/lib/sesion';
-import type { CitaUniforme, DiaEvento, Estado, RepartoActividad, Resultado, Semestre } from '@/lib/tipos';
+import type { CitaUniforme, DiaEvento, Estado, FranjaUniforme, RepartoActividad, Resultado, Semestre } from '@/lib/tipos';
 
 async function exigir(): Promise<void> {
   if (!(await sesionCoordinacion())) throw new Error('No autorizado. Vuelve a iniciar sesión.');
@@ -462,7 +462,7 @@ export async function fijarDevolucion(studentId: string, estado: 'lavado' | 'rec
 
 // ---------------------------------------------------------------- ajustes
 
-export async function guardarAjustes(a: { horasSemana?: number; inicioSemestre?: string; correoDecanato?: string; correoGrupoEstudiantes?: string; correoCoordinacion?: string; uniformeLugar?: string; anticipacionHoras?: number; anticipacionHasta?: string }): Promise<Resultado> {
+export async function guardarAjustes(a: { horasSemana?: number; inicioSemestre?: string; correoDecanato?: string; correoGrupoEstudiantes?: string; correoCoordinacion?: string; uniformeLugar?: string; anticipacionHoras?: number; anticipacionHasta?: string; uniformeHorario?: FranjaUniforme[] }): Promise<Resultado> {
   try {
     await exigir();
     const sql = db();
@@ -484,6 +484,12 @@ export async function guardarAjustes(a: { horasSemana?: number; inicioSemestre?:
     if (a.anticipacionHasta != null) {
       if (a.anticipacionHasta && !esFechaISO(a.anticipacionHasta)) throw new Error('Fecha límite de la anticipación inválida');
       await sql`update settings set anticipacion_hasta = ${a.anticipacionHasta || null} where periodo = ${periodo}`;
+    }
+    if (a.uniformeHorario != null) {
+      const h: FranjaUniforme[] = (Array.isArray(a.uniformeHorario) ? a.uniformeHorario : []).map((f) => ({ dia: Math.round(Number(f.dia)), inicio: String(f.inicio ?? '').trim(), fin: String(f.fin ?? '').trim(), atiende: String(f.atiende ?? '').trim().slice(0, 120) }));
+      const faltas = faltasHorarioUniforme(h);
+      if (faltas.length) throw new Error('Horario de uniformes: ' + faltas.join('; '));
+      await sql`update settings set uniforme_horario = ${sql.json(h as unknown as JSONValue)} where periodo = ${periodo}`;
     }
     refrescar();
     return { ok: true };
@@ -595,8 +601,8 @@ export async function nuevoPeriodo(periodo: string, inicioSemestre: string): Pro
     const actual = await ajustesActuales();
     await sql.begin(async (tx) => {
       await tx`update settings set actual = false where actual`;
-      await tx`insert into settings (periodo, actual, inicio_semestre, semanas, horas_semana, correo_decanato, correo_grupo_estudiantes, correo_coordinacion, telegram_chat_id, telegram_chat_nombre, telegram_canal_id, telegram_canal_nombre, telegram_bot_username, telegram_webhook_url, uniforme_lugar, calendario_token)
-        values (${p}, true, ${inicioSemestre}, ${actual.semanas}, ${actual.horasSemana}, ${actual.correoDecanato}, ${actual.correoGrupoEstudiantes}, ${actual.correoCoordinacion}, ${actual.telegramChatId || null}, ${actual.telegramChatNombre || null}, ${actual.telegramCanalId || null}, ${actual.telegramCanalNombre || null}, ${actual.telegramBotUsername || null}, ${actual.telegramWebhookUrl || null}, ${actual.uniformeLugar || ''}, ${actual.calendarioToken || null})
+      await tx`insert into settings (periodo, actual, inicio_semestre, semanas, horas_semana, correo_decanato, correo_grupo_estudiantes, correo_coordinacion, telegram_chat_id, telegram_chat_nombre, telegram_canal_id, telegram_canal_nombre, telegram_bot_username, telegram_webhook_url, uniforme_lugar, calendario_token, uniforme_horario)
+        values (${p}, true, ${inicioSemestre}, ${actual.semanas}, ${actual.horasSemana}, ${actual.correoDecanato}, ${actual.correoGrupoEstudiantes}, ${actual.correoCoordinacion}, ${actual.telegramChatId || null}, ${actual.telegramChatNombre || null}, ${actual.telegramCanalId || null}, ${actual.telegramCanalNombre || null}, ${actual.telegramBotUsername || null}, ${actual.telegramWebhookUrl || null}, ${actual.uniformeLugar || ''}, ${actual.calendarioToken || null}, ${actual.uniformeHorario.length ? tx.json(actual.uniformeHorario as unknown as JSONValue) : null})
         on conflict (periodo) do update set actual = true, inicio_semestre = excluded.inicio_semestre`;
       await tx`insert into grade_subjects (periodo, semestre, materia) select ${p}, semestre, materia from grade_subjects where periodo = ${actual.periodo} on conflict do nothing`;
     });
