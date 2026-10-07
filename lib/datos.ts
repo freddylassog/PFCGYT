@@ -47,7 +47,11 @@ export function mapCita(r: Fila): CitaUniforme | null {
   if (typeof c === 'string') { try { c = JSON.parse(c); } catch { return null; } }
   if (!c || typeof c !== 'object') return null;
   const o = c as Record<string, unknown>;
-  return { entregaFecha: s(o.entregaFecha), entregaHora: s(o.entregaHora), devolucionFecha: s(o.devolucionFecha), devolucionHora: s(o.devolucionHora), lugar: s(o.lugar), avisoAt: sn(o.avisoAt) };
+  return {
+    entregaFecha: s(o.entregaFecha), entregaHora: s(o.entregaHora), entregaHasta: s(o.entregaHasta), entregaHoraFin: s(o.entregaHoraFin),
+    devolucionFecha: s(o.devolucionFecha), devolucionHora: s(o.devolucionHora), devolucionHasta: s(o.devolucionHasta), devolucionHoraFin: s(o.devolucionHoraFin),
+    lugar: s(o.lugar), avisoAt: sn(o.avisoAt),
+  };
 }
 
 export function mapPedido(r: Fila): Pedido {

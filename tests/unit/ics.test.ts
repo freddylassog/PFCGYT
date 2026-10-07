@@ -22,14 +22,19 @@ test('plegado a 75 octetos con continuación', () => {
 
 test('calendario: un evento por día, pendientes como [Por aprobar], rechazados fuera, citas de uniformes', () => {
   const d = datosDemo();
-  d.pedidos[0].uniformeCita = { entregaFecha: '2026-09-10', entregaHora: '10:00', devolucionFecha: '2026-09-14', devolucionHora: '16:00', lugar: 'Oficina', avisoAt: null };
+  // Entrega en un periodo de dos días con franja horaria → un evento por día con esa franja; devolución de un día y hora puntual → 30 min.
+  d.pedidos[0].uniformeCita = { entregaFecha: '2026-09-10', entregaHora: '10:00', entregaHasta: '2026-09-11', entregaHoraFin: '10:30', devolucionFecha: '2026-09-14', devolucionHora: '16:00', devolucionHasta: '', devolucionHoraFin: '', lugar: 'Oficina', avisoAt: null };
   d.pedidos.push({ ...d.pedidos[1], id: 'p3', numero: 3, codigo: 'SOL-2026-003', evento: 'Rechazado', estado: 'Rechazado' });
   const ev = eventosCalendario(d, 'https://protocolo.test');
-  assert.deepEqual(ev.map((e) => e.titulo), ['Incorporación', 'Entrega de uniformes · Incorporación', 'Devolución de uniformes · Incorporación', '[Por aprobar] Recepción (día 1 de 2)', '[Por aprobar] Recepción (día 2 de 2)']);
+  assert.deepEqual(ev.map((e) => e.titulo), ['Incorporación', 'Entrega de uniformes · Incorporación', 'Entrega de uniformes · Incorporación', 'Devolución de uniformes · Incorporación', '[Por aprobar] Recepción (día 1 de 2)', '[Por aprobar] Recepción (día 2 de 2)']);
+  assert.equal(ev[2].inicio, '20260911T150000Z');
+  assert.equal(ev[2].uid, 'p1-uniforme-entrega-2026-09-11@protocolo-fcgt');
+  assert.equal(ev[3].fin, '20260914T213000Z');
+  assert.match(ev[1].descripcion!, /Periodo: jueves 10 a viernes 11 sep 2026 · de 10:00 a 10:30/);
   assert.equal(ev[0].inicio, '20260911T200000Z');
   assert.equal(ev[0].fin, '20260911T230000Z');
   assert.equal(ev[0].estado, 'CONFIRMED');
-  assert.equal(ev[3].estado, 'TENTATIVE');
+  assert.equal(ev[4].estado, 'TENTATIVE');
   assert.equal(ev[1].fin, '20260910T153000Z');
   assert.match(ev[0].descripcion!, /Estudiantes: 1\/2 confirmados \(Camila Ríos\)/);
   assert.match(ev[0].descripcion!, /https:\/\/protocolo\.test\/coordinacion\?sel=p1/);
@@ -39,5 +44,5 @@ test('calendario: un evento por día, pendientes como [Por aprobar], rechazados 
   assert.match(ics, /X-WR-CALNAME:Protocolo FCGT 2026-2/);
   assert.match(ics, /UID:p1-2026-09-11@protocolo-fcgt/);
   assert.match(ics, /DTSTAMP:20260908T120000Z/);
-  assert.equal((ics.match(/BEGIN:VEVENT/g) || []).length, 5);
+  assert.equal((ics.match(/BEGIN:VEVENT/g) || []).length, 6);
 });

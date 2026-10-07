@@ -1,4 +1,4 @@
-// Citas de entrega y devolución de uniformes: se fijan en Uniformes, se ven en el panel y en el portal del estudiante.
+// Entrega y devolución de uniformes (un día o un periodo con franja horaria): se fijan en Uniformes, se ven en el panel y en el portal del estudiante.
 // Uso: node tests/e2e/uniformes.mjs  (app en local tras flujo.mjs: pedido "Feria…" aprobado con uniforme y 2 confirmados)
 import { chromium } from '@playwright/test';
 const base = process.env.BASE_URL || 'http://localhost:3000';
@@ -13,6 +13,8 @@ const paso = (t) => console.log('·', t);
 const shot = (pg, n) => pg.screenshot({ path: `${shots}/${n}.png`, fullPage: true, caret: 'initial' });
 const manana = new Date(); manana.setDate(manana.getDate() + 1);
 const fEntrega = manana.toISOString().slice(0, 10);
+const hasta = new Date(); hasta.setDate(hasta.getDate() + 3);
+const fEntregaHasta = hasta.toISOString().slice(0, 10);
 const dev = new Date(); dev.setDate(dev.getDate() + 12);
 const fDev = dev.toISOString().slice(0, 10);
 
@@ -35,21 +37,26 @@ await card.waitFor();
 const lugar = await card.locator('input[id$="-lugar"]').inputValue();
 if (lugar !== 'Oficina de protocolo, bloque B') throw new Error('el lugar habitual no se propuso: ' + lugar);
 if (!(await card.locator('button:has-text("Guardar y avisar por Telegram")').isDisabled())) throw new Error('sin Telegram el botón de avisar debería estar apagado');
+// Entrega en un periodo de 3 días con franja horaria; devolución en un solo día y hora puntual
 await card.locator('input[id$="-ef"]').fill(fEntrega);
+await card.locator('input[id$="-efh"]').fill(fEntregaHasta);
 await card.locator('input[id$="-eh"]').fill('10:30');
+await card.locator('input[id$="-ehf"]').fill('11:30');
 await card.locator('input[id$="-df"]').fill(fDev);
 await card.locator('input[id$="-dh"]').fill('16:00');
+const vista = (await card.locator('text=Se avisará:').first().textContent()).replace(/\s+/g, ' ');
+if (!/ a .* · de 10:30 a 11:30/.test(vista)) throw new Error('la vista previa no muestra el periodo: ' + vista);
 await card.locator('button:has-text("Guardar")').first().click();
 await p.waitForSelector('text=Guardada · sin avisar', { timeout: 15000 });
 await p.waitForSelector('text=Correo a los confirmados · uniformes');
-paso(`Uniformes: cita guardada (entrega ${fEntrega} 10:30, devolución ${fDev} 16:00) y correo listo`);
+paso(`Uniformes: periodo guardado (entrega ${fEntrega} a ${fEntregaHasta} de 10:30 a 11:30, devolución ${fDev} 16:00) · ${vista.trim()}`);
 await shot(p, 'uniformes-cita');
 
 // Panel del pedido muestra la sección con los valores
 await p.goto(base + '/coordinacion?tab=pedidos');
 await p.click('table tbody tr:has-text("Feria")');
 await p.waitForSelector('aside h6:has-text("Uniformes · entrega y devolución")');
-if ((await p.inputValue('#panel-cita-eh')) !== '10:30') throw new Error('el panel no muestra la hora guardada');
+if ((await p.inputValue('#panel-cita-eh')) !== '10:30' || (await p.inputValue('#panel-cita-efh')) !== fEntregaHasta || (await p.inputValue('#panel-cita-ehf')) !== '11:30') throw new Error('el panel no muestra el periodo guardado');
 paso('Panel: sección de uniformes con la cita');
 
 // Portal del estudiante
@@ -60,7 +67,7 @@ await est.fill('#correo', 'camila.rios@ute.edu.ec');
 await est.click('button:has-text("Ingresar")');
 await est.waitForSelector('text=Entrega del uniforme', { timeout: 15000 });
 const txt = (await est.locator('text=Entrega del uniforme').locator('..').textContent()).replace(/\s+/g, ' ');
-if (!/10:30/.test(txt) || !/bloque B/.test(txt)) throw new Error('el portal no muestra la cita: ' + txt);
+if (!/ a .* · de 10:30 a 11:30/.test(txt) || !/bloque B/.test(txt)) throw new Error('el portal no muestra el periodo: ' + txt);
 await est.waitForSelector('text=Devolución del uniforme');
 paso('Estudiante: ve entrega y devolución del uniforme');
 await shot(est, 'estudiante-uniforme-cita');

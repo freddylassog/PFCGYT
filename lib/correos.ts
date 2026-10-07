@@ -1,6 +1,6 @@
 // Textos de los correos. La app NO envía correos: los genera listos para
 // copiar o abrir en Outlook (mailto:), y coordinación los manda desde su cuenta.
-import { citaDevolucionTexto, citaEntregaTexto, fechaLarga, semLabel } from './reglas';
+import { citaDevolucionTexto, citaEntregaTexto, citaEsPeriodo, fechaLarga, semLabel } from './reglas';
 import type { Datos, Estudiante } from './tipos';
 import type { CruceVista, MatrizSemestre, NovedadVista, PedidoVista } from './vista';
 
@@ -202,6 +202,7 @@ export function correoUniformes(p: PedidoVista): Correo {
     entrega ? `Entrega del uniforme: ${entrega}` : null,
     devolucion ? `Devolución del uniforme (lavado): ${devolucion}` : null,
     c?.lugar ? `Lugar: ${c.lugar}` : null,
+    citaEsPeriodo(c) ? `Puedes acercarte cualquier día del periodo indicado, dentro de ese horario.` : null,
     ``,
     `Lleva tu cédula o carné para retirarlo. El uniforme se recibe únicamente lavado; si no está lavado no se recibe.`,
     ``,

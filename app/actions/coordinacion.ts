@@ -148,10 +148,15 @@ export async function guardarCitaUniforme(id: string, c: CitaUniforme, avisar: b
   try {
     await exigir();
     const sql = db();
+    const t = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
     const cita: CitaUniforme = {
-      entregaFecha: (c.entregaFecha || '').trim(), entregaHora: (c.entregaHora || '').trim(), devolucionFecha: (c.devolucionFecha || '').trim(), devolucionHora: (c.devolucionHora || '').trim(),
-      lugar: (c.lugar || '').trim().slice(0, 200), avisoAt: null,
+      entregaFecha: t(c.entregaFecha), entregaHora: t(c.entregaHora), entregaHasta: t(c.entregaHasta), entregaHoraFin: t(c.entregaHoraFin),
+      devolucionFecha: t(c.devolucionFecha), devolucionHora: t(c.devolucionHora), devolucionHasta: t(c.devolucionHasta), devolucionHoraFin: t(c.devolucionHoraFin),
+      lugar: t(c.lugar).slice(0, 200), avisoAt: null,
     };
+    // Un 'hasta' igual al primer día no es un periodo.
+    if (cita.entregaHasta === cita.entregaFecha) cita.entregaHasta = '';
+    if (cita.devolucionHasta === cita.devolucionFecha) cita.devolucionHasta = '';
     const faltas = faltasCitaUniforme(cita);
     if (faltas.length) throw new Error('Revisa: ' + faltas.join(', '));
     const [p] = await sql`select estado, vestimenta, uniforme_cita from requests where id = ${id}`;

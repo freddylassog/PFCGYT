@@ -1,5 +1,5 @@
 // Texto de las notificaciones (puro, sin dependencias de servidor).
-import { cantidadDia, citaDevolucionTexto, citaEntregaTexto, diasEstudiante, fechaCorta, fechaLarga, fechaLargaDias, horarioTextoDias, horasDias, lugarDia, lugaresTexto, MINIMO_EVENTOS, repartoTexto, tipoLabel } from './reglas';
+import { cantidadDia, citaDevolucionTexto, citaEntregaTexto, citaEsPeriodo, diasEstudiante, fechaCorta, fechaLarga, fechaLargaDias, horarioCitaTexto, horarioTextoDias, horasDias, lugarDia, lugaresTexto, MINIMO_EVENTOS, repartoTexto, tipoLabel } from './reglas';
 import type { CitaUniforme, DiaEvento, Estudiante, Pedido } from './tipos';
 import { confirmadosEnDia, type PedidoVista } from './vista';
 
@@ -140,6 +140,7 @@ function lineasCita(c: CitaUniforme): string[] {
   if (e) l.push(`📦 Entrega del uniforme: ${e}`);
   if (d) l.push(`↩️ Devolución (lavado): ${d}`);
   if (c.lugar) l.push(`📍 Lugar: ${c.lugar}`);
+  if (citaEsPeriodo(c)) l.push(`Puedes acercarte cualquier día del periodo, dentro de ese horario.`);
   return l;
 }
 
@@ -166,16 +167,22 @@ export type TipoCita = 'entrega' | 'devolucion';
 /** Recordatorio del día anterior a una entrega o devolución (canal). */
 export function mensajeUniformesRecordatorioCanal(items: { p: PedidoVista; c: CitaUniforme; tipo: TipoCita }[], manana: string): string | null {
   if (!items.length) return null;
+  // Hora o franja; si es un periodo de varios días, se indica hasta cuándo.
+  const cuando = (fecha: string, hora: string, hasta: string, horaFin: string) => `${horarioCitaTexto(hora, horaFin)}${hasta && hasta !== fecha ? ` (hasta el ${fechaLarga(hasta)})` : ''}`;
   const lineas = items.map(({ p, c, tipo }) => tipo === 'entrega'
-    ? `📦 Entrega del uniforme · ${p.evento}: ${c.entregaHora}${c.lugar ? ` · ${c.lugar}` : ''} (${p.confirmados.map((e) => e.nombre).join(', ')})`
-    : `↩️ Devolución del uniforme lavado · ${p.evento}: ${c.devolucionHora}${c.lugar ? ` · ${c.lugar}` : ''} (${p.confirmados.map((e) => e.nombre).join(', ')})`);
+    ? `📦 Entrega del uniforme · ${p.evento}: ${cuando(c.entregaFecha, c.entregaHora, c.entregaHasta, c.entregaHoraFin)}${c.lugar ? ` · ${c.lugar}` : ''} (${p.confirmados.map((e) => e.nombre).join(', ')})`
+    : `↩️ Devolución del uniforme lavado · ${p.evento}: ${cuando(c.devolucionFecha, c.devolucionHora, c.devolucionHasta, c.devolucionHoraFin)}${c.lugar ? ` · ${c.lugar}` : ''} (${p.confirmados.map((e) => e.nombre).join(', ')})`);
   return [`👔 Mañana ${fechaLarga(manana)}, uniformes:`, ...lineas].join('\n');
 }
 
 export function mensajeUniformesRecordatorioPersonal(p: PedidoVista, c: CitaUniforme, tipo: TipoCita, e: Estudiante): string {
-  return tipo === 'entrega'
-    ? `📦 ${primerNombre(e)}, mañana ${fechaLarga(c.entregaFecha)} a las ${c.entregaHora} retiras el uniforme para ${p.evento}${c.lugar ? ` en ${c.lugar}` : ''}. Lleva tu cédula o carné.`
-    : `↩️ ${primerNombre(e)}, mañana ${fechaLarga(c.devolucionFecha)} a las ${c.devolucionHora} devuelves el uniforme de ${p.evento}${c.lugar ? ` en ${c.lugar}` : ''}. Recuerda entregarlo lavado.`;
+  const lugar = c.lugar ? ` en ${c.lugar}` : '';
+  if (tipo === 'entrega') {
+    if (c.entregaHasta && c.entregaHasta !== c.entregaFecha) return `📦 ${primerNombre(e)}, desde mañana puedes retirar el uniforme para ${p.evento}: ${citaEntregaTexto(c)}${lugar}. Lleva tu cédula o carné.`;
+    return `📦 ${primerNombre(e)}, mañana ${fechaLarga(c.entregaFecha)} ${c.entregaHoraFin ? `de ${c.entregaHora} a ${c.entregaHoraFin}` : `a las ${c.entregaHora}`} retiras el uniforme para ${p.evento}${lugar}. Lleva tu cédula o carné.`;
+  }
+  if (c.devolucionHasta && c.devolucionHasta !== c.devolucionFecha) return `↩️ ${primerNombre(e)}, desde mañana puedes devolver el uniforme de ${p.evento}: ${citaDevolucionTexto(c)}${lugar}. Recuerda entregarlo lavado.`;
+  return `↩️ ${primerNombre(e)}, mañana ${fechaLarga(c.devolucionFecha)} ${c.devolucionHoraFin ? `de ${c.devolucionHora} a ${c.devolucionHoraFin}` : `a las ${c.devolucionHora}`} devuelves el uniforme de ${p.evento}${lugar}. Recuerda entregarlo lavado.`;
 }
 
 // ---------------------------------------------------------------- avisos a coordinación

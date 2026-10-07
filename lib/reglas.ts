@@ -518,25 +518,65 @@ export function semanaDe(fecha: string, inicioSemestre: string): number {
 
 // ---------------------------------------------------------------- citas de uniformes
 
-export const CITA_VACIA: CitaUniforme = { entregaFecha: '', entregaHora: '', devolucionFecha: '', devolucionHora: '', lugar: '', avisoAt: null };
+export const CITA_VACIA: CitaUniforme = { entregaFecha: '', entregaHora: '', entregaHasta: '', entregaHoraFin: '', devolucionFecha: '', devolucionHora: '', devolucionHasta: '', devolucionHoraFin: '', lugar: '', avisoAt: null };
 
-/** Errores de una cita de uniformes: cada pareja fecha+hora va completa y al menos una de las dos. */
+/** Errores de un periodo (entrega o devolución): fecha y hora de inicio obligatorias; "hasta" y hora final opcionales pero coherentes. */
+function faltasPeriodoCita(p: { fecha: string; hora: string; hasta: string; horaFin: string }, nombre: string): string[] {
+  const f: string[] = [];
+  if (!(esFechaISO(p.fecha) && esHora(p.hora))) f.push(`fecha y hora de ${nombre}`);
+  if (p.hasta && (!esFechaISO(p.hasta) || (esFechaISO(p.fecha) && p.hasta < p.fecha))) f.push(`el último día de ${nombre} no puede ser antes del primero`);
+  if (p.horaFin && (!esHora(p.horaFin) || (esHora(p.hora) && p.horaFin <= p.hora))) f.push(`la hora final de ${nombre} debe ser después de la inicial`);
+  return f;
+}
+
+/** Errores de una cita de uniformes: cada periodo va completo (fecha y hora de inicio) y al menos uno de los dos. */
 export function faltasCitaUniforme(c: CitaUniforme): string[] {
   const f: string[] = [];
-  const entrega = !!(c.entregaFecha || c.entregaHora), devolucion = !!(c.devolucionFecha || c.devolucionHora);
-  if (entrega && !(esFechaISO(c.entregaFecha) && esHora(c.entregaHora))) f.push('fecha y hora de entrega');
-  if (devolucion && !(esFechaISO(c.devolucionFecha) && esHora(c.devolucionHora))) f.push('fecha y hora de devolución');
+  const entrega = !!(c.entregaFecha || c.entregaHora || c.entregaHasta || c.entregaHoraFin);
+  const devolucion = !!(c.devolucionFecha || c.devolucionHora || c.devolucionHasta || c.devolucionHoraFin);
+  if (entrega) f.push(...faltasPeriodoCita({ fecha: c.entregaFecha, hora: c.entregaHora, hasta: c.entregaHasta, horaFin: c.entregaHoraFin }, 'entrega'));
+  if (devolucion) f.push(...faltasPeriodoCita({ fecha: c.devolucionFecha, hora: c.devolucionHora, hasta: c.devolucionHasta, horaFin: c.devolucionHoraFin }, 'devolución'));
   if (!entrega && !devolucion) f.push('al menos la entrega o la devolución');
   if (entrega && devolucion && esFechaISO(c.entregaFecha) && esFechaISO(c.devolucionFecha) && c.devolucionFecha < c.entregaFecha) f.push('la devolución no puede ser antes de la entrega');
   return f;
 }
 
+/** 'jueves 24 sep 2026', 'lunes 12 a miércoles 14 oct 2026' o 'lunes 28 sep a jueves 1 oct 2026'. */
+export function periodoTexto(desde: string, hasta?: string | null): string {
+  if (!hasta || hasta === desde) return fechaLarga(desde);
+  const a = toDate(desde), b = toDate(hasta);
+  const dia = (d: Date) => `${DIAS[d.getDay()]} ${d.getDate()}`;
+  if (a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth()) return `${dia(a)} a ${dia(b)} ${MESES[b.getMonth()]} ${b.getFullYear()}`;
+  if (a.getFullYear() === b.getFullYear()) return `${dia(a)} ${MESES[a.getMonth()]} a ${dia(b)} ${MESES[b.getMonth()]} ${b.getFullYear()}`;
+  return `${fechaLarga(desde)} a ${fechaLarga(hasta)}`;
+}
+
+/** '10:30' o 'de 10:00 a 11:00'. */
+export function horarioCitaTexto(hora: string, horaFin?: string | null): string {
+  return horaFin ? `de ${hora} a ${horaFin}` : hora;
+}
+
+/** Fechas de un periodo de cita, de 'desde' a 'hasta' (máx. 31 días; sin 'hasta' → solo 'desde'). */
+export function fechasCita(desde: string, hasta?: string | null): string[] {
+  if (!esFechaISO(desde)) return [];
+  const fin = hasta && esFechaISO(hasta) && hasta > desde ? hasta : desde;
+  const fechas: string[] = [];
+  for (let f = desde; f <= fin && fechas.length < 31; f = sumarDias(f, 1)) fechas.push(f);
+  return fechas;
+}
+
+/** ¿La entrega o la devolución abarca más de un día? */
+export function citaEsPeriodo(c: CitaUniforme | null): boolean {
+  return !!c && ((!!c.entregaHasta && c.entregaHasta !== c.entregaFecha) || (!!c.devolucionHasta && c.devolucionHasta !== c.devolucionFecha));
+}
+
+/** 'jueves 24 sep 2026 · 10:30' o 'lunes 12 a miércoles 14 oct 2026 · de 10:00 a 11:00'. */
 export function citaEntregaTexto(c: CitaUniforme | null): string | null {
-  return c?.entregaFecha ? `${fechaLarga(c.entregaFecha)} · ${c.entregaHora}` : null;
+  return c?.entregaFecha ? `${periodoTexto(c.entregaFecha, c.entregaHasta)} · ${horarioCitaTexto(c.entregaHora, c.entregaHoraFin)}` : null;
 }
 
 export function citaDevolucionTexto(c: CitaUniforme | null): string | null {
-  return c?.devolucionFecha ? `${fechaLarga(c.devolucionFecha)} · ${c.devolucionHora}` : null;
+  return c?.devolucionFecha ? `${periodoTexto(c.devolucionFecha, c.devolucionHasta)} · ${horarioCitaTexto(c.devolucionHora, c.devolucionHoraFin)}` : null;
 }
 
 // ---------------------------------------------------------------- etiquetas

@@ -18,10 +18,16 @@ export interface RepartoActividad {
 
 /** Cita de entrega y devolución de uniformes de un evento (la fija coordinación). */
 export interface CitaUniforme {
+  /** Entrega: primer día (o el único) y hora de inicio. */
   entregaFecha: string;
   entregaHora: string;
+  /** Último día del periodo de entrega ('' = solo ese día) y hora final ('' = hora puntual). */
+  entregaHasta: string;
+  entregaHoraFin: string;
   devolucionFecha: string;
   devolucionHora: string;
+  devolucionHasta: string;
+  devolucionHoraFin: string;
   lugar: string;
   /** Último aviso enviado a los estudiantes (ISO), si se avisó. */
   avisoAt: string | null;

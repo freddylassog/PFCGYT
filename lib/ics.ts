@@ -1,7 +1,7 @@
 // Calendario iCalendar (.ics) de coordinación: un evento por cada día de cada pedido
 // (menos los rechazados) y las citas de entrega y devolución de uniformes.
 // Puro: entra `Datos`, sale el texto del calendario.
-import { cantidadDia, lugarDia } from './reglas';
+import { cantidadDia, citaDevolucionTexto, citaEntregaTexto, fechasCita, lugarDia } from './reglas';
 import type { Datos } from './tipos';
 import { confirmadosEnDia, vistaPedidos, type PedidoVista } from './vista';
 
@@ -77,8 +77,9 @@ export function eventosCalendario(d: Datos, appUrl: string): Evento[] {
     const c = p.uniformeCita;
     if (c && p.estado === 'Aprobado') {
       const quienes = p.confirmados.map((e) => e.nombre).join(', ') || 'estudiantes confirmados';
-      if (c.entregaFecha) eventos.push({ uid: `${p.id}-uniforme-entrega@protocolo-fcgt`, inicio: aUTC(c.entregaFecha, c.entregaHora), fin: aUTC(c.entregaFecha, c.entregaHora, 30), titulo: `Entrega de uniformes · ${p.evento}`, lugar: c.lugar || undefined, descripcion: `Entrega del uniforme a: ${quienes}.`, estado: 'CONFIRMED', categoria: 'Uniformes' });
-      if (c.devolucionFecha) eventos.push({ uid: `${p.id}-uniforme-devolucion@protocolo-fcgt`, inicio: aUTC(c.devolucionFecha, c.devolucionHora), fin: aUTC(c.devolucionFecha, c.devolucionHora, 30), titulo: `Devolución de uniformes · ${p.evento}`, lugar: c.lugar || undefined, descripcion: `Devolución (lavado) del uniforme de: ${quienes}.`, estado: 'CONFIRMED', categoria: 'Uniformes' });
+      // Un periodo (p. ej. lunes a miércoles de 10:00 a 11:00) genera un evento por día, con la franja horaria (o 30 min si es hora puntual).
+      for (const fecha of fechasCita(c.entregaFecha, c.entregaHasta)) eventos.push({ uid: `${p.id}-uniforme-entrega-${fecha}@protocolo-fcgt`, inicio: aUTC(fecha, c.entregaHora), fin: c.entregaHoraFin ? aUTC(fecha, c.entregaHoraFin) : aUTC(fecha, c.entregaHora, 30), titulo: `Entrega de uniformes · ${p.evento}`, lugar: c.lugar || undefined, descripcion: `Entrega del uniforme a: ${quienes}.${c.entregaHasta ? ` Periodo: ${citaEntregaTexto(c)}.` : ''}`, estado: 'CONFIRMED', categoria: 'Uniformes' });
+      for (const fecha of fechasCita(c.devolucionFecha, c.devolucionHasta)) eventos.push({ uid: `${p.id}-uniforme-devolucion-${fecha}@protocolo-fcgt`, inicio: aUTC(fecha, c.devolucionHora), fin: c.devolucionHoraFin ? aUTC(fecha, c.devolucionHoraFin) : aUTC(fecha, c.devolucionHora, 30), titulo: `Devolución de uniformes · ${p.evento}`, lugar: c.lugar || undefined, descripcion: `Devolución (lavado) del uniforme de: ${quienes}.${c.devolucionHasta ? ` Periodo: ${citaDevolucionTexto(c)}.` : ''}`, estado: 'CONFIRMED', categoria: 'Uniformes' });
     }
   }
   return eventos;

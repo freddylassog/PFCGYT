@@ -4,9 +4,15 @@ import { alternarPrenda, fijarDevolucion } from '@/app/actions/coordinacion';
 import { Marco } from '@/components/Marco';
 import { useAccion } from '@/components/useAccion';
 import type { Datos } from '@/lib/tipos';
-import { fechaCorta } from '@/lib/reglas';
+import { fechaCorta, horarioCitaTexto } from '@/lib/reglas';
 import { vistaUniformes, type PedidoVista } from '@/lib/vista';
 import { CitaUniforme } from './CitaUniforme';
+
+/** '8 oct 10:30' o '8 a 10 oct de 10:30 a 11:30' (resumen corto de una entrega o devolución). */
+function citaCorta(fecha: string, hasta: string, hora: string, horaFin: string): string {
+  const dias = hasta && hasta !== fecha ? `${fecha.slice(0, 7) === hasta.slice(0, 7) ? fechaCorta(fecha).split(' ')[0] : fechaCorta(fecha)} a ${fechaCorta(hasta)}` : fechaCorta(fecha);
+  return `${dias} ${horarioCitaTexto(hora, horaFin)}`;
+}
 
 export function Uniformes({ datos, pedidos }: { datos: Datos; pedidos: PedidoVista[] }) {
   const { pending, error, run } = useAccion();
@@ -17,7 +23,7 @@ export function Uniformes({ datos, pedidos }: { datos: Datos; pedidos: PedidoVis
   const eventos = pedidos.filter((p) => p.estado === 'Aprobado' && p.vestimenta === 'uniforme' && p.confirmadosN > 0);
   return (
     <div className={pending ? 'pendiente' : ''}>
-      <div className="mt-6"><h3 className="m-0">Entrega y devolución por evento</h3><p className="muted fs-14" style={{ margin: 'var(--space-1) 0 0' }}>Fija fecha, hora y lugar para cada evento con uniforme institucional y avisa a los confirmados por Telegram o por correo. El día anterior a cada entrega o devolución la app envía un recordatorio.</p></div>
+      <div className="mt-6"><h3 className="m-0">Entrega y devolución por evento</h3><p className="muted fs-14" style={{ margin: 'var(--space-1) 0 0' }}>Fija día y hora (o un periodo, p. ej. lunes a miércoles de 10:00 a 11:00) y lugar para cada evento con uniforme institucional y avisa a los confirmados por Telegram o por correo. El día anterior a cada entrega o devolución (o al inicio del periodo) la app envía un recordatorio.</p></div>
       {!eventos.length && <p className="muted mt-3">Aún no hay eventos aprobados con uniforme institucional y estudiantes confirmados.</p>}
       <div className="cols-auto-340 mt-3">
         {eventos.map((p) => (
@@ -48,7 +54,7 @@ export function Uniformes({ datos, pedidos }: { datos: Datos; pedidos: PedidoVis
               <span className={`tag ${u.info.tagClass}`}>{u.info.estado}</span>
             </div>
             {u.eventosUniforme.length > 0 && (
-              <div className="row" style={{ gap: 4 }}>{u.eventosUniforme.map((p) => <span key={p.id} className="tag tag-neutral" title={p.codigo}>{p.evento} · {p.fechaCorta}{p.uniformeCita?.entregaFecha ? ` · entrega ${fechaCorta(p.uniformeCita.entregaFecha)} ${p.uniformeCita.entregaHora}` : ''}{p.uniformeCita?.devolucionFecha ? ` · devolución ${fechaCorta(p.uniformeCita.devolucionFecha)} ${p.uniformeCita.devolucionHora}` : ''}</span>)}</div>
+              <div className="row" style={{ gap: 4 }}>{u.eventosUniforme.map((p) => <span key={p.id} className="tag tag-neutral" title={p.codigo}>{p.evento} · {p.fechaCorta}{p.uniformeCita?.entregaFecha ? ` · entrega ${citaCorta(p.uniformeCita.entregaFecha, p.uniformeCita.entregaHasta, p.uniformeCita.entregaHora, p.uniformeCita.entregaHoraFin)}` : ''}{p.uniformeCita?.devolucionFecha ? ` · devolución ${citaCorta(p.uniformeCita.devolucionFecha, p.uniformeCita.devolucionHasta, p.uniformeCita.devolucionHora, p.uniformeCita.devolucionHoraFin)}` : ''}</span>)}</div>
             )}
             <div className="row" style={{ gap: 6 }}>
               {u.info.items.map((item) => {
