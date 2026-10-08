@@ -44,6 +44,7 @@ if (!/lunes 11:00–13:00 \(Valeria y Daniela\)/.test(fijo) || !/Oficina de prot
 paso('Uniformes: horario fijo visible');
 const card = p.locator('.card:has-text("Feria")').first();
 await card.waitFor();
+await card.locator('summary:has-text("Entrega o devolución distinta del horario fijo")').click();
 if ((await card.locator('text=Rige el horario fijo del periodo').count()) !== 1) throw new Error('la cita por evento no menciona el horario fijo');
 const lugar = await card.locator('input[id$="-lugar"]').inputValue();
 if (lugar !== 'Oficina de protocolo, bloque B') throw new Error('el lugar habitual no se propuso: ' + lugar);

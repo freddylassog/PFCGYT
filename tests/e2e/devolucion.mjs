@@ -35,7 +35,7 @@ const card = p.locator('.card:has-text("Feria")').first();
 await card.waitFor();
 const bloque = card.locator('div:has(> div > span:has-text("Devolución · hasta el"))').first();
 const cab = (await bloque.textContent()).replace(/\s+/g, ' ');
-if (!cab.includes(`Devolución · hasta el ${fechaCorta(limite)}`) || !/2 por devolver/.test(cab)) throw new Error('la tarjeta no muestra el plazo y las pendientes: ' + cab.slice(0, 300));
+if (!cab.includes(`Devolución · hasta el ${fechaCorta(limite)}`) || !/0\/2 devueltos/.test(cab) || !/2 por devolver/.test(await card.textContent())) throw new Error('la tarjeta no muestra el plazo y las pendientes: ' + cab.slice(0, 300));
 const filaCamila = card.locator('.linea-item:has-text("Camila")').first();
 if (!/Pendiente · hasta el/.test(await filaCamila.textContent())) throw new Error('Camila debería estar pendiente: ' + (await filaCamila.textContent()));
 paso(`Uniformes: Feria terminó ayer · devolución hasta el ${fechaCorta(limite)} · 2 por devolver`);
@@ -44,6 +44,7 @@ await card.locator('.linea-item:has-text("Camila") .tag:has-text("Devuelto lavad
 await card.locator('text=1 por devolver').waitFor({ timeout: 15000 });
 if ((await card.locator('text=Correo a quienes no han devuelto').count()) !== 1) throw new Error('falta el correo a quienes no han devuelto');
 paso('coordinación registró la devolución de Camila · queda 1 por devolver · correo listo');
+await p.click('.seg[aria-label="Vista de uniformes"] label:has-text("Por estudiante")');
 const tarjetaDaniela = p.locator('.blueprint:has(label.chip):has-text("Daniela Ortiz")').first();
 if (!/Pendiente \(1\)/.test(await tarjetaDaniela.textContent())) throw new Error('la tarjeta de Daniela no marca pendiente: ' + (await tarjetaDaniela.textContent()).slice(0, 200));
 const tarjetaCamila = p.locator('.blueprint:has(label.chip):has-text("Camila Ríos")').first();
@@ -79,6 +80,8 @@ paso('cron al vencer: 1 aviso (vencido) y 1 vencido para coordinación · ' + JS
 await p.reload();
 const cardV = p.locator('.card:has-text("Feria")').first();
 await cardV.locator('.linea-item:has-text("Daniela") .tag:has-text("Vencido · era hasta el")').waitFor({ timeout: 15000 });
+if (!/1 por devolver · 1 vencido/.test(await cardV.textContent())) throw new Error('la tarjeta del evento no marca el vencido: ' + (await cardV.textContent()).slice(0, 200));
+await p.click('.seg[aria-label="Vista de uniformes"] label:has-text("Por estudiante")');
 if (!/Vencido \(1\)/.test(await p.locator('.blueprint:has(label.chip):has-text("Daniela Ortiz")').first().textContent())) throw new Error('la tarjeta de Daniela no marca vencido');
 await est.reload();
 await est.waitForSelector('text=plazo vencido', { timeout: 15000 });

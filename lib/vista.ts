@@ -344,6 +344,47 @@ export function vistaUniformes(d: Datos, pedidos?: PedidoVista[]): UniformeVista
   });
 }
 
+export type ClaveEventoUniforme = 'falta' | 'entregado' | 'cerrado';
+
+export interface FilaUniformeEvento { e: Estudiante; info: ReturnType<typeof infoUniforme>; estado: EstadoDevolucion; limite: string }
+
+/** Un evento con uniforme visto desde la entrega y la devolución de sus confirmados. */
+export interface EventoUniformeVista {
+  p: PedidoVista;
+  filas: FilaUniformeEvento[];
+  /** 'entrega' antes o durante el evento; 'devolucion' cuando ya terminó. */
+  fase: 'entrega' | 'devolucion';
+  entregadosN: number;
+  sinEntregar: Estudiante[];
+  porDevolver: FilaUniformeEvento[];
+  vencidosN: number;
+  /** falta = a alguien le falta recibir o devolver; entregado = todos con uniforme completo (evento por venir); cerrado = terminado y todo devuelto. */
+  clave: ClaveEventoUniforme;
+  label: string;
+  tag: string;
+}
+
+export function vistaEventosUniforme(d: Datos, pedidos?: PedidoVista[]): EventoUniformeVista[] {
+  const todos = pedidos ?? vistaPedidos(d);
+  const lista = todos.filter((p) => p.estado === 'Aprobado' && p.vestimenta === 'uniforme' && p.confirmadosN > 0).map((p): EventoUniformeVista => {
+    const filas = p.confirmados.map((e) => ({ e, info: infoUniforme(e.genero, d.prendas.filter((x) => x.studentId === e.id).map((x) => x.item)), estado: estadoDevolucionDe(p, e.id, d.hoy), limite: limiteDevolucionDe(p, e.id) }));
+    const fase = p.terminado ? 'devolucion' : 'entrega';
+    const sinEntregar = filas.filter((f) => !f.info.completo).map((f) => f.e);
+    const porDevolver = filas.filter((f) => f.estado.clave === 'pendiente' || f.estado.clave === 'vencido' || f.estado.clave === 'rechazado');
+    const vencidosN = porDevolver.filter((f) => f.estado.clave !== 'pendiente').length;
+    const base = { p, filas, fase, entregadosN: filas.length - sinEntregar.length, sinEntregar, porDevolver, vencidosN } as const;
+    if (fase === 'entrega') {
+      return sinEntregar.length
+        ? { ...base, clave: 'falta', label: `Falta entregar a ${sinEntregar.length}`, tag: 'tag-alerta-suave' }
+        : { ...base, clave: 'entregado', label: 'Uniformes entregados', tag: 'tag-accent' };
+    }
+    if (porDevolver.length) return { ...base, clave: 'falta', label: vencidosN ? `${porDevolver.length} por devolver · ${vencidosN} vencido(s)` : `${porDevolver.length} por devolver`, tag: vencidosN ? 'tag-alerta' : 'tag-outline' };
+    return { ...base, clave: 'cerrado', label: 'Todo devuelto', tag: 'tag-verde' };
+  });
+  // Primero lo urgente: devoluciones vencidas, luego devoluciones pendientes, luego entregas por fecha del evento.
+  return lista.sort((a, b) => (b.fase === 'devolucion' ? 1 : 0) - (a.fase === 'devolucion' ? 1 : 0) || b.vencidosN - a.vencidosN || a.p.fecha.localeCompare(b.p.fecha));
+}
+
 // ---------------------------------------------------------------- resumen de horas
 
 export interface ResumenHoras {

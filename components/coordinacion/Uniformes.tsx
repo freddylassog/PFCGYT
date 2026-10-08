@@ -7,7 +7,7 @@ import { useAccion } from '@/components/useAccion';
 import { correoDevolucionPendiente } from '@/lib/correos';
 import type { Datos } from '@/lib/tipos';
 import { fechaCorta, horarioCitaTexto, horarioUniformeTexto } from '@/lib/reglas';
-import { estadoDevolucionDe, pendientesDevolucion, type PedidoVista, vistaUniformes } from '@/lib/vista';
+import { type EventoUniformeVista, type PedidoVista, vistaEventosUniforme, vistaUniformes } from '@/lib/vista';
 import { CitaUniforme } from './CitaUniforme';
 
 /** '8 oct 10:30' o '8 a 10 oct de 10:30 a 11:30' (resumen corto de una entrega o devolución). */
@@ -16,98 +16,159 @@ function citaCorta(fecha: string, hasta: string, hora: string, horaFin: string):
   return `${dias} ${horarioCitaTexto(hora, horaFin)}`;
 }
 
+type Vista = 'falta' | 'entregados' | 'cerrados' | 'estudiantes';
+
+const VISTAS: { clave: Vista; label: string; intro: string; vacio: string }[] = [
+  { clave: 'falta', label: 'Falta alguien', intro: 'Eventos donde a alguien le falta recibir el uniforme o devolverlo lavado. Marca aquí las prendas entregadas y las devoluciones.', vacio: 'Nadie falta: todos los eventos con uniforme están al día.' },
+  { clave: 'entregados', label: 'Entregados', intro: 'Eventos próximos o en curso con el uniforme completo entregado a todos los confirmados.', vacio: 'Ningún evento próximo tiene todos los uniformes entregados todavía.' },
+  { clave: 'cerrados', label: 'Cerrados', intro: 'Eventos terminados con todos los uniformes devueltos lavados.', vacio: 'Aún no hay eventos cerrados.' },
+  { clave: 'estudiantes', label: 'Por estudiante', intro: '', vacio: '' },
+];
+
 export function Uniformes({ datos, pedidos }: { datos: Datos; pedidos: PedidoVista[] }) {
   const { pending, error, run } = useAccion();
   const [todos, setTodos] = useState(false);
   const lista = vistaUniformes(datos, pedidos);
+  const eventos = vistaEventosUniforme(datos, pedidos);
+  const grupos: Record<Exclude<Vista, 'estudiantes'>, EventoUniformeVista[]> = {
+    falta: eventos.filter((x) => x.clave === 'falta'),
+    entregados: eventos.filter((x) => x.clave === 'entregado'),
+    cerrados: eventos.filter((x) => x.clave === 'cerrado'),
+  };
+  const [vista, setVista] = useState<Vista>(grupos.falta.length ? 'falta' : grupos.entregados.length ? 'entregados' : grupos.cerrados.length ? 'cerrados' : 'estudiantes');
   const visibles = todos ? lista : lista.filter((u) => u.requiere);
   const nRequieren = lista.filter((u) => u.requiere).length;
-  const eventos = pedidos.filter((p) => p.estado === 'Aprobado' && p.vestimenta === 'uniforme' && p.confirmadosN > 0);
+  const actual = VISTAS.find((v) => v.clave === vista)!;
+  const botonesDevolucion = (p: PedidoVista, studentId: string, clave: string) => (
+    <span style={{ display: 'flex', gap: 4, flex: 'none' }}>
+      {clave !== 'devuelto' && <button className="btn btn-secondary btn-sm" type="button" onClick={() => run(() => fijarDevolucion(p.id, studentId, 'lavado'))}>Recibido lavado</button>}
+      {(clave === 'pendiente' || clave === 'vencido') && <button className="btn btn-ghost btn-sm" type="button" title="Llegó sin lavar: no se recibe" onClick={() => run(() => fijarDevolucion(p.id, studentId, 'rechazado'))}>Sin lavar</button>}
+      {(clave === 'devuelto' || clave === 'rechazado') && <button className="btn btn-ghost btn-sm" type="button" onClick={() => run(() => fijarDevolucion(p.id, studentId, null))}>Deshacer</button>}
+    </span>
+  );
+
   return (
     <div className={pending ? 'pendiente' : ''}>
-      <div className="mt-6"><h3 className="m-0">Retiro y devolución de uniformes</h3></div>
-      <Marco className="p-4 stack-2 mt-3">
-        <div className="between"><h6 className="m-0">Horario fijo del periodo {datos.ajustes.periodo}</h6><a className="btn btn-ghost btn-sm" href="/coordinacion?tab=resumen">Cambiar en Ajustes</a></div>
-        {datos.ajustes.uniformeHorario.length
-          ? <p className="m-0 fs-14"><strong>{horarioUniformeTexto(datos.ajustes.uniformeHorario)}</strong>{datos.ajustes.uniformeLugar ? ` · ${datos.ajustes.uniformeLugar}` : ''}</p>
-          : <p className="falta fs-13 m-0">Sin horario fijo: cada evento necesita su propia entrega y devolución. Fíjalo en Resumen → Ajustes.</p>}
-        <p className="muted fs-12 m-0">Los estudiantes lo ven en su portal, en la convocatoria y en la confirmación de cada evento con uniforme; retiran antes del evento y devuelven lavado dentro de los {datos.ajustes.uniformeDiasDevolucion} días siguientes (el plazo se cambia en Ajustes), en cualquiera de esas franjas. El bot les avisa el día después del evento, 2 días antes del plazo, el día del plazo y si vencen. También está en tu calendario suscrito como evento semanal.</p>
-      </Marco>
-      <div className="mt-6"><h4 className="m-0">Excepciones por evento</h4><p className="muted fs-14" style={{ margin: 'var(--space-1) 0 0' }}>Solo si un evento necesita una entrega o devolución distinta del horario fijo: fija día y hora (o un periodo, p. ej. lunes a miércoles de 10:00 a 11:00) y avisa a los confirmados por Telegram o por correo. El día anterior a esa entrega o devolución la app envía un recordatorio.</p></div>
-      {!eventos.length && <p className="muted mt-3">Aún no hay eventos aprobados con uniforme institucional y estudiantes confirmados.</p>}
-      <div className="cols-auto-340 mt-3">
-        {eventos.map((p) => (
-          <Marco key={p.id} className={`card p-4 ${p.tipoClass} ${p.finalizado ? 'finalizado' : ''}`}>
-            <div className="card-kicker">{p.codigo} · {p.tipoLabel} · {p.fechaCorta}</div>
-            <div className="card-title" style={{ fontSize: 17 }}>{p.evento}</div>
-            <div className="card-meta">{p.confirmadosN} confirmados: {p.confirmados.map((e) => e.nombre).join(', ')}</div>
-            <CitaUniforme p={p} datos={datos} idPrefijo={`cita-${p.id}`} />
-            {(p.terminado || p.devoluciones.length > 0) && (() => { const pend = pendientesDevolucion(p, datos.hoy); const venc = pend.filter((x) => x.estado.clave !== 'pendiente').length; return (
-              <div className="borde-arriba stack-2" style={{ paddingTop: 'var(--space-2)' }}>
-                <div className="between"><span className="heading fs-12" style={{ letterSpacing: '.08em', textTransform: 'uppercase' }}>Devolución · hasta el {fechaCorta(p.devolucionLimite)}</span><span className={`tag ${pend.length ? (venc ? 'tag-alerta' : 'tag-outline') : 'tag-verde'}`}>{pend.length ? `${pend.length} por devolver` : 'Todos devolvieron'}</span></div>
-                {p.confirmados.map((e) => { const est = estadoDevolucionDe(p, e.id, datos.hoy); return (
-                  <div key={e.id} className="linea-item">
-                    <span style={{ minWidth: 0 }}>{e.nombre} <span className={`tag ${est.tag}`} style={{ fontSize: 10 }}>{est.label}</span></span>
-                    <span style={{ display: 'flex', gap: 4, flex: 'none' }}>
-                      {est.clave !== 'devuelto' && <button className="btn btn-secondary btn-sm" type="button" onClick={() => run(() => fijarDevolucion(p.id, e.id, 'lavado'))}>Recibido lavado</button>}
-                      {(est.clave === 'pendiente' || est.clave === 'vencido') && <button className="btn btn-ghost btn-sm" type="button" title="Llegó sin lavar: no se recibe" onClick={() => run(() => fijarDevolucion(p.id, e.id, 'rechazado'))}>Sin lavar</button>}
-                      {(est.clave === 'devuelto' || est.clave === 'rechazado') && <button className="btn btn-ghost btn-sm" type="button" onClick={() => run(() => fijarDevolucion(p.id, e.id, null))}>Deshacer</button>}
-                    </span>
-                  </div>
-                ); })}
-                {pend.length > 0 && <CorreoBox titulo="Correo a quienes no han devuelto" correo={correoDevolucionPendiente(p, pend)} />}
-              </div>
-            ); })()}
-          </Marco>
-        ))}
-      </div>
-      <div className="mt-8"><h3 className="m-0">Prendas por estudiante</h3></div>
-      <div className="between mt-3">
-        <p className="muted fs-14 m-0">{todos ? `Todos los estudiantes activos (${lista.length}).` : `Estudiantes confirmados en eventos con uniforme institucional o con prendas entregadas (${nRequieren}).`}</p>
-        <div className="seg" role="radiogroup" aria-label="Filtro">
-          <label className="seg-opt"><input type="radio" name="uni" checked={!todos} onChange={() => setTodos(false)} />Requieren uniforme</label>
-          <label className="seg-opt"><input type="radio" name="uni" checked={todos} onChange={() => setTodos(true)} />Todos</label>
+      <div className="between abajo mt-6" style={{ gap: 'var(--space-3)' }}>
+        <h3 className="m-0">Uniformes</h3>
+        <div className="seg" role="radiogroup" aria-label="Vista de uniformes">
+          {VISTAS.map((v) => {
+            const n = v.clave === 'estudiantes' ? nRequieren : grupos[v.clave].length;
+            return <label key={v.clave} className="seg-opt"><input type="radio" name="uni-vista" checked={vista === v.clave} onChange={() => setVista(v.clave)} />{v.label}{n ? ` (${n})` : ''}</label>;
+          })}
         </div>
       </div>
-      {error && <p className="error mt-4">{error}</p>}
-      {lista.length === 0 && <p className="muted mt-4">Carga el listado de estudiantes en la pestaña Estudiantes para registrar uniformes.</p>}
-      {lista.length > 0 && visibles.length === 0 && <p className="muted mt-4">Aún no hay estudiantes confirmados en eventos con uniforme institucional. Cuando confirmes a alguien en un evento con esa vestimenta aparecerá aquí.</p>}
-      <div className="cols-auto-340 mt-4">
-        {visibles.map((u) => (
-          <Marco key={u.id} className="p-4 stack-3">
-            <div className="between arriba">
-              <div><div className="card-title" style={{ fontSize: 17 }}>{u.nombre}</div><div className="card-meta">{u.semLabel}{u.paralelo ? ` · ${u.paralelo}` : ''} · uniforme {u.generoLabel}</div></div>
-              <span className={`tag ${u.info.tagClass}`}>{u.info.estado}</span>
+      <Marco className="p-3 mt-3 between" style={{ gap: 'var(--space-3)', flexWrap: 'wrap' }}>
+        <div className="fs-13" style={{ minWidth: 0 }}>
+          <h6 className="m-0" style={{ display: 'inline' }}>Horario fijo del periodo {datos.ajustes.periodo}: </h6>
+          {datos.ajustes.uniformeHorario.length
+            ? <span><strong>{horarioUniformeTexto(datos.ajustes.uniformeHorario)}</strong>{datos.ajustes.uniformeLugar ? ` · ${datos.ajustes.uniformeLugar}` : ''} · se retira antes del evento y se devuelve lavado dentro de los {datos.ajustes.uniformeDiasDevolucion} días siguientes.</span>
+            : <span className="falta">sin horario fijo. Fíjalo en Resumen → Ajustes o cada evento necesitará su propia entrega y devolución.</span>}
+        </div>
+        <a className="btn btn-ghost btn-sm" href="/coordinacion?tab=resumen">Cambiar en Ajustes</a>
+      </Marco>
+      {error && <p className="error mt-3">{error}</p>}
+
+      {vista !== 'estudiantes' && (
+        <>
+          <p className="muted fs-14 mt-4" style={{ marginBottom: 0 }}>{actual.intro}</p>
+          {!eventos.length && <p className="muted mt-3">Aún no hay eventos aprobados con uniforme institucional y estudiantes confirmados.</p>}
+          {eventos.length > 0 && !grupos[vista].length && <p className="muted mt-3">{actual.vacio}</p>}
+          <div className="cols-auto-340 mt-3">
+            {grupos[vista].map((x) => {
+              const p = x.p;
+              const cita = p.uniformeCita;
+              const resumenCita = cita?.entregaFecha || cita?.devolucionFecha
+                ? [cita.entregaFecha ? `entrega ${citaCorta(cita.entregaFecha, cita.entregaHasta, cita.entregaHora, cita.entregaHoraFin)}` : '', cita.devolucionFecha ? `devolución ${citaCorta(cita.devolucionFecha, cita.devolucionHasta, cita.devolucionHora, cita.devolucionHoraFin)}` : ''].filter(Boolean).join(' · ')
+                : '';
+              return (
+                <Marco key={p.id} className={`card p-4 ${p.tipoClass} ${p.finalizado ? 'finalizado' : ''}`}>
+                  <div className="between arriba" style={{ gap: 6 }}><div className="card-kicker">{p.codigo} · {p.tipoLabel} · {p.fechaCorta}</div><span className={`tag ${x.tag}`}>{x.label}</span></div>
+                  <div className="card-title" style={{ fontSize: 17 }}>{p.evento}</div>
+                  <div className="card-meta">{p.confirmadosN} confirmado(s) · {x.fase === 'entrega' ? `${x.entregadosN} con uniforme completo` : `terminó el ${fechaCorta(p.ultimaFecha)}`}</div>
+                  <div className="borde-arriba stack-2" style={{ paddingTop: 'var(--space-2)' }}>
+                    {x.fase === 'entrega' ? (
+                      <>
+                        <div className="between"><span className="heading fs-12" style={{ letterSpacing: '.08em', textTransform: 'uppercase' }}>Entrega del uniforme</span><span className={`tag ${x.sinEntregar.length ? 'tag-alerta-suave' : 'tag-accent'}`}>{x.entregadosN}/{x.filas.length} completos</span></div>
+                        {x.filas.map((f) => (
+                          <div key={f.e.id} className="linea-item arriba" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 4 }}>
+                            <div className="between"><span>{f.e.nombre} <span className="muted fs-12">· {f.e.genero === 'F' ? 'femenino' : 'masculino'}</span></span><span className={`tag ${f.info.tagClass}`} style={{ fontSize: 10 }}>{f.info.estado}</span></div>
+                            <div className="row" style={{ gap: 6 }}>
+                              {f.info.items.map((item) => {
+                                const on = f.info.tiene.includes(item);
+                                return <label key={item} className={`radio chip ${on ? 'on' : ''}`}><input type="checkbox" checked={on} onChange={() => run(() => alternarPrenda(f.e.id, item))} /><span className="dot cuadro" />{item}</label>;
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                      </>
+                    ) : (
+                      <>
+                        <div className="between"><span className="heading fs-12" style={{ letterSpacing: '.08em', textTransform: 'uppercase' }}>Devolución · hasta el {fechaCorta(p.devolucionLimite)}</span><span className={`tag ${x.porDevolver.length ? 'tag-outline' : 'tag-verde'}`}>{x.filas.length - x.porDevolver.length}/{x.filas.length} devueltos</span></div>
+                        {x.filas.map((f) => (
+                          <div key={f.e.id} className="linea-item">
+                            <span style={{ minWidth: 0 }}>{f.e.nombre} <span className={`tag ${f.estado.tag}`} style={{ fontSize: 10 }}>{f.estado.label}</span>{!f.info.completo && <span className="muted fs-12"> · {f.info.n ? `recibió ${f.info.n}/${f.info.items.length} prendas` : 'no se le entregó uniforme'}</span>}</span>
+                            {botonesDevolucion(p, f.e.id, f.estado.clave)}
+                          </div>
+                        ))}
+                        {x.porDevolver.length > 0 && <CorreoBox titulo="Correo a quienes no han devuelto" correo={correoDevolucionPendiente(p, x.porDevolver)} />}
+                      </>
+                    )}
+                  </div>
+                  <details className="borde-arriba" style={{ paddingTop: 'var(--space-2)' }} open={!!resumenCita}>
+                    <summary className="fs-13" style={{ cursor: 'pointer' }}>Entrega o devolución distinta del horario fijo{resumenCita ? <span className="muted">: {resumenCita}</span> : <span className="muted"> (solo si este evento lo necesita)</span>}</summary>
+                    <div className="mt-2"><CitaUniforme p={p} datos={datos} idPrefijo={`cita-${p.id}`} /></div>
+                  </details>
+                </Marco>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      {vista === 'estudiantes' && (
+        <>
+          <div className="between mt-4">
+            <p className="muted fs-14 m-0">{todos ? `Todos los estudiantes activos (${lista.length}).` : `Estudiantes confirmados en eventos con uniforme institucional o con prendas entregadas (${nRequieren}).`}</p>
+            <div className="seg" role="radiogroup" aria-label="Filtro">
+              <label className="seg-opt"><input type="radio" name="uni" checked={!todos} onChange={() => setTodos(false)} />Requieren uniforme</label>
+              <label className="seg-opt"><input type="radio" name="uni" checked={todos} onChange={() => setTodos(true)} />Todos</label>
             </div>
-            {u.eventosUniforme.length > 0 && (
-              <div className="row" style={{ gap: 4 }}>{u.eventosUniforme.map((p) => <span key={p.id} className="tag tag-neutral" title={p.codigo}>{p.evento} · {p.fechaCorta}{p.uniformeCita?.entregaFecha ? ` · entrega ${citaCorta(p.uniformeCita.entregaFecha, p.uniformeCita.entregaHasta, p.uniformeCita.entregaHora, p.uniformeCita.entregaHoraFin)}` : ''}{p.uniformeCita?.devolucionFecha ? ` · devolución ${citaCorta(p.uniformeCita.devolucionFecha, p.uniformeCita.devolucionHasta, p.uniformeCita.devolucionHora, p.uniformeCita.devolucionHoraFin)}` : ''}</span>)}</div>
-            )}
-            <div className="row" style={{ gap: 6 }}>
-              {u.info.items.map((item) => {
-                const on = u.info.tiene.includes(item);
-                return <label key={item} className={`radio chip ${on ? 'on' : ''}`}><input type="checkbox" checked={on} onChange={() => run(() => alternarPrenda(u.id, item))} /><span className="dot cuadro" />{item}</label>;
-              })}
-            </div>
-            <div className="muted fs-12">{u.detalle}</div>
-            <div className="borde-arriba stack-2" style={{ paddingTop: 'var(--space-2)', gap: 6 }}>
-              <div className="between"><span className="heading fs-12" style={{ letterSpacing: '.08em', textTransform: 'uppercase' }}>Devolución por evento</span><span className={`tag ${u.devTag}`}>{u.devLabel}</span></div>
-              {u.devoluciones.length === 0 && <div className="muted fs-12">Sin eventos con uniforme.</div>}
-              {u.devoluciones.map(({ p, estado }) => (
-                <div key={p.id} className="between fs-12" style={{ gap: 6 }}>
-                  <span style={{ minWidth: 0 }}>{p.evento} · {p.fechaCorta} <span className={`tag ${estado.tag}`} style={{ fontSize: 10 }}>{estado.label}</span></span>
-                  {estado.clave !== 'en-curso' && (
-                    <span style={{ display: 'flex', gap: 4, flex: 'none' }}>
-                      {estado.clave !== 'devuelto' && <button className="btn btn-secondary btn-sm" type="button" onClick={() => run(() => fijarDevolucion(p.id, u.id, 'lavado'))}>Recibido lavado</button>}
-                      {(estado.clave === 'pendiente' || estado.clave === 'vencido') && <button className="btn btn-ghost btn-sm" type="button" title="Llegó sin lavar: no se recibe" onClick={() => run(() => fijarDevolucion(p.id, u.id, 'rechazado'))}>Sin lavar</button>}
-                      {(estado.clave === 'devuelto' || estado.clave === 'rechazado') && <button className="btn btn-ghost btn-sm" type="button" onClick={() => run(() => fijarDevolucion(p.id, u.id, null))}>Deshacer</button>}
-                    </span>
-                  )}
+          </div>
+          {lista.length === 0 && <p className="muted mt-4">Carga el listado de estudiantes en la pestaña Estudiantes para registrar uniformes.</p>}
+          {lista.length > 0 && visibles.length === 0 && <p className="muted mt-4">Aún no hay estudiantes confirmados en eventos con uniforme institucional. Cuando confirmes a alguien en un evento con esa vestimenta aparecerá aquí.</p>}
+          <div className="cols-auto-340 mt-4">
+            {visibles.map((u) => (
+              <Marco key={u.id} className="p-4 stack-3">
+                <div className="between arriba">
+                  <div><div className="card-title" style={{ fontSize: 17 }}>{u.nombre}</div><div className="card-meta">{u.semLabel}{u.paralelo ? ` · ${u.paralelo}` : ''} · uniforme {u.generoLabel}</div></div>
+                  <span className={`tag ${u.info.tagClass}`}>{u.info.estado}</span>
                 </div>
-              ))}
-            </div>
-          </Marco>
-        ))}
-      </div>
+                {u.eventosUniforme.length > 0 && (
+                  <div className="row" style={{ gap: 4 }}>{u.eventosUniforme.map((p) => <span key={p.id} className="tag tag-neutral" title={p.codigo}>{p.evento} · {p.fechaCorta}{p.uniformeCita?.entregaFecha ? ` · entrega ${citaCorta(p.uniformeCita.entregaFecha, p.uniformeCita.entregaHasta, p.uniformeCita.entregaHora, p.uniformeCita.entregaHoraFin)}` : ''}</span>)}</div>
+                )}
+                <div className="row" style={{ gap: 6 }}>
+                  {u.info.items.map((item) => {
+                    const on = u.info.tiene.includes(item);
+                    return <label key={item} className={`radio chip ${on ? 'on' : ''}`}><input type="checkbox" checked={on} onChange={() => run(() => alternarPrenda(u.id, item))} /><span className="dot cuadro" />{item}</label>;
+                  })}
+                </div>
+                <div className="muted fs-12">{u.detalle}</div>
+                <div className="borde-arriba stack-2" style={{ paddingTop: 'var(--space-2)', gap: 6 }}>
+                  <div className="between"><span className="heading fs-12" style={{ letterSpacing: '.08em', textTransform: 'uppercase' }}>Devolución por evento</span><span className={`tag ${u.devTag}`}>{u.devLabel}</span></div>
+                  {u.devoluciones.length === 0 && <div className="muted fs-12">Sin eventos con uniforme.</div>}
+                  {u.devoluciones.map(({ p, estado }) => (
+                    <div key={p.id} className="between fs-12" style={{ gap: 6 }}>
+                      <span style={{ minWidth: 0 }}>{p.evento} · {p.fechaCorta} <span className={`tag ${estado.tag}`} style={{ fontSize: 10 }}>{estado.label}</span></span>
+                      {estado.clave !== 'en-curso' && botonesDevolucion(p, u.id, estado.clave)}
+                    </div>
+                  ))}
+                </div>
+              </Marco>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }
