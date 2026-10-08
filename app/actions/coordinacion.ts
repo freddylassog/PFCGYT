@@ -448,12 +448,30 @@ export async function alternarPrenda(studentId: string, item: string): Promise<R
 }
 
 /** Devolución del uniforme de un estudiante en un evento: recibido lavado, no recibido (sin lavar) o sin registro (pendiente). */
+/** Devolución del uniforme de un evento. «lavado»: se recibe y sus prendas vuelven a bodega (se borran de la ficha, guardadas
+ *  en el registro); «rechazado»: llegó sin lavar, el estudiante sigue con el uniforme; null: deshacer (si estaba recibido, se restituyen las prendas). */
 export async function fijarDevolucion(requestId: string, studentId: string, estado: 'lavado' | 'rechazado' | null): Promise<Resultado> {
   try {
     await exigir();
     const sql = db();
-    if (!estado) await sql`delete from uniform_event_returns where request_id = ${requestId} and student_id = ${studentId}`;
-    else await sql`insert into uniform_event_returns (request_id, student_id, estado, at) values (${requestId}, ${studentId}, ${estado}, ${hoyISO()}) on conflict (request_id, student_id) do update set estado = excluded.estado, at = excluded.at`;
+    await sql.begin(async (tx) => {
+      const [previo] = await tx`select estado, prendas from uniform_event_returns where request_id = ${requestId} and student_id = ${studentId}`;
+      const guardadas = previo && Array.isArray(previo.prendas) ? (previo.prendas as unknown[]).map(String) : [];
+      if (!estado) {
+        await tx`delete from uniform_event_returns where request_id = ${requestId} and student_id = ${studentId}`;
+        if (previo?.estado === 'lavado' && guardadas.length) {
+          await tx`insert into uniform_items (student_id, item, entregado_at) select ${studentId}, x, ${hoyISO()} from unnest(${guardadas}::text[]) as x on conflict do nothing`;
+        }
+        return;
+      }
+      let prendas = guardadas;
+      if (estado === 'lavado') {
+        const actuales = await tx`delete from uniform_items where student_id = ${studentId} returning item`;
+        prendas = [...new Set([...guardadas, ...actuales.map((r) => String(r.item))])];
+      }
+      await tx`insert into uniform_event_returns (request_id, student_id, estado, at, prendas) values (${requestId}, ${studentId}, ${estado}, ${hoyISO()}, ${prendas}::text[])
+        on conflict (request_id, student_id) do update set estado = excluded.estado, at = excluded.at, prendas = excluded.prendas`;
+    });
     refrescar();
     return { ok: true };
   } catch (e) { return fallo(e); }

@@ -166,6 +166,8 @@ export interface Devolucion {
   studentId: string;
   estado: EstadoDevolucion;
   at: string;
+  /** Prendas que volvieron a bodega al recibir el uniforme lavado (para poder deshacer). */
+  prendas: string[];
 }
 
 export interface Novedad {

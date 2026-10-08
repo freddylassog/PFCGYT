@@ -1,6 +1,6 @@
 // Cálculos derivados que comparten el panel, el portal del estudiante, el
 // reporte Excel y los correos. Todo puro: entra `Datos`, salen vistas.
-import { ACTIVIDADES, actividadesEtiquetasPedido, actividadesTextoPedido, cantidadDia, cantidadesDistintas, citaDevolucionTexto, citaEntregaTexto, comidasDias, compromisosPedido, convenioLabel, cruceClases, cruceTexto, diagnosticoCruce, cuposTexto, diasEstudiante, diasHasta, duracionTextoDias, estadoDevolucion, estadoVisible, estudiantesAfectados, fechaCorta, fechaCortaDias, fechaLarga, fechaLargaDias, fechasCruce, horarioTextoDias, horarioUniformeTexto, horasDias, horasEstudiante, infoUniforme, limiteDevolucion, lugaresTexto, MINIMO_EVENTOS, mismoLugar, pasa4hDias, redondear1, repartoDia, semanaDe, semCorto, semLabel, tagClass, tieneRepartoPorDia, tipoClass, tipoLabel, transporteDias, transporteMotivoDias, transporteTexto, type Compromiso, type EstadoDevolucion, type EstadoVisible, type Transporte, ultimoDia, VESTIMENTA } from './reglas';
+import { ACTIVIDADES, UNIFORME, actividadesEtiquetasPedido, actividadesTextoPedido, cantidadDia, cantidadesDistintas, citaDevolucionTexto, citaEntregaTexto, comidasDias, compromisosPedido, convenioLabel, cruceClases, cruceTexto, diagnosticoCruce, cuposTexto, diasEstudiante, diasHasta, duracionTextoDias, estadoDevolucion, estadoVisible, estudiantesAfectados, fechaCorta, fechaCortaDias, fechaLarga, fechaLargaDias, fechasCruce, horarioTextoDias, horarioUniformeTexto, horasDias, horasEstudiante, infoUniforme, limiteDevolucion, lugaresTexto, MINIMO_EVENTOS, mismoLugar, pasa4hDias, redondear1, repartoDia, semanaDe, semCorto, semLabel, tagClass, tieneRepartoPorDia, tipoClass, tipoLabel, transporteDias, transporteMotivoDias, transporteTexto, type Compromiso, type EstadoDevolucion, type EstadoVisible, type Transporte, ultimoDia, VESTIMENTA } from './reglas';
 import type { Aviso, Clase, Datos, Devolucion, DiaEvento, Docente, Estudiante, Novedad, Pedido, Semestre } from './tipos';
 
 export interface PedidoVista extends Pedido {
@@ -346,7 +346,7 @@ export function vistaUniformes(d: Datos, pedidos?: PedidoVista[]): UniformeVista
 
 export type ClaveEventoUniforme = 'falta' | 'entregado' | 'cerrado';
 
-export interface FilaUniformeEvento { e: Estudiante; info: ReturnType<typeof infoUniforme>; estado: EstadoDevolucion; limite: string }
+export interface FilaUniformeEvento { e: Estudiante; info: ReturnType<typeof infoUniforme>; estado: EstadoDevolucion; limite: string; /** Prendas que volvieron a bodega al recibir el uniforme lavado. */ devueltas: string[] }
 
 /** Un evento con uniforme visto desde la entrega y la devolución de sus confirmados. */
 export interface EventoUniformeVista {
@@ -367,7 +367,7 @@ export interface EventoUniformeVista {
 export function vistaEventosUniforme(d: Datos, pedidos?: PedidoVista[]): EventoUniformeVista[] {
   const todos = pedidos ?? vistaPedidos(d);
   const lista = todos.filter((p) => p.estado === 'Aprobado' && p.vestimenta === 'uniforme' && p.confirmadosN > 0).map((p): EventoUniformeVista => {
-    const filas = p.confirmados.map((e) => ({ e, info: infoUniforme(e.genero, d.prendas.filter((x) => x.studentId === e.id).map((x) => x.item)), estado: estadoDevolucionDe(p, e.id, d.hoy), limite: limiteDevolucionDe(p, e.id) }));
+    const filas = p.confirmados.map((e) => ({ e, info: infoUniforme(e.genero, d.prendas.filter((x) => x.studentId === e.id).map((x) => x.item)), estado: estadoDevolucionDe(p, e.id, d.hoy), limite: limiteDevolucionDe(p, e.id), devueltas: devolucionDe(p, e.id)?.prendas ?? [] }));
     const fase = p.terminado ? 'devolucion' : 'entrega';
     const sinEntregar = filas.filter((f) => !f.info.completo).map((f) => f.e);
     const porDevolver = filas.filter((f) => f.estado.clave === 'pendiente' || f.estado.clave === 'vencido' || f.estado.clave === 'rechazado');
@@ -383,6 +383,13 @@ export function vistaEventosUniforme(d: Datos, pedidos?: PedidoVista[]): EventoU
   });
   // Primero lo urgente: devoluciones vencidas, luego devoluciones pendientes, luego entregas por fecha del evento.
   return lista.sort((a, b) => (b.fase === 'devolucion' ? 1 : 0) - (a.fase === 'devolucion' ? 1 : 0) || b.vencidosN - a.vencidosN || a.p.fecha.localeCompare(b.p.fecha));
+}
+
+/** Prendas que hoy están con estudiantes (fuera de bodega), por prenda, en el orden del uniforme femenino y masculino. */
+export function prendasFueraDeBodega(d: Datos): { item: string; n: number }[] {
+  const activos = new Set(d.estudiantes.filter((e) => e.activo).map((e) => e.id));
+  const items = [...UNIFORME.F, ...UNIFORME.M];
+  return items.map((item) => ({ item, n: d.prendas.filter((p) => p.item === item && activos.has(p.studentId)).length })).filter((x) => x.n > 0);
 }
 
 // ---------------------------------------------------------------- resumen de horas

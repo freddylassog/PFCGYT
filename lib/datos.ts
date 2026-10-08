@@ -129,7 +129,7 @@ export async function cargarDatos(): Promise<Datos> {
     inscripciones: inscripciones.map((r): Inscripcion => ({ id: s(r.id), requestId: s(r.request_id), studentId: s(r.student_id), estado: r.estado as Inscripcion['estado'], dias: mapDiasInscripcion(r.dias), createdAt: iso(r.created_at) })),
     avisos: avisos.map((r): Aviso => ({ id: s(r.id), requestId: s(r.request_id), classId: s(r.class_id), studentIds: (r.student_ids as string[]) ?? [], sentAt: sn(r.sent_at), createdAt: iso(r.created_at) })),
     prendas: prendas.map((r): PrendaEntregada => ({ studentId: s(r.student_id), item: s(r.item), entregadoAt: s(r.entregado_at) })),
-    devoluciones: devoluciones.map((r): Devolucion => ({ requestId: s(r.request_id), studentId: s(r.student_id), estado: r.estado as Devolucion['estado'], at: s(r.at) })),
+    devoluciones: devoluciones.map((r): Devolucion => ({ requestId: s(r.request_id), studentId: s(r.student_id), estado: r.estado as Devolucion['estado'], at: s(r.at), prendas: Array.isArray(r.prendas) ? (r.prendas as unknown[]).map(String) : [] })),
     novedades: novedades.map((r): Novedad => ({ id: s(r.id), requestId: s(r.request_id), studentId: s(r.student_id), tipo: s(r.tipo), nota: s(r.nota), fecha: s(r.fecha), reportadoAt: sn(r.reportado_at) })),
   };
 }

@@ -7,7 +7,7 @@ import { useAccion } from '@/components/useAccion';
 import { correoDevolucionPendiente } from '@/lib/correos';
 import type { Datos } from '@/lib/tipos';
 import { fechaCorta, horarioCitaTexto, horarioUniformeTexto } from '@/lib/reglas';
-import { type EventoUniformeVista, type PedidoVista, vistaEventosUniforme, vistaUniformes } from '@/lib/vista';
+import { type EventoUniformeVista, type PedidoVista, prendasFueraDeBodega, vistaEventosUniforme, vistaUniformes } from '@/lib/vista';
 import { CitaUniforme } from './CitaUniforme';
 
 /** '8 oct 10:30' o '8 a 10 oct de 10:30 a 11:30' (resumen corto de una entrega o devolución). */
@@ -30,6 +30,7 @@ export function Uniformes({ datos, pedidos }: { datos: Datos; pedidos: PedidoVis
   const [todos, setTodos] = useState(false);
   const lista = vistaUniformes(datos, pedidos);
   const eventos = vistaEventosUniforme(datos, pedidos);
+  const fuera = prendasFueraDeBodega(datos);
   const grupos: Record<Exclude<Vista, 'estudiantes'>, EventoUniformeVista[]> = {
     falta: eventos.filter((x) => x.clave === 'falta'),
     entregados: eventos.filter((x) => x.clave === 'entregado'),
@@ -64,6 +65,7 @@ export function Uniformes({ datos, pedidos }: { datos: Datos; pedidos: PedidoVis
           {datos.ajustes.uniformeHorario.length
             ? <span><strong>{horarioUniformeTexto(datos.ajustes.uniformeHorario)}</strong>{datos.ajustes.uniformeLugar ? ` · ${datos.ajustes.uniformeLugar}` : ''} · se retira antes del evento y se devuelve lavado dentro de los {datos.ajustes.uniformeDiasDevolucion} días siguientes.</span>
             : <span className="falta">sin horario fijo. Fíjalo en Resumen → Ajustes o cada evento necesitará su propia entrega y devolución.</span>}
+          <div className="muted fs-12 mt-2"><strong>Fuera de bodega:</strong> {fuera.length ? fuera.map((x) => `${x.item} ${x.n}`).join(' · ') : 'ninguna prenda; todo en bodega'}. Al marcar «Recibido lavado» las prendas vuelven a bodega.</div>
         </div>
         <a className="btn btn-ghost btn-sm" href="/coordinacion?tab=resumen">Cambiar en Ajustes</a>
       </Marco>
@@ -107,7 +109,7 @@ export function Uniformes({ datos, pedidos }: { datos: Datos; pedidos: PedidoVis
                         <div className="between"><span className="heading fs-12" style={{ letterSpacing: '.08em', textTransform: 'uppercase' }}>Devolución · hasta el {fechaCorta(p.devolucionLimite)}</span><span className={`tag ${x.porDevolver.length ? 'tag-outline' : 'tag-verde'}`}>{x.filas.length - x.porDevolver.length}/{x.filas.length} devueltos</span></div>
                         {x.filas.map((f) => (
                           <div key={f.e.id} className="linea-item">
-                            <span style={{ minWidth: 0 }}>{f.e.nombre} <span className={`tag ${f.estado.tag}`} style={{ fontSize: 10 }}>{f.estado.label}</span>{!f.info.completo && <span className="muted fs-12"> · {f.info.n ? `recibió ${f.info.n}/${f.info.items.length} prendas` : 'no se le entregó uniforme'}</span>}</span>
+                            <span style={{ minWidth: 0 }}>{f.e.nombre} <span className={`tag ${f.estado.tag}`} style={{ fontSize: 10 }}>{f.estado.label}</span>{f.estado.clave === 'devuelto' ? <span className="muted fs-12"> · {f.devueltas.length ? `${f.devueltas.length} prenda(s) de vuelta en bodega` : 'sin prendas registradas'}</span> : !f.info.completo && <span className="muted fs-12"> · {f.info.n ? `tiene ${f.info.n}/${f.info.items.length} prendas` : 'no se le entregó uniforme'}</span>}</span>
                             {botonesDevolucion(p, f.e.id, f.estado.clave)}
                           </div>
                         ))}

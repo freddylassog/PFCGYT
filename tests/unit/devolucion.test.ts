@@ -32,7 +32,7 @@ test('vista: pendientes y vencidos por evento, resumen por estudiante y textos',
   ];
   d.ajustes.uniformeHorario = [{ dia: 1, inicio: '11:00', fin: '13:00', atiende: 'Estudiantes de apoyo' }];
   d.ajustes.uniformeLugar = 'Oficina de protocolo';
-  d.devoluciones = [{ requestId: 'p1', studentId: 's1', estado: 'lavado', at: '2026-09-14' }];
+  d.devoluciones = [{ requestId: 'p1', studentId: 's1', estado: 'lavado', at: '2026-09-14', prendas: [] }];
   d.hoy = '2026-09-20'; // evento del 11 sep, plazo hasta el 18
   const p = vistaPedido(d, d.pedidos[0]);
   assert.equal(p.devolucionLimite, '2026-09-18');

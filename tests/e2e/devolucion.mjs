@@ -50,6 +50,15 @@ if (!/Pendiente \(1\)/.test(await tarjetaDaniela.textContent())) throw new Error
 const tarjetaCamila = p.locator('.blueprint:has(label.chip):has-text("Camila Ríos")').first();
 if (!/Al día/.test(await tarjetaCamila.textContent())) throw new Error('la tarjeta de Camila no está al día');
 paso('tarjetas por estudiante: Camila al día · Daniela pendiente (1)');
+// Recibido lavado: las prendas de Camila (tenía Vestido) vuelven a bodega; Deshacer las restituye
+if (!/Sin entregar/.test(await tarjetaCamila.textContent())) throw new Error('al recibir lavado, las prendas de Camila deben volver a bodega: ' + (await tarjetaCamila.textContent()).slice(0, 200));
+await tarjetaCamila.locator('button:has-text("Deshacer")').click();
+await tarjetaCamila.locator('.tag:has-text("Parcial 1/3")').waitFor({ timeout: 15000 });
+await tarjetaCamila.locator('button:has-text("Recibido lavado")').click();
+await tarjetaCamila.locator('.tag:has-text("Sin entregar")').waitFor({ timeout: 15000 });
+const bodega = (await p.locator('div:has(> strong:has-text("Fuera de bodega:"))').first().textContent()).replace(/\s+/g, ' ');
+if (!/ninguna prenda; todo en bodega/.test(bodega)) throw new Error('con el Vestido de Camila de vuelta, no debería haber prendas fuera de bodega: ' + bodega);
+paso('recibido lavado: prendas de vuelta a bodega; Deshacer las restituye');
 await p.screenshot({ path: shots + '/devolucion-uniformes.png', fullPage: true, caret: 'initial' });
 
 // Cron: Daniela está pendiente y hoy es el día después del evento → 1 aviso de devolución, 0 vencidos
