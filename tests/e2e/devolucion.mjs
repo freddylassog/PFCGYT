@@ -19,6 +19,8 @@ const ayer = diasAtras(1), limite = (() => { const d = new Date(hoy); d.setDate(
 moverFeria(ayer);
 psql(`delete from uniform_event_returns where request_id = (select id from requests where codigo = 'SOL-2026-001')`);
 psql(`update settings set ultimo_recordatorio = null`);
+// Daniela se llevó una Correa (Camila ya tiene el Vestido de flujo.mjs): sin prendas de bodega no habría nada que devolver
+psql(`insert into uniform_items (student_id, item, entregado_at) select id, 'Correa', current_date from students where nombre = 'Daniela Ortiz' on conflict do nothing`);
 const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
 const ctx = await b.newContext({ viewport: { width: 1280, height: 900 } });
 const p = await ctx.newPage();
@@ -51,13 +53,13 @@ const tarjetaCamila = p.locator('.blueprint:has(label.chip):has-text("Camila Rí
 if (!/Al día/.test(await tarjetaCamila.textContent())) throw new Error('la tarjeta de Camila no está al día');
 paso('tarjetas por estudiante: Camila al día · Daniela pendiente (1)');
 // Recibido lavado: las prendas de Camila (tenía Vestido) vuelven a bodega; Deshacer las restituye
-if (!/Sin entregar/.test(await tarjetaCamila.textContent())) throw new Error('al recibir lavado, las prendas de Camila deben volver a bodega: ' + (await tarjetaCamila.textContent()).slice(0, 200));
+if (!/Sin prendas/.test(await tarjetaCamila.textContent())) throw new Error('al recibir lavado, las prendas de Camila deben volver a bodega: ' + (await tarjetaCamila.textContent()).slice(0, 200));
 await tarjetaCamila.locator('button:has-text("Deshacer")').click();
-await tarjetaCamila.locator('.tag:has-text("Parcial 1/3")').waitFor({ timeout: 15000 });
+await tarjetaCamila.locator('.tag:has-text("1 prenda")').first().waitFor({ timeout: 15000 });
 await tarjetaCamila.locator('button:has-text("Recibido lavado")').click();
-await tarjetaCamila.locator('.tag:has-text("Sin entregar")').waitFor({ timeout: 15000 });
+await tarjetaCamila.locator('.tag:has-text("Sin prendas")').first().waitFor({ timeout: 15000 });
 const bodega = (await p.locator('div:has(> strong:has-text("Fuera de bodega:"))').first().textContent()).replace(/\s+/g, ' ');
-if (!/ninguna prenda; todo en bodega/.test(bodega)) throw new Error('con el Vestido de Camila de vuelta, no debería haber prendas fuera de bodega: ' + bodega);
+if (!/Fuera de bodega: Correa 1\./.test(bodega)) throw new Error('con el Vestido de Camila de vuelta solo queda fuera la Correa de Daniela: ' + bodega);
 paso('recibido lavado: prendas de vuelta a bodega; Deshacer las restituye');
 await p.screenshot({ path: shots + '/devolucion-uniformes.png', fullPage: true, caret: 'initial' });
 
@@ -99,6 +101,7 @@ paso('vencido: visible para coordinación (tarjeta del evento y de la estudiante
 // Limpieza: la Feria vuelve al futuro y sin devoluciones (para los demás flujos)
 moverFeria('2026-10-23');
 psql(`delete from uniform_event_returns where request_id = (select id from requests where codigo = 'SOL-2026-001')`);
+psql(`delete from uniform_items where item = 'Correa' and student_id = (select id from students where nombre = 'Daniela Ortiz')`);
 paso('limpieza: Feria devuelta al 23 oct');
 console.log(errores.length ? errores.join('\n') : 'sin errores de consola');
 await b.close();

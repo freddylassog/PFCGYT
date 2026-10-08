@@ -103,16 +103,16 @@ paso('estudiante ve evento confirmado');
 
 // 9. Uniformes
 await p.goto(base + '/coordinacion?tab=uniformes');
-// La Feria aún no tiene uniformes entregados: abre en "Falta alguien" con la tarjeta del evento y las prendas de cada confirmada
-const faltaFeria = p.locator('.card:has-text("Feria")').first();
-await faltaFeria.waitFor();
-if (!/Falta entregar a 2/.test(await faltaFeria.textContent()) || (await faltaFeria.locator('label.chip').count()) < 4) throw new Error('la tarjeta del evento debería marcar "Falta entregar a 2" con las prendas de cada confirmada: ' + (await faltaFeria.textContent()).slice(0, 300));
-paso('uniformes: pestaña "Falta alguien" con la Feria (falta entregar a 2)');
+// La Feria está por venir: abre en "En curso" con la tarjeta del evento y las prendas que se lleva cada confirmada (nadie "debe" prendas)
+const enCurso = p.locator('.card:has-text("Feria")').first();
+await enCurso.waitFor();
+if (!/Sin prendas entregadas/.test(await enCurso.textContent()) || (await enCurso.locator('label.chip').count()) < 4) throw new Error('la tarjeta del evento debería decir "Sin prendas entregadas" con las prendas de cada confirmada: ' + (await enCurso.textContent()).slice(0, 300));
+paso('uniformes: pestaña "En curso" con la Feria (sin prendas entregadas)');
 await p.click('.seg[aria-label="Vista de uniformes"] label:has-text("Por estudiante")');
 paso('uniformes visibles (solo con evento de uniforme): ' + await p.locator('.cols-auto-340 > .blueprint').count());
 const tarjeta = p.locator('.blueprint:has(label.chip):has-text("Camila Ríos")').first(); // tarjeta de la estudiante
 await tarjeta.locator('label.chip:has-text("Vestido")').click();
-await tarjeta.locator('text=Parcial 1/3').waitFor({ timeout: 20000 });
+await tarjeta.locator('.tag:has-text("1 prenda")').first().waitFor({ timeout: 20000 });
 await tarjeta.locator('text=Devolver hasta el').first().waitFor({ timeout: 20000 }); // la Feria aún no pasa: solo se ve el plazo (la devolución se prueba en devolucion.mjs)
 paso('uniformes ok');
 await shot('uniformes');

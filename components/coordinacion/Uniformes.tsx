@@ -16,12 +16,12 @@ function citaCorta(fecha: string, hasta: string, hora: string, horaFin: string):
   return `${dias} ${horarioCitaTexto(hora, horaFin)}`;
 }
 
-type Vista = 'falta' | 'entregados' | 'cerrados' | 'estudiantes';
+type Vista = 'por-devolver' | 'en-curso' | 'cerrados' | 'estudiantes';
 
 const VISTAS: { clave: Vista; label: string; intro: string; vacio: string }[] = [
-  { clave: 'falta', label: 'Falta alguien', intro: 'Eventos donde a alguien le falta recibir el uniforme o devolverlo lavado. Marca aquí las prendas entregadas y las devoluciones.', vacio: 'Nadie falta: todos los eventos con uniforme están al día.' },
-  { clave: 'entregados', label: 'Entregados', intro: 'Eventos próximos o en curso con el uniforme completo entregado a todos los confirmados.', vacio: 'Ningún evento próximo tiene todos los uniformes entregados todavía.' },
-  { clave: 'cerrados', label: 'Cerrados', intro: 'Eventos terminados con todos los uniformes devueltos lavados.', vacio: 'Aún no hay eventos cerrados.' },
+  { clave: 'por-devolver', label: 'Por devolver', intro: 'Eventos terminados donde alguien todavía tiene prendas de bodega. Registra aquí Recibido lavado o Sin lavar.', vacio: 'Nadie debe prendas: todos los eventos terminados están al día.' },
+  { clave: 'en-curso', label: 'En curso', intro: 'Eventos por venir o en curso. Marca las prendas de bodega que se lleva cada confirmado: es solo control de inventario, nadie está obligado a llevarse todo (puede usar prendas propias).', vacio: 'No hay eventos por venir con uniforme institucional y estudiantes confirmados.' },
+  { clave: 'cerrados', label: 'Cerrados', intro: 'Eventos terminados sin prendas pendientes de devolver.', vacio: 'Aún no hay eventos cerrados.' },
   { clave: 'estudiantes', label: 'Por estudiante', intro: '', vacio: '' },
 ];
 
@@ -32,15 +32,15 @@ export function Uniformes({ datos, pedidos }: { datos: Datos; pedidos: PedidoVis
   const eventos = vistaEventosUniforme(datos, pedidos);
   const fuera = prendasFueraDeBodega(datos);
   const grupos: Record<Exclude<Vista, 'estudiantes'>, EventoUniformeVista[]> = {
-    falta: eventos.filter((x) => x.clave === 'falta'),
-    entregados: eventos.filter((x) => x.clave === 'entregado'),
+    'por-devolver': eventos.filter((x) => x.clave === 'por-devolver'),
+    'en-curso': eventos.filter((x) => x.clave === 'en-curso'),
     cerrados: eventos.filter((x) => x.clave === 'cerrado'),
   };
-  const [vista, setVista] = useState<Vista>(grupos.falta.length ? 'falta' : grupos.entregados.length ? 'entregados' : grupos.cerrados.length ? 'cerrados' : 'estudiantes');
+  const [vista, setVista] = useState<Vista>(grupos['por-devolver'].length ? 'por-devolver' : grupos['en-curso'].length ? 'en-curso' : grupos.cerrados.length ? 'cerrados' : 'estudiantes');
   const visibles = todos ? lista : lista.filter((u) => u.requiere);
   const nRequieren = lista.filter((u) => u.requiere).length;
   const actual = VISTAS.find((v) => v.clave === vista)!;
-  const botonesDevolucion = (p: PedidoVista, studentId: string, clave: string) => (
+  const botonesDevolucion = (p: PedidoVista, studentId: string, clave: string) => clave === 'nada' ? null : (
     <span style={{ display: 'flex', gap: 4, flex: 'none' }}>
       {clave !== 'devuelto' && <button className="btn btn-secondary btn-sm" type="button" onClick={() => run(() => fijarDevolucion(p.id, studentId, 'lavado'))}>Recibido lavado</button>}
       {(clave === 'pendiente' || clave === 'vencido') && <button className="btn btn-ghost btn-sm" type="button" title="Llegó sin lavar: no se recibe" onClick={() => run(() => fijarDevolucion(p.id, studentId, 'rechazado'))}>Sin lavar</button>}
@@ -65,7 +65,7 @@ export function Uniformes({ datos, pedidos }: { datos: Datos; pedidos: PedidoVis
           {datos.ajustes.uniformeHorario.length
             ? <span><strong>{horarioUniformeTexto(datos.ajustes.uniformeHorario)}</strong>{datos.ajustes.uniformeLugar ? ` · ${datos.ajustes.uniformeLugar}` : ''} · se retira antes del evento y se devuelve lavado dentro de los {datos.ajustes.uniformeDiasDevolucion} días siguientes.</span>
             : <span className="falta">sin horario fijo. Fíjalo en Resumen → Ajustes o cada evento necesitará su propia entrega y devolución.</span>}
-          <div className="muted fs-12 mt-2"><strong>Fuera de bodega:</strong> {fuera.length ? fuera.map((x) => `${x.item} ${x.n}`).join(' · ') : 'ninguna prenda; todo en bodega'}. Al marcar «Recibido lavado» las prendas vuelven a bodega.</div>
+          <div className="muted fs-12 mt-2"><strong>Fuera de bodega:</strong> {fuera.length ? fuera.map((x) => `${x.item} ${x.n}`).join(' · ') : 'ninguna prenda; todo en bodega'}. Se marcan solo las prendas que cada uno se lleva (puede usar prendas propias); al marcar «Recibido lavado» vuelven a bodega.</div>
         </div>
         <a className="btn btn-ghost btn-sm" href="/coordinacion?tab=resumen">Cambiar en Ajustes</a>
       </Marco>
@@ -87,11 +87,11 @@ export function Uniformes({ datos, pedidos }: { datos: Datos; pedidos: PedidoVis
                 <Marco key={p.id} className={`card p-4 ${p.tipoClass} ${p.finalizado ? 'finalizado' : ''}`}>
                   <div className="between arriba" style={{ gap: 6 }}><div className="card-kicker">{p.codigo} · {p.tipoLabel} · {p.fechaCorta}</div><span className={`tag ${x.tag}`}>{x.label}</span></div>
                   <div className="card-title" style={{ fontSize: 17 }}>{p.evento}</div>
-                  <div className="card-meta">{p.confirmadosN} confirmado(s) · {x.fase === 'entrega' ? `${x.entregadosN} con uniforme completo` : `terminó el ${fechaCorta(p.ultimaFecha)}`}</div>
+                  <div className="card-meta">{p.confirmadosN} confirmado(s) · {x.fase === 'entrega' ? `${x.conPrendasN} con prendas de bodega` : `terminó el ${fechaCorta(p.ultimaFecha)}`}</div>
                   <div className="borde-arriba stack-2" style={{ paddingTop: 'var(--space-2)' }}>
                     {x.fase === 'entrega' ? (
                       <>
-                        <div className="between"><span className="heading fs-12" style={{ letterSpacing: '.08em', textTransform: 'uppercase' }}>Entrega del uniforme</span><span className={`tag ${x.sinEntregar.length ? 'tag-alerta-suave' : 'tag-accent'}`}>{x.entregadosN}/{x.filas.length} completos</span></div>
+                        <div className="between"><span className="heading fs-12" style={{ letterSpacing: '.08em', textTransform: 'uppercase' }}>Prendas que se lleva cada uno</span><span className={`tag ${x.conPrendasN ? 'tag-accent' : 'tag-neutral'}`}>{x.conPrendasN}/{x.filas.length} con prendas</span></div>
                         {x.filas.map((f) => (
                           <div key={f.e.id} className="linea-item arriba" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 4 }}>
                             <div className="between"><span>{f.e.nombre} <span className="muted fs-12">· {f.e.genero === 'F' ? 'femenino' : 'masculino'}</span></span><span className={`tag ${f.info.tagClass}`} style={{ fontSize: 10 }}>{f.info.estado}</span></div>
@@ -109,7 +109,7 @@ export function Uniformes({ datos, pedidos }: { datos: Datos; pedidos: PedidoVis
                         <div className="between"><span className="heading fs-12" style={{ letterSpacing: '.08em', textTransform: 'uppercase' }}>Devolución · hasta el {fechaCorta(p.devolucionLimite)}</span><span className={`tag ${x.porDevolver.length ? 'tag-outline' : 'tag-verde'}`}>{x.filas.length - x.porDevolver.length}/{x.filas.length} devueltos</span></div>
                         {x.filas.map((f) => (
                           <div key={f.e.id} className="linea-item">
-                            <span style={{ minWidth: 0 }}>{f.e.nombre} <span className={`tag ${f.estado.tag}`} style={{ fontSize: 10 }}>{f.estado.label}</span>{f.estado.clave === 'devuelto' ? <span className="muted fs-12"> · {f.devueltas.length ? `${f.devueltas.length} prenda(s) de vuelta en bodega` : 'sin prendas registradas'}</span> : !f.info.completo && <span className="muted fs-12"> · {f.info.n ? `tiene ${f.info.n}/${f.info.items.length} prendas` : 'no se le entregó uniforme'}</span>}</span>
+                            <span style={{ minWidth: 0 }}>{f.e.nombre} <span className={`tag ${f.estado.tag}`} style={{ fontSize: 10 }}>{f.estado.label}</span>{f.estado.clave === 'devuelto' ? <span className="muted fs-12"> · {f.devueltas.length ? `${f.devueltas.length} prenda(s) de vuelta en bodega` : 'sin prendas registradas'}</span> : f.estado.clave === 'nada' ? <span className="muted fs-12"> · nada que devolver (si se llevó algo, márcalo en Por estudiante)</span> : f.info.n ? <span className="muted fs-12"> · tiene {f.info.tiene.join(', ')}</span> : null}</span>
                             {botonesDevolucion(p, f.e.id, f.estado.clave)}
                           </div>
                         ))}
@@ -162,7 +162,7 @@ export function Uniformes({ datos, pedidos }: { datos: Datos; pedidos: PedidoVis
                   {u.devoluciones.map(({ p, estado }) => (
                     <div key={p.id} className="between fs-12" style={{ gap: 6 }}>
                       <span style={{ minWidth: 0 }}>{p.evento} · {p.fechaCorta} <span className={`tag ${estado.tag}`} style={{ fontSize: 10 }}>{estado.label}</span></span>
-                      {estado.clave !== 'en-curso' && botonesDevolucion(p, u.id, estado.clave)}
+                      {estado.clave !== 'en-curso' && estado.clave !== 'nada' && botonesDevolucion(p, u.id, estado.clave)}
                     </div>
                   ))}
                 </div>

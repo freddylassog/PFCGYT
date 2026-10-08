@@ -821,12 +821,13 @@ export function claveNombre(s: string): string {
 
 // ---------------------------------------------------------------- uniforme
 
+/** Prendas de bodega que tiene un estudiante. Solo sirve para el control de inventario: nadie está obligado a
+ *  llevarse todo (puede usar prendas propias), así que no hay "faltantes". */
 export interface InfoUniforme {
   items: string[];
   tiene: string[];
-  faltan: string[];
   n: number;
-  completo: boolean;
+  /** '2 prendas' o 'Sin prendas'. */
   estado: string;
   tagClass: string;
 }
@@ -835,13 +836,7 @@ export function infoUniforme(genero: Genero, entregadas: string[]): InfoUniforme
   const items = UNIFORME[genero] || [];
   const tiene = items.filter((i) => entregadas.includes(i));
   const n = tiene.length;
-  const completo = n === items.length && items.length > 0;
-  return {
-    items, tiene, n, completo,
-    faltan: items.filter((i) => !tiene.includes(i)),
-    estado: completo ? 'Completo' : n ? `Parcial ${n}/${items.length}` : 'Sin entregar',
-    tagClass: completo ? 'tag-accent' : n ? 'tag-alerta-suave' : 'tag-neutral',
-  };
+  return { items, tiene, n, estado: n ? `${n} prenda${n === 1 ? '' : 's'}` : 'Sin prendas', tagClass: n ? 'tag-accent' : 'tag-neutral' };
 }
 
 export const DEVOLUCION = {
@@ -856,13 +851,15 @@ export function limiteDevolucion(ultimoDia: string, dias: number): string {
   return sumarDias(ultimoDia, Math.max(1, Math.round(dias) || 7));
 }
 
-export type ClaveDevolucion = 'en-curso' | 'pendiente' | 'vencido' | 'devuelto' | 'rechazado';
+export type ClaveDevolucion = 'nada' | 'en-curso' | 'pendiente' | 'vencido' | 'devuelto' | 'rechazado';
 export interface EstadoDevolucion { clave: ClaveDevolucion; label: string; tag: string }
 
-/** Estado de la devolución de un estudiante en un evento, según el registro, el plazo y la fecha de hoy. */
-export function estadoDevolucion(dev: { estado: EstadoDevolucionRegistro; at: string } | null | undefined, ultimoDia: string, limite: string, hoy: string): EstadoDevolucion {
+/** Estado de la devolución de un estudiante en un evento, según el registro, el plazo y la fecha de hoy.
+ *  Sin registro y sin prendas de bodega no hay nada que devolver ('nada'). */
+export function estadoDevolucion(dev: { estado: EstadoDevolucionRegistro; at: string } | null | undefined, ultimoDia: string, limite: string, hoy: string, tienePrendas = true): EstadoDevolucion {
   if (dev?.estado === 'lavado') return { clave: 'devuelto', label: `Devuelto lavado${dev.at ? ` · ${fechaCorta(dev.at)}` : ''}`, tag: 'tag-verde' };
   if (dev?.estado === 'rechazado') return { clave: 'rechazado', label: 'No recibido · sin lavar', tag: 'tag-alerta' };
+  if (!tienePrendas) return { clave: 'nada', label: 'Sin prendas de bodega', tag: 'tag-neutral' };
   if (ultimoDia > hoy) return { clave: 'en-curso', label: `Devolver hasta el ${fechaCorta(limite)}`, tag: 'tag-neutral' };
   if (hoy > limite) return { clave: 'vencido', label: `Vencido · era hasta el ${fechaCorta(limite)}`, tag: 'tag-alerta' };
   return { clave: 'pendiente', label: `Pendiente · hasta el ${fechaCorta(limite)}`, tag: 'tag-outline' };

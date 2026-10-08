@@ -10,7 +10,7 @@ import { useAccion } from '@/components/useAccion';
 import { EditarPedido } from './EditarPedido';
 import { CitaUniforme } from './CitaUniforme';
 import { correoAvisoDocente, correoConvocatoria, correoDecanato, correoEstudianteDecision, correoRecordatorio, correoSolicitante, mailtoUrl, outlookWebUrl } from '@/lib/correos';
-import { TIPOS_NOVEDAD, fechaCorta, infoUniforme, semCorto } from '@/lib/reglas';
+import { TIPOS_NOVEDAD, fechaCorta, semCorto } from '@/lib/reglas';
 import type { Datos, Estado, Estudiante } from '@/lib/tipos';
 import { diasDeEstudiante, diasLlenosDe, estudiantesDeAviso, type CruceVista, type PedidoVista } from '@/lib/vista';
 import type { CruceEvento } from '@/lib/reglas';
@@ -38,7 +38,6 @@ export function PanelPedido({ p, datos, pedidos, cruceEvento, onCerrar }: { p: P
   }
   const nEstudiantes = datos.estudiantes.filter((e) => e.activo).length;
   const eventosPor = (id: string) => pedidos.filter((x) => x.estado === 'Aprobado' && x.confirmados.some((e) => e.id === id)).length;
-  const uniformeIncompleto = (e: Estudiante) => p.vestimenta === 'uniforme' && !infoUniforme(e.genero, datos.prendas.filter((x) => x.studentId === e.id).map((x) => x.item)).completo;
   const pendientes = p.novedades.filter((n) => n.pendiente);
   const disponibles = datos.estudiantes.filter((e) => e.activo && !p.confirmados.some((c) => c.id === e.id) && !p.inscritos.some((c) => c.id === e.id));
 
@@ -136,7 +135,7 @@ export function PanelPedido({ p, datos, pedidos, cruceEvento, onCerrar }: { p: P
                 <div className="card-kicker">Inscritos por revisar · {p.inscritosN}</div>
                 {p.inscritos.map((s) => { const llenos = diasLlenosDe(p, s.id); const sinCupo = llenos.length > 0; const todoLleno = llenos.length === diasDeEstudiante(p, s.id).length; return (
                   <div key={s.id} className="linea-item">
-                    <span style={{ minWidth: 0 }}>{s.nombre} <span className="muted fs-11">{semCorto(s.semestre)} · {eventosPor(s.id)} ev.</span>{uniformeIncompleto(s) && <> <span className="tag tag-alerta-suave" style={{ fontSize: 10 }}>Uniforme incompleto</span></>}{sinCupo && <> <span className="tag tag-alerta-suave" style={{ fontSize: 10 }} title={todoLleno ? 'Sus días ya tienen el cupo completo' : 'Ese día ya tiene el cupo completo: apágalo para aceptarlo en los demás'}>{p.multidia && !todoLleno ? `Sin cupo ${llenos.map((f) => `D${p.dias.findIndex((d) => d.fecha === f) + 1}`).join(', ')}` : 'Sin cupo'}</span></>}{chipsDias(s.id)}</span>
+                    <span style={{ minWidth: 0 }}>{s.nombre} <span className="muted fs-11">{semCorto(s.semestre)} · {eventosPor(s.id)} ev.</span>{sinCupo && <> <span className="tag tag-alerta-suave" style={{ fontSize: 10 }} title={todoLleno ? 'Sus días ya tienen el cupo completo' : 'Ese día ya tiene el cupo completo: apágalo para aceptarlo en los demás'}>{p.multidia && !todoLleno ? `Sin cupo ${llenos.map((f) => `D${p.dias.findIndex((d) => d.fecha === f) + 1}`).join(', ')}` : 'Sin cupo'}</span></>}{chipsDias(s.id)}</span>
                     <span style={{ display: 'flex', gap: 4, flex: 'none' }}>
                       <button className="btn btn-primary btn-sm" type="button" disabled={sinCupo} title={sinCupo ? (todoLleno ? 'Cupos completos para sus días' : 'Apaga el día lleno (D1, D2…) o quita a otro confirmado') : ''} onClick={() => run(() => decidirInscripcion(p.id, s.id, 'aceptar'))}>Aceptar</button>
                       <button className="btn btn-ghost btn-sm" type="button" onClick={() => run(() => decidirInscripcion(p.id, s.id, 'rechazar'))}>Rechazar</button>

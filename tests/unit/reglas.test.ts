@@ -103,9 +103,10 @@ test('código, semana y fechas', () => {
 
 test('uniforme', () => {
   const u = infoUniforme('F', ['Vestido']);
-  assert.equal(u.estado, 'Parcial 1/3');
-  assert.deepEqual(u.faltan, ['Correa', 'Lazo']);
-  assert.equal(infoUniforme('M', ['Pantalón', 'Camisa', 'Chaleco', 'Corbatín', 'Chaqueta', 'Pin']).completo, true);
+  assert.equal(u.estado, '1 prenda');
+  assert.deepEqual(u.tiene, ['Vestido']);
+  assert.equal(infoUniforme('M', ['Pantalón', 'Camisa', 'Chaleco', 'Corbatín', 'Chaqueta', 'Pin']).estado, '6 prendas');
+  assert.equal(infoUniforme('F', []).estado, 'Sin prendas', 'no hay faltantes: solo se registra lo que se lleva');
 });
 
 test('validación del formulario por pasos', () => {

@@ -15,6 +15,8 @@ test('plazo y estado de la devolución del uniforme', () => {
   assert.equal(estadoDevolucion(null, '2026-09-11', '2026-09-18', '2026-09-19').label, 'Vencido · era hasta el 18 sep');
   assert.equal(estadoDevolucion({ estado: 'lavado', at: '2026-09-15' }, '2026-09-11', '2026-09-18', '2026-09-30').label, 'Devuelto lavado · 15 sep');
   assert.equal(estadoDevolucion({ estado: 'rechazado', at: '2026-09-15' }, '2026-09-11', '2026-09-18', '2026-09-16').clave, 'rechazado');
+  assert.equal(estadoDevolucion(null, '2026-09-11', '2026-09-18', '2026-09-19', false).clave, 'nada', 'sin prendas de bodega no hay nada que devolver');
+  assert.equal(estadoDevolucion({ estado: 'lavado', at: '2026-09-15' }, '2026-09-11', '2026-09-18', '2026-09-19', false).clave, 'devuelto', 'tras recibir lavado las prendas ya volvieron a bodega');
   assert.equal(faseDevolucion('2026-09-11', '2026-09-18', '2026-09-12'), 'inicio');
   assert.equal(faseDevolucion('2026-09-11', '2026-09-18', '2026-09-16'), 'recordatorio');
   assert.equal(faseDevolucion('2026-09-11', '2026-09-18', '2026-09-18'), 'vence');
@@ -32,9 +34,12 @@ test('vista: pendientes y vencidos por evento, resumen por estudiante y textos',
   ];
   d.ajustes.uniformeHorario = [{ dia: 1, inicio: '11:00', fin: '13:00', atiende: 'Estudiantes de apoyo' }];
   d.ajustes.uniformeLugar = 'Oficina de protocolo';
-  d.devoluciones = [{ requestId: 'p1', studentId: 's1', estado: 'lavado', at: '2026-09-14', prendas: [] }];
+  d.devoluciones = [{ requestId: 'p1', studentId: 's1', estado: 'lavado', at: '2026-09-14', prendas: ['Vestido'] }];
+  d.prendas = [{ studentId: 's2', item: 'Chaqueta', entregadoAt: '2026-09-10' }]; // s2 se llevó una prenda; s1 ya la devolvió
   d.hoy = '2026-09-20'; // evento del 11 sep, plazo hasta el 18
   const p = vistaPedido(d, d.pedidos[0]);
+  assert.deepEqual(p.conPrendas, ['s2']);
+  assert.equal(estadoDevolucionDe({ ...p, conPrendas: [] }, 's2', d.hoy).clave, 'nada', 'sin prendas de bodega: nada que devolver');
   assert.equal(p.devolucionLimite, '2026-09-18');
   assert.equal(limiteDevolucionDe(p, 's2'), '2026-09-18');
   assert.equal(estadoDevolucionDe(p, 's1', d.hoy).clave, 'devuelto');

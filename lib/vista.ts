@@ -70,6 +70,8 @@ export interface PedidoVista extends Pedido {
   devolucionDondeTexto: string;
   /** Devoluciones registradas de este evento. */
   devoluciones: Devolucion[];
+  /** Confirmados que hoy tienen alguna prenda de bodega (los demás no deben nada). */
+  conPrendas: string[];
   confirmadosN: number;
   inscritosN: number;
   lleno: boolean;
@@ -164,6 +166,7 @@ export function vistaPedido(d: Datos, p: Pedido): PedidoVista {
     confirmados, inscritos, confirmadosN: confirmados.length, inscritosN: inscritos.length, lleno,
     asistencia, cuposDias, cuposTexto: cuposTexto(p), cantidadesDistintas: cantidadesDistintas(p), progreso, uniformeAvisoTexto,
     devolucionDias, devolucionLimite, devolucionDondeTexto, devoluciones: d.devoluciones.filter((x) => x.requestId === p.id),
+    conPrendas: confirmados.filter((e) => d.prendas.some((x) => x.studentId === e.id)).map((e) => e.id),
     cruces, sinCruce, cruceAmbito: confirmados.length ? 'semestres confirmados' : 'todos los semestres',
     novedades, novedadesTexto: novedades.length ? novedades.map((n) => `${n.estudiante?.nombre ?? ''}: ${n.tipo}`).join(' · ') : '—',
     evidenciaTexto: p.evidenciaNombre || 'sin evidencia',
@@ -197,7 +200,7 @@ export function devolucionDe(p: PedidoVista, studentId: string): Devolucion | nu
 }
 
 export function estadoDevolucionDe(p: PedidoVista, studentId: string, hoy: string): EstadoDevolucion {
-  return estadoDevolucion(devolucionDe(p, studentId), ultimoDiaDe(p, studentId), limiteDevolucionDe(p, studentId), hoy);
+  return estadoDevolucion(devolucionDe(p, studentId), ultimoDiaDe(p, studentId), limiteDevolucionDe(p, studentId), hoy, p.conPrendas.includes(studentId));
 }
 
 /** Confirmados que aún deben el uniforme (pendientes, vencidos o devueltos sin lavar); solo eventos con uniforme ya realizados. */
@@ -336,7 +339,7 @@ export function vistaUniformes(d: Datos, pedidos?: PedidoVista[]): UniformeVista
     return {
       ...e, info, eventosUniforme, requiere: eventosUniforme.length > 0 || info.n > 0,
       semLabel: semLabel(e.semestre), generoLabel: e.genero === 'F' ? 'femenino' : 'masculino',
-      detalle: info.completo ? 'Uniforme completo entregado.' : info.n ? 'Falta: ' + info.faltan.join(', ') : 'Ninguna prenda entregada.',
+      detalle: info.n ? 'Tiene de bodega: ' + info.tiene.join(', ') + '.' : 'Sin prendas de bodega.',
       devoluciones, pendientesN, vencidosN,
       devLabel: vencidosN ? `Vencido (${vencidosN})` : pendientesN ? `Pendiente (${pendientesN})` : terminados ? 'Al día' : eventosUniforme.length ? 'En curso' : '—',
       devTag: vencidosN ? 'tag-alerta' : pendientesN ? 'tag-outline' : terminados ? 'tag-verde' : 'tag-neutral',
@@ -344,7 +347,7 @@ export function vistaUniformes(d: Datos, pedidos?: PedidoVista[]): UniformeVista
   });
 }
 
-export type ClaveEventoUniforme = 'falta' | 'entregado' | 'cerrado';
+export type ClaveEventoUniforme = 'por-devolver' | 'en-curso' | 'cerrado';
 
 export interface FilaUniformeEvento { e: Estudiante; info: ReturnType<typeof infoUniforme>; estado: EstadoDevolucion; limite: string; /** Prendas que volvieron a bodega al recibir el uniforme lavado. */ devueltas: string[] }
 
@@ -354,11 +357,11 @@ export interface EventoUniformeVista {
   filas: FilaUniformeEvento[];
   /** 'entrega' antes o durante el evento; 'devolucion' cuando ya terminó. */
   fase: 'entrega' | 'devolucion';
-  entregadosN: number;
-  sinEntregar: Estudiante[];
+  /** Confirmados que hoy tienen alguna prenda de bodega. */
+  conPrendasN: number;
   porDevolver: FilaUniformeEvento[];
   vencidosN: number;
-  /** falta = a alguien le falta recibir o devolver; entregado = todos con uniforme completo (evento por venir); cerrado = terminado y todo devuelto. */
+  /** en-curso = por venir o en curso (se marcan las prendas que se lleva cada uno); por-devolver = terminado y alguien aún tiene prendas; cerrado = terminado sin prendas pendientes. */
   clave: ClaveEventoUniforme;
   label: string;
   tag: string;
@@ -369,17 +372,13 @@ export function vistaEventosUniforme(d: Datos, pedidos?: PedidoVista[]): EventoU
   const lista = todos.filter((p) => p.estado === 'Aprobado' && p.vestimenta === 'uniforme' && p.confirmadosN > 0).map((p): EventoUniformeVista => {
     const filas = p.confirmados.map((e) => ({ e, info: infoUniforme(e.genero, d.prendas.filter((x) => x.studentId === e.id).map((x) => x.item)), estado: estadoDevolucionDe(p, e.id, d.hoy), limite: limiteDevolucionDe(p, e.id), devueltas: devolucionDe(p, e.id)?.prendas ?? [] }));
     const fase = p.terminado ? 'devolucion' : 'entrega';
-    const sinEntregar = filas.filter((f) => !f.info.completo).map((f) => f.e);
+    const conPrendasN = filas.filter((f) => f.info.n > 0).length;
     const porDevolver = filas.filter((f) => f.estado.clave === 'pendiente' || f.estado.clave === 'vencido' || f.estado.clave === 'rechazado');
     const vencidosN = porDevolver.filter((f) => f.estado.clave !== 'pendiente').length;
-    const base = { p, filas, fase, entregadosN: filas.length - sinEntregar.length, sinEntregar, porDevolver, vencidosN } as const;
-    if (fase === 'entrega') {
-      return sinEntregar.length
-        ? { ...base, clave: 'falta', label: `Falta entregar a ${sinEntregar.length}`, tag: 'tag-alerta-suave' }
-        : { ...base, clave: 'entregado', label: 'Uniformes entregados', tag: 'tag-accent' };
-    }
-    if (porDevolver.length) return { ...base, clave: 'falta', label: vencidosN ? `${porDevolver.length} por devolver · ${vencidosN} vencido(s)` : `${porDevolver.length} por devolver`, tag: vencidosN ? 'tag-alerta' : 'tag-outline' };
-    return { ...base, clave: 'cerrado', label: 'Todo devuelto', tag: 'tag-verde' };
+    const base = { p, filas, fase, conPrendasN, porDevolver, vencidosN } as const;
+    if (fase === 'entrega') return { ...base, clave: 'en-curso', label: conPrendasN ? `${conPrendasN} de ${filas.length} con prendas` : 'Sin prendas entregadas', tag: conPrendasN ? 'tag-accent' : 'tag-neutral' };
+    if (porDevolver.length) return { ...base, clave: 'por-devolver', label: vencidosN ? `${porDevolver.length} por devolver · ${vencidosN} vencido(s)` : `${porDevolver.length} por devolver`, tag: vencidosN ? 'tag-alerta' : 'tag-outline' };
+    return { ...base, clave: 'cerrado', label: filas.some((f) => f.estado.clave === 'devuelto') ? 'Todo devuelto' : 'Sin prendas pendientes', tag: 'tag-verde' };
   });
   // Primero lo urgente: devoluciones vencidas, luego devoluciones pendientes, luego entregas por fecha del evento.
   return lista.sort((a, b) => (b.fase === 'devolucion' ? 1 : 0) - (a.fase === 'devolucion' ? 1 : 0) || b.vencidosN - a.vencidosN || a.p.fecha.localeCompare(b.p.fecha));

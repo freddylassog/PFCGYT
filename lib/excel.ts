@@ -120,10 +120,10 @@ export async function generarReporte(d: Datos): Promise<Buffer> {
 
   hoja(wb, 'Horas', [['Concepto', 'Horas'], ['Horas asignadas por semana', horas.horasSemana], [`Horas del semestre (${horas.semanas} semanas)`, horas.total], ['Horas registradas en eventos aprobados', horas.usadas], ['Horas disponibles', horas.restantes]], [40, 10]);
 
-  const est: (string | number)[][] = [['Semestre', 'Estudiante', 'Correo', 'Eventos', 'Horas', 'Eventos (detalle)', 'Cumple mínimo 2', 'Novedades', 'Uniforme', 'Prendas entregadas', 'Faltan', 'Devolución']];
+  const est: (string | number)[][] = [['Semestre', 'Estudiante', 'Correo', 'Eventos', 'Horas', 'Eventos (detalle)', 'Cumple mínimo 2', 'Novedades', 'Prendas de bodega', 'Cuáles', 'Devolución']];
   matriz.forEach((m) => m.filas.forEach((r) => {
     const u = infoUniforme(r.genero, d.prendas.filter((p) => p.studentId === r.id).map((p) => p.item));
-    est.push([m.semestre, r.nombre, r.correo, r.eventosN, r.horas, r.detalle, r.cumple ? 'Sí' : 'No', r.novedadesN, u.estado, u.tiene.join('; '), u.faltan.join('; '), devolucionTexto(d, r.id, u.n > 0)]);
+    est.push([m.semestre, r.nombre, r.correo, r.eventosN, r.horas, r.detalle, r.cumple ? 'Sí' : 'No', r.novedadesN, u.estado, u.tiene.join('; '), devolucionTexto(d, r.id, u.n > 0)]);
   }));
   hoja(wb, 'Estudiantes', est, [9, 26, 30, 8, 7, 50, 14, 10, 14, 40, 30, 22]);
 
