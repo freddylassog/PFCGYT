@@ -31,20 +31,24 @@ export function FormularioPedido({ hoy, anticipacion = { horas: 72, hasta: '' } 
 
   const set = <K extends keyof FormPedido>(k: K, v: FormPedido[K]) => setF((s) => ({ ...s, [k]: v }));
 
+  // Se reconoce por el correo o, si aún no lo escribió, por nombre y apellido; se rellena solo lo que esté vacío.
   const correo = f.correoSolicitante.trim().toLowerCase();
+  const nombre = f.nombre.trim().replace(/\s+/g, ' ');
+  const clave = correoValido(correo) ? `c:${correo}` : nombre.split(' ').length >= 2 ? `n:${nombre.toLowerCase()}` : '';
   useEffect(() => {
     let vivo = true;
     const t = setTimeout(() => {
-      if (!correoValido(correo)) { setInterno(null); return; }
-      reconocerSolicitante(correo).then((r) => {
+      if (!clave) { setInterno(null); return; }
+      const [modo, valor] = [clave.slice(0, 1), clave.slice(2)];
+      reconocerSolicitante(modo === 'c' ? valor : '', modo === 'n' ? valor : '').then((r) => {
         if (!vivo) return;
         if (!r.interno) { setInterno(null); return; }
         setInterno({ nombre: r.nombre, cargo: r.cargo });
-        setF((s) => ({ ...s, tipo: 'interno', convenio: 'si', nombre: s.nombre.trim() || r.nombre, cargo: s.cargo.trim() || r.cargo, institucion: s.institucion.trim() || 'Universidad UTE' }));
+        setF((s) => ({ ...s, tipo: 'interno', convenio: 'si', nombre: s.nombre.trim() || r.nombre, cargo: s.cargo.trim() || r.cargo, institucion: s.institucion.trim() || 'Universidad UTE', correoSolicitante: s.correoSolicitante.trim() || r.correo }));
       }).catch(() => {});
     }, 350);
     return () => { vivo = false; clearTimeout(t); };
-  }, [correo]);
+  }, [clave]);
 
   // Verifica cruces con otros pedidos cuando cambian los días u horarios.
   const diasClave = JSON.stringify(f.dias);
@@ -150,7 +154,7 @@ export function FormularioPedido({ hoy, anticipacion = { horas: 72, hasta: '' } 
         {paso === 1 && (
           <Marco as="section" className="p-6 stack">
             <h6 className="h6-accent">01 · Solicitante</h6>
-            <div className="field"><label htmlFor="nombre">Nombre completo</label><input id="nombre" className="input" value={f.nombre} onChange={(e) => set('nombre', e.target.value)} placeholder="Nombre y apellido" autoComplete="name" /></div>
+            <div className="field"><label htmlFor="nombre">Nombre completo</label><input id="nombre" className="input" value={f.nombre} onChange={(e) => set('nombre', e.target.value)} placeholder="Nombre y apellido" autoComplete="name" />{!interno && <span className="muted fs-12">Si eres solicitante interno registrado, con tu nombre y apellido se completa el resto.</span>}</div>
             <div className="cols-2">
               <div className="field"><label htmlFor="cargo">Cargo</label><input id="cargo" className="input" value={f.cargo} onChange={(e) => set('cargo', e.target.value)} /></div>
               <div className="field"><label htmlFor="institucion">Institución</label><input id="institucion" className="input" value={f.institucion} onChange={(e) => set('institucion', e.target.value)} /></div>

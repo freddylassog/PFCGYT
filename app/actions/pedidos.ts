@@ -5,6 +5,7 @@ import { ajustesActuales, mapPedido, pedidosDelPeriodo } from '@/lib/datos';
 import { evidenciaExiste, prepararSubida } from '@/lib/storage';
 import { notificarNuevoPedido } from '@/lib/notificar';
 import { appUrl } from '@/lib/app-url';
+import { candidatosPorNombre } from '@/lib/importar';
 import { tokenActa } from '@/lib/sesion';
 import {
   ACTIVIDADES, anticipacionVigente, codigoPedido, cruceEventos, unirRepartos, esFechaISO, esHora, faltasPedido, fechaLargaDias, hoyISO, normalizarCorreo, ordenarDias, solicitanteInterno, type FormPedido,
@@ -49,11 +50,17 @@ export async function verificarCruce(dias: DiaEvento[], excluirId?: string): Pro
 
 export interface PedidoCreado { id: string; codigo: string; evento: string; fechaLarga: string; horario: string; actaUrl: string }
 
-/** ¿Ese correo es de un solicitante interno frecuente? Solo responde con coincidencia exacta (nombre y cargo para prellenar). */
-export async function reconocerSolicitante(correo: string): Promise<{ interno: boolean; nombre: string; cargo: string }> {
+/** ¿Es un solicitante interno frecuente? Por correo (coincidencia exacta) o, si no hay correo, por nombre y apellido
+ *  (una sola coincidencia). Devuelve sus datos para prellenar el formulario. */
+export async function reconocerSolicitante(correo: string, nombre = ''): Promise<{ interno: boolean; nombre: string; cargo: string; correo: string }> {
   const a = await ajustesActuales();
-  const x = solicitanteInterno(a.solicitantesInternos, String(correo || ''));
-  return x ? { interno: true, nombre: x.nombre, cargo: x.cargo } : { interno: false, nombre: '', cargo: '' };
+  const nadie = { interno: false, nombre: '', cargo: '', correo: '' };
+  let x = solicitanteInterno(a.solicitantesInternos, String(correo || ''));
+  if (!x && String(nombre || '').trim()) {
+    const candidatos = candidatosPorNombre(a.solicitantesInternos, String(nombre).slice(0, 120));
+    if (candidatos.length === 1) x = candidatos[0];
+  }
+  return x ? { interno: true, nombre: x.nombre, cargo: x.cargo, correo: x.correo } : nadie;
 }
 
 export async function crearPedido(f: FormPedido): Promise<Resultado<PedidoCreado>> {

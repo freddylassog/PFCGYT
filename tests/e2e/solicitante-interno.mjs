@@ -78,7 +78,23 @@ const fila = psql(`select tipo || '|' || convenio || '|' || coalesce(evidencia_p
 if (fila !== `interno|si||Prueba Interna|${correo}`) throw new Error('el pedido no quedó como interno sin adjunto: ' + fila);
 paso(`pedido ${codigo} registrado como interno, sin adjunto, con los datos de la solicitante`);
 
-// 3. Un correo desconocido sigue con el flujo normal (tipo y adjunto)
+// 3. Por nombre: al escribir nombre y apellido se completan cargo, institución y correo
+const porNombre = await (await b.newContext({ viewport: { width: 1280, height: 900 } })).newPage();
+porNombre.on('pageerror', (e) => errores.push('PAGEERROR nombre ' + e.message));
+await porNombre.goto(base + '/');
+await porNombre.fill('#nombre', 'prueba interna');
+await porNombre.waitForSelector('text=Solicitante interno reconocido', { timeout: 15000 });
+if ((await porNombre.inputValue('#correo')) !== correo || (await porNombre.inputValue('#cargo')) !== 'Docente de la facultad' || (await porNombre.inputValue('#institucion')) !== 'Universidad UTE') throw new Error('por nombre no se completaron correo, cargo e institución');
+if ((await porNombre.inputValue('#nombre')) !== 'prueba interna') throw new Error('el nombre escrito no debe cambiar');
+paso('formulario: con nombre y apellido se completan correo, cargo e institución');
+const soloNombre = await (await b.newContext({ viewport: { width: 1280, height: 900 } })).newPage();
+await soloNombre.goto(base + '/');
+await soloNombre.fill('#nombre', 'Prueba');
+await soloNombre.waitForTimeout(900);
+if ((await soloNombre.locator('text=Solicitante interno reconocido').count()) !== 0) throw new Error('una sola palabra no debe reconocer a nadie');
+paso('formulario: una sola palabra no reconoce a nadie');
+
+// 4. Un correo desconocido sigue con el flujo normal (tipo y adjunto)
 const otro = await (await b.newContext({ viewport: { width: 1280, height: 900 } })).newPage();
 await otro.goto(base + '/');
 await otro.fill('#correo', 'alguien@ejemplo.com');
