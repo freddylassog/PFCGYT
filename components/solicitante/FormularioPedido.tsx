@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { crearPedido, prepararEvidencia, verificarCruce, type CruceInfo, type PedidoCreado, reconocerSolicitante } from '@/app/actions/pedidos';
 import { Marco } from '@/components/Marco';
-import { IconoAlerta, IconoCalendario, IconoInfo } from '@/components/Iconos';
+import { IconoAlerta, IconoCalendario, IconoCheck, IconoInfo } from '@/components/Iconos';
 import { EditorDias } from '@/components/EditorDias';
 import { InputNumero } from '@/components/InputNumero';
 import { EditorReparto } from '@/components/EditorReparto';
@@ -161,7 +161,7 @@ export function FormularioPedido({ hoy, anticipacion = { horas: 72, hasta: '' } 
             </div>
             <div className="field"><label htmlFor="correo">Correo de contacto</label><input id="correo" className="input" type="email" value={f.correoSolicitante} onChange={(e) => set('correoSolicitante', e.target.value)} placeholder="nombre@institucion.com" autoComplete="email" /></div>
             {interno && (
-              <div className="aviso"><IconoInfo /><span><strong>Solicitante interno reconocido.</strong> Tu pedido se registra como evento interno de la Universidad UTE y no necesita adjunto: escribe los datos del evento en el siguiente paso.</span></div>
+              <div className="aviso-ok" role="status"><IconoCheck /><span><strong>Solicitante interno reconocido.</strong> Tu pedido se registra como evento interno de la Universidad UTE y no necesita adjunto: escribe los datos del evento en el siguiente paso.</span></div>
             )}
             {!interno && <div className="field">
               <label>Tipo de evento</label>

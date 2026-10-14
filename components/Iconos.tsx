@@ -5,6 +5,9 @@ const base = (size: number) => ({ width: size, height: size, viewBox: '0 0 24 24
 export function IconoCandado({ size = 12 }: P) {
   return <svg {...base(size)}><rect x="3" y="11" width="18" height="11" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>;
 }
+export function IconoCheck({ size = 18 }: P) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10" /><path d="m8 12 3 3 5-6" /></svg>;
+}
 export function IconoInfo({ size = 18 }: P) {
   return <svg {...base(size)}><circle cx="12" cy="12" r="10" /><path d="M12 8v4M12 16h.01" /></svg>;
 }
