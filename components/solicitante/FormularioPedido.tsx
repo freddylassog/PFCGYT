@@ -15,6 +15,9 @@ import {
 
 const PASOS = ['Solicitante', 'Evento', 'Estudiantes', 'Compromisos'];
 
+/** Valores que el formulario completó solo (para reemplazarlos o borrarlos al cambiar de persona). */
+type Auto = { nombre: string; cargo: string; institucion: string; correo: string };
+
 export function FormularioPedido({ hoy, anticipacion = { horas: 72, hasta: '' } }: { hoy: string; anticipacion?: { horas: number; hasta: string } }) {
   const horasMin = anticipacion.horas;
   const [f, setF] = useState<FormPedido>(FORM_INICIAL);
@@ -31,20 +34,39 @@ export function FormularioPedido({ hoy, anticipacion = { horas: 72, hasta: '' } 
 
   const set = <K extends keyof FormPedido>(k: K, v: FormPedido[K]) => setF((s) => ({ ...s, [k]: v }));
 
-  // Se reconoce por el correo o, si aún no lo escribió, por nombre y apellido; se rellena solo lo que esté vacío.
+  // Se reconoce por el correo escrito a mano o, si no lo hay, por nombre y apellido escritos a mano. Solo se completan los
+  // campos vacíos; lo completado automáticamente se reemplaza o se borra al cambiar de persona, y lo escrito a mano no se toca.
+  const fRef = useRef(f);
+  useEffect(() => { fRef.current = f; });
+  const autoRef = useRef<Auto | null>(null);
+  const [autoVista, setAutoVista] = useState({ nombre: '', correo: '' });
   const correo = f.correoSolicitante.trim().toLowerCase();
   const nombre = f.nombre.trim().replace(/\s+/g, ' ');
-  const clave = correoValido(correo) ? `c:${correo}` : nombre.split(' ').length >= 2 ? `n:${nombre.toLowerCase()}` : '';
+  const correoManual = !!correo && correo !== autoVista.correo.toLowerCase();
+  const nombreManual = !!nombre && nombre !== autoVista.nombre;
+  const clave = correoManual && correoValido(correo) ? `c:${correo}` : nombreManual && nombre.split(' ').length >= 2 ? `n:${nombre.toLowerCase()}` : '';
   useEffect(() => {
     let vivo = true;
+    const aplicar = (r: { nombre: string; cargo: string; correo: string } | null) => {
+      const s = fRef.current, prev = autoRef.current;
+      const libre = (actual: string, previo: string | undefined) => !actual.trim() || (!!previo && actual.trim() === previo);
+      const auto: Auto = { nombre: '', cargo: '', institucion: '', correo: '' };
+      const n: Partial<FormPedido> = {};
+      if (libre(s.nombre, prev?.nombre)) { n.nombre = r?.nombre ?? ''; auto.nombre = n.nombre; }
+      if (libre(s.cargo, prev?.cargo)) { n.cargo = r?.cargo ?? ''; auto.cargo = n.cargo; }
+      if (libre(s.institucion, prev?.institucion)) { n.institucion = r ? 'Universidad UTE' : ''; auto.institucion = n.institucion; }
+      if (libre(s.correoSolicitante, prev?.correo)) { n.correoSolicitante = r?.correo ?? ''; auto.correo = n.correoSolicitante; }
+      autoRef.current = r ? auto : null;
+      setAutoVista({ nombre: auto.nombre, correo: auto.correo });
+      setF((cur) => (r ? { ...cur, ...n, tipo: 'interno', convenio: 'si' } : { ...cur, ...n }));
+      setInterno(r ? { nombre: r.nombre, cargo: r.cargo } : null);
+    };
     const t = setTimeout(() => {
-      if (!clave) { setInterno(null); return; }
+      if (!clave) { if (autoRef.current) aplicar(null); else setInterno(null); return; }
       const [modo, valor] = [clave.slice(0, 1), clave.slice(2)];
       reconocerSolicitante(modo === 'c' ? valor : '', modo === 'n' ? valor : '').then((r) => {
         if (!vivo) return;
-        if (!r.interno) { setInterno(null); return; }
-        setInterno({ nombre: r.nombre, cargo: r.cargo });
-        setF((s) => ({ ...s, tipo: 'interno', convenio: 'si', nombre: s.nombre.trim() || r.nombre, cargo: s.cargo.trim() || r.cargo, institucion: s.institucion.trim() || 'Universidad UTE', correoSolicitante: s.correoSolicitante.trim() || r.correo }));
+        aplicar(r.interno ? r : null);
       }).catch(() => {});
     }, 350);
     return () => { vivo = false; clearTimeout(t); };

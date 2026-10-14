@@ -87,6 +87,29 @@ await porNombre.waitForSelector('text=Solicitante interno reconocido', { timeout
 if ((await porNombre.inputValue('#correo')) !== correo || (await porNombre.inputValue('#cargo')) !== 'Docente de la facultad' || (await porNombre.inputValue('#institucion')) !== 'Universidad UTE') throw new Error('por nombre no se completaron correo, cargo e institución');
 if ((await porNombre.inputValue('#nombre')) !== 'prueba interna') throw new Error('el nombre escrito no debe cambiar');
 paso('formulario: con nombre y apellido se completan correo, cargo e institución');
+// Al borrar el nombre y escribir otro, lo completado automáticamente se borra (no se quedan los datos de la persona anterior)
+await porNombre.fill('#nombre', '');
+await porNombre.waitForSelector('text=Solicitante interno reconocido', { state: 'detached', timeout: 15000 });
+await porNombre.fill('#nombre', 'Otra Persona');
+await porNombre.waitForTimeout(900);
+if ((await porNombre.inputValue('#correo')) !== '' || (await porNombre.inputValue('#cargo')) !== '' || (await porNombre.inputValue('#institucion')) !== '') throw new Error('al cambiar de nombre deben borrarse los datos completados: ' + JSON.stringify([await porNombre.inputValue('#correo'), await porNombre.inputValue('#cargo'), await porNombre.inputValue('#institucion')]));
+if ((await porNombre.locator('button:has-text("Externo")').count()) !== 1) throw new Error('con otro nombre debe volver la pregunta del tipo');
+// Lo escrito a mano no se toca: cargo propio + nombre reconocido → se completan solo correo e institución
+await porNombre.fill('#cargo', 'Mi cargo');
+await porNombre.fill('#nombre', 'Prueba Interna');
+await porNombre.waitForSelector('text=Solicitante interno reconocido', { timeout: 15000 });
+if ((await porNombre.inputValue('#cargo')) !== 'Mi cargo' || (await porNombre.inputValue('#correo')) !== correo) throw new Error('el cargo escrito a mano no debe cambiar y el correo sí completarse');
+paso('formulario: al cambiar de nombre se borra lo completado; lo escrito a mano se respeta');
+// Por correo: se completa el nombre; al borrar el correo se borra todo lo completado
+const porCorreo = await (await b.newContext({ viewport: { width: 1280, height: 900 } })).newPage();
+await porCorreo.goto(base + '/');
+await porCorreo.fill('#correo', correo);
+await porCorreo.waitForSelector('text=Solicitante interno reconocido', { timeout: 15000 });
+if ((await porCorreo.inputValue('#nombre')) !== 'Prueba Interna') throw new Error('por correo debe completarse el nombre');
+await porCorreo.fill('#correo', '');
+await porCorreo.waitForSelector('text=Solicitante interno reconocido', { state: 'detached', timeout: 15000 });
+if ((await porCorreo.inputValue('#nombre')) !== '' || (await porCorreo.inputValue('#cargo')) !== '') throw new Error('al borrar el correo deben borrarse nombre y cargo completados');
+paso('formulario: por correo se completa el nombre y al borrarlo se limpia todo');
 const soloNombre = await (await b.newContext({ viewport: { width: 1280, height: 900 } })).newPage();
 await soloNombre.goto(base + '/');
 await soloNombre.fill('#nombre', 'Prueba');
