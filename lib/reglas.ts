@@ -984,7 +984,14 @@ export function repartoTexto(reparto: RepartoActividad[], actividades: string[])
 }
 
 /** Devuelve, por paso, la lista de lo que falta (vacía = paso completo). */
-export function faltasPedido(f: FormPedido, hoy: string, cruce: { evento: string } | null, horas = HORAS_ANTICIPACION): string[][] {
+/** Solicitante interno frecuente al que pertenece ese correo (o null). */
+export function solicitanteInterno(lista: { nombre: string; correo: string; cargo: string }[], correo: string): { nombre: string; correo: string; cargo: string } | null {
+  const c = normalizarCorreo(correo);
+  return (c && lista.find((x) => normalizarCorreo(x.correo) === c)) || null;
+}
+
+/** Faltas por paso. `evidenciaOpcional`: solicitante interno reconocido (el formulario es el pedido, sin adjunto). */
+export function faltasPedido(f: FormPedido, hoy: string, cruce: { evento: string } | null, horas = HORAS_ANTICIPACION, evidenciaOpcional = false): string[][] {
   const f1: string[] = [];
   if (!f.nombre.trim()) f1.push('nombre');
   if (!f.cargo.trim()) f1.push('cargo');
@@ -994,7 +1001,7 @@ export function faltasPedido(f: FormPedido, hoy: string, cruce: { evento: string
 
   const f2: string[] = [];
   if (!f.evento.trim()) f2.push('nombre del evento');
-  if (!f.evidenciaPath) f2.push('evidencia del pedido');
+  if (!f.evidenciaPath && !evidenciaOpcional) f2.push('evidencia del pedido');
   f2.push(...faltasDias(f.dias, hoy, true, horas));
   if (cruce && BLOQUEAR_CRUCE_EVENTOS) f2.push('horario sin cruce');
   if (f.dias.some((d) => !(d.lugar ?? '').trim())) f2.push(f.dias.length > 1 ? 'lugar de cada día' : 'lugar');

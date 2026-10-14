@@ -78,6 +78,13 @@ function mapClase(r: Fila): Clase {
   return { id: s(r.id), semestre: Number(r.semestre) as Semestre, paralelo: sn(r.paralelo), dia: Number(r.dia), inicio: hhmm(s(r.inicio)), fin: hhmm(s(r.fin)), materia: s(r.materia), teacherId: sn(r.teacher_id), nrc: sn(r.nrc), activo: !!r.activo };
 }
 
+function mapSolicitantesInternos(v: unknown): Ajustes['solicitantesInternos'] {
+  let x: unknown = v;
+  if (typeof x === 'string') { try { x = JSON.parse(x); } catch { return []; } }
+  if (!Array.isArray(x)) return [];
+  return x.map((o) => { const r = (o ?? {}) as Record<string, unknown>; return { nombre: s(r.nombre).trim(), correo: s(r.correo).trim().toLowerCase(), cargo: s(r.cargo).trim() }; }).filter((o) => o.correo.includes('@'));
+}
+
 function mapAjustes(r: Fila): Ajustes {
   return {
     periodo: s(r.periodo), inicioSemestre: s(r.inicio_semestre), semanas: Number(r.semanas), horasSemana: Number(r.horas_semana),
@@ -86,7 +93,7 @@ function mapAjustes(r: Fila): Ajustes {
     telegramChatId: s(r.telegram_chat_id), telegramChatNombre: s(r.telegram_chat_nombre),
     telegramCanalId: s(r.telegram_canal_id), telegramCanalNombre: s(r.telegram_canal_nombre), ultimoRecordatorio: s(r.ultimo_recordatorio),
     telegramBotUsername: s(r.telegram_bot_username), telegramWebhookUrl: s(r.telegram_webhook_url), uniformeLugar: s(r.uniforme_lugar), calendarioToken: s(r.calendario_token),
-    anticipacionHoras: Number(r.anticipacion_horas ?? 72) || 72, anticipacionHasta: s(r.anticipacion_hasta).slice(0, 10), uniformeHorario: mapHorarioUniforme(r.uniforme_horario), uniformeDiasDevolucion: Math.max(1, Math.round(Number(r.uniforme_dias_devolucion ?? 7)) || 7),
+    anticipacionHoras: Number(r.anticipacion_horas ?? 72) || 72, anticipacionHasta: s(r.anticipacion_hasta).slice(0, 10), solicitantesInternos: mapSolicitantesInternos(r.solicitantes_internos), uniformeHorario: mapHorarioUniforme(r.uniforme_horario), uniformeDiasDevolucion: Math.max(1, Math.round(Number(r.uniforme_dias_devolucion ?? 7)) || 7),
   };
 }
 

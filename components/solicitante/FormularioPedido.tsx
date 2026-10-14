@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useEffect, useRef, useState, useTransition } from 'react';
-import { crearPedido, prepararEvidencia, verificarCruce, type CruceInfo, type PedidoCreado } from '@/app/actions/pedidos';
+import { crearPedido, prepararEvidencia, verificarCruce, type CruceInfo, type PedidoCreado, reconocerSolicitante } from '@/app/actions/pedidos';
 import { Marco } from '@/components/Marco';
 import { IconoAlerta, IconoCalendario, IconoInfo } from '@/components/Iconos';
 import { EditorDias } from '@/components/EditorDias';
@@ -10,7 +10,7 @@ import { EditorReparto } from '@/components/EditorReparto';
 import { CantidadesPorDia } from '@/components/CantidadesPorDia';
 import {
   BLOQUEAR_CRUCE_EVENTOS, FORM_INICIAL, MAX_ESTUDIANTES, VESTIMENTA, ajustarRepartoATotal, cumple72h, duracionTextoDias, esFechaISO, esHora, faltasPedido, fechaCorta, fechaLarga,
-  actividadesTextoPedido, cantidadDia, compromisosPedido, cuposTexto, fechaLargaDias, sincronizarDias, horarioTextoDias, lugaresTexto, ordenarDias, plazoTexto, primerDia, type FormPedido,
+  actividadesTextoPedido, cantidadDia, compromisosPedido, cuposTexto, fechaLargaDias, sincronizarDias, horarioTextoDias, lugaresTexto, ordenarDias, plazoTexto, primerDia, type FormPedido, correoValido,
 } from '@/lib/reglas';
 
 const PASOS = ['Solicitante', 'Evento', 'Estudiantes', 'Compromisos'];
@@ -26,8 +26,25 @@ export function FormularioPedido({ hoy, anticipacion = { horas: 72, hasta: '' } 
   const [enviado, setEnviado] = useState<PedidoCreado | null>(null);
   const [enviando, startEnvio] = useTransition();
   const archivoRef = useRef<HTMLInputElement>(null);
+  // Solicitante interno frecuente (por su correo): evento interno y sin adjunto; nombre y cargo prellenados.
+  const [interno, setInterno] = useState<{ nombre: string; cargo: string } | null>(null);
 
   const set = <K extends keyof FormPedido>(k: K, v: FormPedido[K]) => setF((s) => ({ ...s, [k]: v }));
+
+  const correo = f.correoSolicitante.trim().toLowerCase();
+  useEffect(() => {
+    let vivo = true;
+    const t = setTimeout(() => {
+      if (!correoValido(correo)) { setInterno(null); return; }
+      reconocerSolicitante(correo).then((r) => {
+        if (!vivo) return;
+        if (!r.interno) { setInterno(null); return; }
+        setInterno({ nombre: r.nombre, cargo: r.cargo });
+        setF((s) => ({ ...s, tipo: 'interno', convenio: 'si', nombre: s.nombre.trim() || r.nombre, cargo: s.cargo.trim() || r.cargo, institucion: s.institucion.trim() || 'Universidad UTE' }));
+      }).catch(() => {});
+    }, 350);
+    return () => { vivo = false; clearTimeout(t); };
+  }, [correo]);
 
   // Verifica cruces con otros pedidos cuando cambian los días u horarios.
   const diasClave = JSON.stringify(f.dias);
@@ -41,7 +58,7 @@ export function FormularioPedido({ hoy, anticipacion = { horas: 72, hasta: '' } 
   }, [horarioCompleto, diasClave]);
 
   const cruceActual = horarioCompleto ? cruce : null;
-  const faltas = faltasPedido(f, hoy, cruceActual, horasMin);
+  const faltas = faltasPedido(f, hoy, cruceActual, horasMin, !!interno);
   const noPuedeEnviar = faltas.some((x) => x.length);
   const durTexto = duracionTextoDias(f.dias);
   const compromisos = compromisosPedido({ ...f, dias: ordenarDias(f.dias), actividades: [] });
@@ -139,14 +156,17 @@ export function FormularioPedido({ hoy, anticipacion = { horas: 72, hasta: '' } 
               <div className="field"><label htmlFor="institucion">Institución</label><input id="institucion" className="input" value={f.institucion} onChange={(e) => set('institucion', e.target.value)} /></div>
             </div>
             <div className="field"><label htmlFor="correo">Correo de contacto</label><input id="correo" className="input" type="email" value={f.correoSolicitante} onChange={(e) => set('correoSolicitante', e.target.value)} placeholder="nombre@institucion.com" autoComplete="email" /></div>
-            <div className="field">
+            {interno && (
+              <div className="aviso"><IconoInfo /><span><strong>Solicitante interno reconocido.</strong> Tu pedido se registra como evento interno de la Universidad UTE y no necesita adjunto: escribe los datos del evento en el siguiente paso.</span></div>
+            )}
+            {!interno && <div className="field">
               <label>Tipo de evento</label>
               <div className="cols-2">
                 <button type="button" className={`btn btn-toggle ${f.tipo === 'interno' ? 'btn-primary' : 'btn-secondary'}`} aria-pressed={f.tipo === 'interno'} onClick={() => set('tipo', 'interno')}><span>Interno</span><small>Universidad UTE</small></button>
                 <button type="button" className={`btn btn-toggle ${f.tipo === 'externo' ? 'btn-primary' : 'btn-secondary'}`} aria-pressed={f.tipo === 'externo'} onClick={() => set('tipo', 'externo')}><span>Externo</span><small>Embajada o empresa · aprobado por Cancillería</small></button>
               </div>
-            </div>
-            {f.tipo === 'externo' && (
+            </div>}
+            {!interno && f.tipo === 'externo' && (
               <>
                 <div className="field">
                   <label>¿Existe convenio vigente con la UTE?</label>
@@ -169,7 +189,8 @@ export function FormularioPedido({ hoy, anticipacion = { horas: 72, hasta: '' } 
           <Marco as="section" className="p-6 stack">
             <h6 className="h6-accent">02 · Evento</h6>
             <div className="field"><label htmlFor="evento">Nombre del evento</label><input id="evento" className="input" value={f.evento} onChange={(e) => set('evento', e.target.value)} /></div>
-            <div className="field">
+            {interno && <p className="muted fs-13 m-0">Sin adjunto: como solicitante interno, este formulario es tu pedido formal.</p>}
+            {!interno && <div className="field">
               <label>Evidencia del pedido (correo o pedido formal · imagen o PDF)</label>
               <div className="row">
                 <label className={`btn btn-secondary ${subiendo ? 'pendiente' : ''}`} style={{ cursor: 'pointer' }}>
@@ -179,7 +200,7 @@ export function FormularioPedido({ hoy, anticipacion = { horas: 72, hasta: '' } 
                 {f.evidenciaNombre ? <span className="tag tag-accent tag-ellipsis">{f.evidenciaNombre}</span> : !subiendo && <span className="muted fs-12">Ningún archivo adjunto</span>}
               </div>
               {errorArchivo && <p className="error mt-2">{errorArchivo}</p>}
-            </div>
+            </div>}
             <div className="field">
               <label>Días y horarios de participación de los estudiantes</label>
               <EditorDias dias={f.dias} onChange={(d) => setF((s) => ({ ...s, dias: sincronizarDias(d, s.cantidad, s.mismosEstudiantes), lugar: d[0]?.lugar ?? '', lejos: d.some((x) => !!x.lejos) }))} min={hoy} idPrefijo="dia" />
@@ -259,7 +280,7 @@ export function FormularioPedido({ hoy, anticipacion = { horas: 72, hasta: '' } 
               <dt className="muted">Vestimenta</dt><dd>{VESTIMENTA[f.vestimenta].label}</dd>
               <dt className="muted">Lugar</dt><dd>{lugaresTexto({ ...f, dias: ordenarDias(f.dias) }, true)}</dd>
               <dt className="muted">Responsable</dt><dd>{f.responsable} · {f.responsableTelefono}</dd>
-              <dt className="muted">Evidencia</dt><dd>{f.evidenciaNombre}</dd>
+              <dt className="muted">Evidencia</dt><dd>{f.evidenciaNombre || (interno ? 'No requerida (solicitante interno)' : '—')}</dd>
             </dl>
             <p className="muted fs-13 m-0">Reglas de la facultad: alimentación por cada 4 horas de participación; transporte de ida y regreso si el lugar está fuera del Distrito Metropolitano de Quito o es el aeropuerto, y de regreso a casa si el evento termina después de las 18:00; los estudiantes solo realizan las actividades marcadas. Con los datos de este pedido, la organización se compromete a:</p>
             <div className="stack-3 fs-14">

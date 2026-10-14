@@ -195,6 +195,13 @@ export interface FranjaUniforme {
   atiende: string;
 }
 
+/** Persona de la universidad que pide eventos seguido: su correo identifica el pedido como interno y sin adjunto. */
+export interface SolicitanteInterno {
+  nombre: string;
+  correo: string;
+  cargo: string;
+}
+
 export interface Ajustes {
   periodo: string;
   inicioSemestre: string;
@@ -224,6 +231,8 @@ export interface Ajustes {
   uniformeHorario: FranjaUniforme[];
   /** Días que tiene cada estudiante, después de su último día del evento, para devolver el uniforme lavado (7). */
   uniformeDiasDevolucion: number;
+  /** Solicitantes internos frecuentes (se editan en Ajustes). */
+  solicitantesInternos: SolicitanteInterno[];
 }
 
 /** Todo lo que necesita el panel de coordinación, cargado en una sola pasada. */

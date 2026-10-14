@@ -7,7 +7,7 @@ import { notificarNuevoPedido } from '@/lib/notificar';
 import { appUrl } from '@/lib/app-url';
 import { tokenActa } from '@/lib/sesion';
 import {
-  ACTIVIDADES, anticipacionVigente, codigoPedido, cruceEventos, unirRepartos, esFechaISO, esHora, faltasPedido, fechaLargaDias, hoyISO, normalizarCorreo, ordenarDias, type FormPedido,
+  ACTIVIDADES, anticipacionVigente, codigoPedido, cruceEventos, unirRepartos, esFechaISO, esHora, faltasPedido, fechaLargaDias, hoyISO, normalizarCorreo, ordenarDias, solicitanteInterno, type FormPedido,
 } from '@/lib/reglas';
 import type { RepartoActividad } from '@/lib/tipos';
 import type { DiaEvento, Resultado } from '@/lib/tipos';
@@ -49,24 +49,35 @@ export async function verificarCruce(dias: DiaEvento[], excluirId?: string): Pro
 
 export interface PedidoCreado { id: string; codigo: string; evento: string; fechaLarga: string; horario: string; actaUrl: string }
 
+/** ¿Ese correo es de un solicitante interno frecuente? Solo responde con coincidencia exacta (nombre y cargo para prellenar). */
+export async function reconocerSolicitante(correo: string): Promise<{ interno: boolean; nombre: string; cargo: string }> {
+  const a = await ajustesActuales();
+  const x = solicitanteInterno(a.solicitantesInternos, String(correo || ''));
+  return x ? { interno: true, nombre: x.nombre, cargo: x.cargo } : { interno: false, nombre: '', cargo: '' };
+}
+
 export async function crearPedido(f: FormPedido): Promise<Resultado<PedidoCreado>> {
   const hoy = hoyISO();
-  const horasMin = anticipacionVigente(await ajustesActuales(), hoy);
+  const ajustes = await ajustesActuales();
+  const horasMin = anticipacionVigente(ajustes, hoy);
+  // Solicitante interno frecuente: evento interno, sin adjunto (este formulario es el pedido).
+  const interno = solicitanteInterno(ajustes.solicitantesInternos, f.correoSolicitante);
+  if (interno) f = { ...f, tipo: 'interno', convenio: 'si' };
   const pedidos = await pedidosDelPeriodo();
   const dias = ordenarDias(f.dias || []).map((d) => ({ fecha: d.fecha, inicio: d.inicio, fin: d.fin, lugar: (d.lugar ?? '').trim().slice(0, 300), lejos: !!d.lejos, ...(!f.mismosEstudiantes && Number(d.cantidad) > 0 ? { cantidad: Math.round(Number(d.cantidad)) } : {}), ...(d.reparto?.length ? { reparto: limpiarReparto(d.reparto) } : {}) }));
   const lugar = dias[0]?.lugar || f.lugar.trim();
   const lejos = dias.some((d) => d.lejos);
   const cruce = cruceEventos({ dias }, pedidos);
-  const faltas = faltasPedido({ ...f, dias }, hoy, cruce ? { evento: cruce.pedido.evento } : null, horasMin).flat();
+  const faltas = faltasPedido({ ...f, dias }, hoy, cruce ? { evento: cruce.pedido.evento } : null, horasMin, !!interno).flat();
   if (faltas.length) return { ok: false, error: 'Falta: ' + faltas.join(', ') };
   const primero = dias[0];
   const reparto: RepartoActividad[] = dias.length > 1 ? unirRepartos(dias) : limpiarReparto(f.reparto);
   const actividades = reparto.map((x) => x.actividad);
   if (!actividades.length) return { ok: false, error: 'Elige al menos una actividad.' };
-  if (!(await evidenciaExiste(f.evidenciaPath))) return { ok: false, error: 'La evidencia no terminó de subirse. Adjúntala de nuevo.' };
+  if (f.evidenciaPath ? !(await evidenciaExiste(f.evidenciaPath)) : !interno) return { ok: false, error: 'La evidencia no terminó de subirse. Adjúntala de nuevo.' };
 
   const sql = db();
-  const { periodo } = await ajustesActuales();
+  const { periodo } = ajustes;
   for (let intento = 0; intento < 3; intento++) {
     try {
       const [fila] = await sql`
@@ -80,7 +91,7 @@ export async function crearPedido(f: FormPedido): Promise<Resultado<PedidoCreado
         from (select coalesce(max(numero), 0) + 1 as n from requests where periodo = ${periodo}) s
         returning *`;
       const p = mapPedido(fila);
-      await notificarNuevoPedido(p, await ajustesActuales());
+      await notificarNuevoPedido(p, ajustes);
       return { ok: true, datos: { id: p.id, codigo: p.codigo, evento: p.evento, fechaLarga: fechaLargaDias(p.dias), horario: p.dias.length > 1 ? `${p.dias.length} días` : `${p.inicio}–${p.fin}`, actaUrl: `${appUrl()}/api/acta/${p.id}?t=${tokenActa(p.id)}` } };
     } catch (e) {
       const msg = (e as Error).message || '';

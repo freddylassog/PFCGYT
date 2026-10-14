@@ -5,7 +5,7 @@ import { IconoDescargar } from '@/components/Iconos';
 import { Marco } from '@/components/Marco';
 import { useAccion } from '@/components/useAccion';
 import { anticipacionVigente, DIAS_CLASE, ESTADO_PLURAL, ESTADOS_VISIBLES, fechaLarga, horarioUniformeTexto } from '@/lib/reglas';
-import type { Datos } from '@/lib/tipos';
+import type { Datos, SolicitanteInterno } from '@/lib/tipos';
 import { resumenHoras, type PedidoVista } from '@/lib/vista';
 
 export function Resumen({ datos, pedidos }: { datos: Datos; pedidos: PedidoVista[] }) {
@@ -19,6 +19,10 @@ export function Resumen({ datos, pedidos }: { datos: Datos; pedidos: PedidoVista
   const huActivo = hu.filter((f) => f.activo).map(({ dia, inicio, fin, atiende }) => ({ dia, inicio, fin, atiende }));
   const setFila = (i: number, cambio: Partial<(typeof hu)[number]>) => setHu(hu.map((x, j) => (j === i ? { ...x, ...cambio } : x)));
   const [np, setNp] = useState({ periodo: '', inicio: '' });
+  // Solicitantes internos frecuentes: se editan como filas y se guardan juntos.
+  const [si, setSi] = useState<SolicitanteInterno[]>(a.solicitantesInternos.map((x) => ({ ...x })));
+  const [siMsg, setSiMsg] = useState<string | null>(null);
+  const setSiFila = (i: number, cambio: Partial<SolicitanteInterno>) => { setSiMsg(null); setSi(si.map((x, j) => (j === i ? { ...x, ...cambio } : x))); };
   const [prueba, setPrueba] = useState<string | null>(null);
   const [copiado, setCopiado] = useState(false);
   const base = datos.appUrl.replace(/\/$/, '');
@@ -126,6 +130,26 @@ export function Resumen({ datos, pedidos }: { datos: Datos; pedidos: PedidoVista
           </div>
         </Marco>
       )}
+      <Marco as="form" className="p-4 stack-3 mt-4" onSubmit={(e: React.FormEvent) => { e.preventDefault(); run(() => guardarAjustes({ solicitantesInternos: si }), () => setSiMsg('Guardado.')); }}>
+        <h6 className="h6-accent">Solicitantes internos frecuentes</h6>
+        <p className="muted fs-13 m-0">Personas de la universidad que piden eventos seguido. Cuando escriben su correo en el formulario público, el pedido se reconoce como <strong>evento interno</strong> y <strong>no necesita adjunto</strong>: el formulario es el pedido. Su nombre y cargo se prellenan.</p>
+        {si.length === 0 && <p className="muted fs-12 m-0">Aún no hay solicitantes internos registrados.</p>}
+        <div className="stack-2">
+          {si.map((x, i) => (
+            <div key={i} className="row" style={{ gap: 6, alignItems: 'center' }}>
+              <input id={`si-nombre-${i}`} className="input" style={{ flex: 2, minWidth: 160 }} placeholder="Nombre" aria-label="Nombre" value={x.nombre} onChange={(e) => setSiFila(i, { nombre: e.target.value })} />
+              <input id={`si-cargo-${i}`} className="input" style={{ flex: 2, minWidth: 140 }} placeholder="Cargo (opcional)" aria-label="Cargo" value={x.cargo} onChange={(e) => setSiFila(i, { cargo: e.target.value })} />
+              <input id={`si-correo-${i}`} className="input" type="email" style={{ flex: 3, minWidth: 200 }} placeholder="correo@ute.edu.ec" aria-label="Correo" value={x.correo} onChange={(e) => setSiFila(i, { correo: e.target.value })} />
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setSiMsg(null); setSi(si.filter((_, j) => j !== i)); }}>Quitar</button>
+            </div>
+          ))}
+        </div>
+        <div className="row">
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => { setSiMsg(null); setSi([...si, { nombre: '', correo: '', cargo: '' }]); }}>Agregar solicitante</button>
+          <button className="btn btn-primary btn-sm" type="submit">Guardar solicitantes</button>
+          {siMsg && <span className="muted fs-12">{siMsg}</span>}
+        </div>
+      </Marco>
       <div className="cols-auto mt-4">
         <Marco as="form" className="p-4 stack-3" onSubmit={(e: React.FormEvent) => { e.preventDefault(); run(() => guardarAjustes({ ...aj, uniformeHorario: huActivo })); }}>
           <h6 className="h6-accent">Ajustes del periodo {a.periodo}</h6>
