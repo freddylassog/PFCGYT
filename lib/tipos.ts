@@ -98,7 +98,8 @@ export interface Estudiante {
   id: string;
   nombre: string;
   correo: string;
-  semestre: Semestre;
+  /** 1–3 son del programa de protocolo (matriz y mínimo de eventos); 4 en adelante, apoyo puntual sin esas reglas. */
+  semestre: number;
   paralelo: string | null;
   genero: Genero;
   activo: boolean;

@@ -67,7 +67,7 @@ export function mapPedido(r: Fila): Pedido {
 }
 
 export function mapEstudiante(r: Fila): Estudiante {
-  return { id: s(r.id), nombre: s(r.nombre), correo: s(r.correo), semestre: Number(r.semestre) as Semestre, paralelo: sn(r.paralelo), genero: r.genero as Estudiante['genero'], activo: !!r.activo, telegramChatId: sn(r.telegram_chat_id), nrcs: Array.isArray(r.nrcs) ? (r.nrcs as unknown[]).map(String) : [] };
+  return { id: s(r.id), nombre: s(r.nombre), correo: s(r.correo), semestre: Number(r.semestre), paralelo: sn(r.paralelo), genero: r.genero as Estudiante['genero'], activo: !!r.activo, telegramChatId: sn(r.telegram_chat_id), nrcs: Array.isArray(r.nrcs) ? (r.nrcs as unknown[]).map(String) : [] };
 }
 
 function mapDocente(r: Fila): Docente {

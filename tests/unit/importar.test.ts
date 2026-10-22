@@ -24,7 +24,7 @@ test('estudiantes con columnas con acentos y errores por fila', () => {
   const filas = [
     { nombre: 'Camila Ríos', correo: 'Camila.Rios@ute.edu.ec', semestre: '1', genero: 'F' },
     { nombre: 'Sin correo', correo: '', semestre: '2', genero: 'M' },
-    { nombre: 'Semestre malo', correo: 'x@ute.edu.ec', semestre: '7', genero: 'M' },
+    { nombre: 'Semestre malo', correo: 'x@ute.edu.ec', semestre: '12', genero: 'M' },
   ];
   const { ok, errores } = parseEstudiantes(filas);
   assert.equal(ok.length, 1);

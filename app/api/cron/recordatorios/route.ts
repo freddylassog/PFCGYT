@@ -2,9 +2,9 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { cargarDatos } from '@/lib/datos';
 import { avisarCoordinacion, enviarDirecto, publicarEnCanal } from '@/lib/notificar';
-import { mensajeDevolucionCanal, mensajeDevolucionCoordinacion, mensajeDevolucionPersonal, mensajeRecordatorioCanal, mensajeRecordatorioPersonal, mensajeUniformesRecordatorioCanal, mensajeUniformesRecordatorioPersonal, type TipoCita } from '@/lib/notificar-texto';
+import { mensajeDevolucionCanal, mensajeDevolucionCoordinacion, mensajeDevolucionPersonal, mensajeRecordatorioCanal, mensajeRecordatorioPersonal, mensajeUniformesRecordatorioCanal, mensajeUniformesRecordatorioPersonal, mensajeProximosCoordinacion, type TipoCita } from '@/lib/notificar-texto';
 import { faseDevolucion, sumarDias } from '@/lib/reglas';
-import { confirmadosEnDia, pendientesDevolucion, ultimoDiaDe, vistaPedidos } from '@/lib/vista';
+import { confirmadosEnDia, pendientesDevolucion, proximosEventos, ultimoDiaDe, vistaPedidos } from '@/lib/vista';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,9 +32,11 @@ export async function GET(req: Request) {
   const devoluciones = todos.flatMap((p) => pendientesDevolucion(p, datos.hoy).map(({ e, estado, limite }) => ({ p, e, estado, limite, fase: estado.clave === 'rechazado' ? null : faseDevolucion(ultimoDiaDe(p, e.id), limite, datos.hoy) })));
   const avisosDevolucion = devoluciones.filter((x) => x.fase);
   const vencidos = devoluciones.filter((x) => x.estado.clave === 'vencido' || x.estado.clave === 'rechazado');
+  // Resumen para coordinación: eventos de los próximos 7 días con cupos, inscripciones por revisar y uniformes retirados.
+  const proximos = proximosEventos(datos, todos, 7);
   const sql = db();
   await sql`update settings set ultimo_recordatorio = ${datos.hoy} where periodo = ${datos.ajustes.periodo}`;
-  if (!pedidos.length && !citas.length && !avisosDevolucion.length && !vencidos.length) return NextResponse.json({ ok: true, detalle: 'Sin eventos, citas de uniformes ni devoluciones que avisar' });
+  if (!pedidos.length && !citas.length && !avisosDevolucion.length && !vencidos.length && !proximos.length) return NextResponse.json({ ok: true, detalle: 'Sin eventos, citas de uniformes ni devoluciones que avisar' });
   const texto = mensajeRecordatorioCanal(pedidos, manana);
   const textoUniformes = mensajeUniformesRecordatorioCanal(citas, manana);
   // En el canal solo un aviso por evento (sin nombres), el día después del evento y 2 días antes del plazo.
@@ -58,8 +60,9 @@ export async function GET(req: Request) {
   resultado.devoluciones = String(avisosDevolucion.length);
   resultado.vencidos = String(vencidos.length);
   const resumen = [...pedidos.map((p) => `${p.evento} (${p.confirmadosN}/${p.cantidad} confirmados)`), ...citas.map(({ p, tipo }) => `${tipo === 'entrega' ? 'entrega' : 'devolución'} de uniformes · ${p.evento}`)];
-  const lineas = [resumen.length ? `Mañana: ${resumen.join(' · ')}` : '', mensajeDevolucionCoordinacion(vencidos.map(({ p, e, limite }) => ({ p, e, limite })), devoluciones.length - vencidos.length) ?? ''].filter(Boolean);
+  const lineas = [resumen.length ? `Mañana: ${resumen.join(' · ')}` : '', mensajeProximosCoordinacion(proximos, 7) ?? '', mensajeDevolucionCoordinacion(vencidos.map(({ p, e, limite }) => ({ p, e, limite })), devoluciones.length - vencidos.length) ?? ''].filter(Boolean);
   if (lineas.length) await avisarCoordinacion(lineas.join('\n'), datos.ajustes);
+  resultado.proximos = String(proximos.length);
   return NextResponse.json({ ok: true, eventos: pedidos.map((p) => p.codigo), ...resultado });
 }
 

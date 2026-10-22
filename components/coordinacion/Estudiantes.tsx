@@ -20,6 +20,9 @@ export function Estudiantes({ datos, pedidos }: { datos: Datos; pedidos: PedidoV
   const matriz = matrizSemestres(datos, pedidos);
   const arch = datos.ajustes.archivos.estudiantes;
   const inactivos = datos.estudiantes.filter((e) => !e.activo);
+  // Apoyo puntual de otros semestres (4.º en adelante): sin matriz ni mínimo de eventos.
+  const otros = datos.estudiantes.filter((e) => e.activo && e.semestre > 3).sort((a, b) => a.semestre - b.semestre || a.nombre.localeCompare(b.nombre));
+  const eventosDe = (id: string) => pedidos.filter((p) => p.estado === 'Aprobado' && p.confirmados.some((c) => c.id === id)).length;
 
   const [semArchivo, setSemArchivo] = useState('0'); // 0 = detectar por NRC con el horario cargado
   const sinCorreo = datos.estudiantes.filter((e) => e.activo && !e.correo).length;
@@ -64,7 +67,7 @@ export function Estudiantes({ datos, pedidos }: { datos: Datos; pedidos: PedidoV
           <div className="cols-auto-150" style={{ alignItems: 'end' }}>
             <div className="field"><label>Nombre</label><input className="input" value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} required /></div>
             <div className="field"><label>Correo institucional</label><input className="input" type="email" value={form.correo} onChange={(e) => setForm({ ...form, correo: e.target.value })} placeholder="pendiente" /></div>
-            <div className="field"><label>Semestre</label><select className="input" value={form.semestre} onChange={(e) => setForm({ ...form, semestre: Number(e.target.value) })}>{[1, 2, 3].map((n) => <option key={n} value={n}>{n}.º</option>)}</select></div>
+            <div className="field"><label>Semestre</label><select className="input" value={form.semestre} onChange={(e) => setForm({ ...form, semestre: Number(e.target.value) })}>{[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => <option key={n} value={n}>{n}.º{n > 3 ? ' (fuera del programa)' : ''}</option>)}</select></div>
             <div className="field"><label>Paralelo</label><input className="input" value={form.paralelo} onChange={(e) => setForm({ ...form, paralelo: e.target.value })} placeholder="A, B, C1…" /></div>
             <div className="field"><label>Género (uniforme)</label><select className="input" value={form.genero} onChange={(e) => setForm({ ...form, genero: e.target.value as 'F' | 'M' })}><option value="F">Femenino</option><option value="M">Masculino</option></select></div>
             <label className="radio fs-13"><input type="checkbox" checked={form.activo} onChange={(e) => setForm({ ...form, activo: e.target.checked })} /><span className="dot cuadro" />Activo</label>
@@ -122,6 +125,29 @@ export function Estudiantes({ datos, pedidos }: { datos: Datos; pedidos: PedidoV
             </div>
           );
         })}
+        {otros.length > 0 && (
+          <div>
+            <div className="between abajo" style={{ gap: 'var(--space-3)', marginBottom: 'var(--space-2)' }}>
+              <div><h3 className="m-0">Otros semestres</h3><div className="muted fs-13">Apoyo puntual de estudiantes fuera del programa de protocolo (4.º en adelante): no entran en la matriz ni en el mínimo de eventos; sí se confirman en eventos y retiran uniformes.</div></div>
+            </div>
+            <Marco className="scroll-x">
+              <table className="table" style={{ minWidth: 520 }}>
+                <thead><tr><th>Estudiante</th><th>Correo</th><th>Semestre</th><th>Eventos</th><th></th></tr></thead>
+                <tbody>
+                  {otros.map((s) => (
+                    <tr key={s.id}>
+                      <td>{s.nombre}{s.paralelo && <span className="muted fs-11"> · {s.paralelo}</span>}{s.telegramChatId && <> <span className="tag tag-accent" style={{ fontSize: 10 }} title="Recibe mensajes personales del bot">Telegram</span></>}</td>
+                      <td className="muted fs-13">{s.correo || <span className="tag tag-alerta-suave" style={{ fontSize: 10 }}>sin correo</span>}</td>
+                      <td>{s.semestre}.º</td>
+                      <td>{eventosDe(s.id)}</td>
+                      <td><button type="button" className="btn btn-ghost btn-sm" onClick={() => { setForm({ id: s.id, nombre: s.nombre, correo: s.correo, semestre: s.semestre, paralelo: s.paralelo ?? '', genero: s.genero, activo: s.activo }); setVerForm(true); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>Editar</button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </Marco>
+          </div>
+        )}
         {inactivos.length > 0 && (
           <details>
             <summary className="muted fs-13" style={{ cursor: 'pointer' }}>Estudiantes inactivos ({inactivos.length})</summary>

@@ -1,7 +1,8 @@
 'use client';
 import Link from 'next/link';
 import type { Datos } from '@/lib/tipos';
-import { resumenCabecera, vistaPedidos } from '@/lib/vista';
+import { proximosEventos, resumenCabecera, vistaPedidos } from '@/lib/vista';
+import { ProximosEventos } from './ProximosEventos';
 import { Pedidos } from './Pedidos';
 import { Estudiantes } from './Estudiantes';
 import { Uniformes } from './Uniformes';
@@ -13,6 +14,7 @@ const TABS: [string, string][] = [['pedidos', 'Pedidos'], ['estudiantes', 'Estud
 export function Panel({ datos, tab, selInicial }: { datos: Datos; tab: string; selInicial: string | null }) {
   const pedidos = vistaPedidos(datos);
   const actual = TABS.some(([k]) => k === tab) ? tab : 'pedidos';
+  const proximos = proximosEventos(datos, pedidos, 7);
   return (
     <>
       <div className="between abajo mt-8" style={{ gap: 'var(--space-4)' }}>
@@ -21,6 +23,7 @@ export function Panel({ datos, tab, selInicial }: { datos: Datos; tab: string; s
           {TABS.map(([k, label]) => <Link key={k} href={`/coordinacion?tab=${k}`} className="seg-opt" aria-current={actual === k ? 'page' : undefined}>{label}</Link>)}
         </nav>
       </div>
+      <ProximosEventos items={proximos} dias={7} />
       {actual === 'pedidos' && <Pedidos datos={datos} pedidos={pedidos} selInicial={selInicial} />}
       {actual === 'estudiantes' && <Estudiantes datos={datos} pedidos={pedidos} />}
       {actual === 'uniformes' && <Uniformes datos={datos} pedidos={pedidos} />}

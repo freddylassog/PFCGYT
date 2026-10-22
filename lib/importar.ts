@@ -50,6 +50,12 @@ export function parseSemestre(s: string): Semestre | null {
   return n >= 1 && n <= 3 ? (n as Semestre) : null;
 }
 
+/** Semestre de un estudiante: 1–3 del programa o 4–10 (apoyo puntual). */
+export function parseSemestreEstudiante(s: string): number | null {
+  const n = parseInt(s.replace(/[^\d]/g, ''), 10);
+  return n >= 1 && n <= 10 ? n : null;
+}
+
 export function parseGenero(s: string): Genero | null {
   const t = normalizarClave(s);
   if (!t) return null;
@@ -81,7 +87,7 @@ export function parseHora(s: string): string | null {
   return `${pad2(h)}:${pad2(mi)}`;
 }
 
-export interface EstudianteImportado { nombre: string; correo: string; semestre: Semestre; paralelo: string; genero: Genero }
+export interface EstudianteImportado { nombre: string; correo: string; semestre: number; paralelo: string; genero: Genero }
 export interface DocenteImportado { nombre: string; correo: string }
 export interface ClaseImportada { semestre: Semestre; paralelo: string; dia: number; inicio: string; fin: string; materia: string; correoDocente: string; docenteNombre: string; nrc: string }
 
@@ -140,10 +146,10 @@ export function parseEstudiantes(filas: Fila[]): { ok: EstudianteImportado[]; er
   filas.forEach((f, i) => {
     const nombre = col(f, 'Nombre', 'Estudiante', 'Nombres', 'Nombre completo');
     const correo = col(f, 'Correo', 'Email', 'Correo electrónico', 'E-mail', 'Correo institucional').toLowerCase();
-    const semestre = parseSemestre(col(f, 'Semestre', 'Nivel'));
+    const semestre = parseSemestreEstudiante(col(f, 'Semestre', 'Nivel'));
     const genero = parseGenero(col(f, 'Género', 'Genero', 'Sexo'));
     const paralelo = limpiarTexto(col(f, 'Paralelo')).toUpperCase();
-    const faltan = [!nombre && 'nombre', !correo.includes('@') && 'correo', !semestre && 'semestre (1–3)', !genero && 'género (F/M)'].filter(Boolean);
+    const faltan = [!nombre && 'nombre', !correo.includes('@') && 'correo', !semestre && 'semestre (1–10)', !genero && 'género (F/M)'].filter(Boolean);
     if (faltan.length) errores.push(`Fila ${i + 2}: falta ${faltan.join(', ')}`);
     else ok.push({ nombre, correo, semestre: semestre!, paralelo, genero: genero! });
   });

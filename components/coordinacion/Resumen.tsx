@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { activarMensajesPersonales, desactivarMensajesPersonales, detectarCanal, detectarTelegram, guardarAjustes, nuevoPeriodo, probarCanal, probarNotificacion, crearEnlaceCalendario } from '@/app/actions/coordinacion';
+import { activarMensajesPersonales, desactivarMensajesPersonales, detectarCanal, detectarTelegram, enviarResumenProximos, guardarAjustes, nuevoPeriodo, probarCanal, probarNotificacion, crearEnlaceCalendario } from '@/app/actions/coordinacion';
 import { IconoDescargar } from '@/components/Iconos';
 import { Marco } from '@/components/Marco';
 import { useAccion } from '@/components/useAccion';
@@ -24,6 +24,7 @@ export function Resumen({ datos, pedidos }: { datos: Datos; pedidos: PedidoVista
   const [siMsg, setSiMsg] = useState<string | null>(null);
   const setSiFila = (i: number, cambio: Partial<SolicitanteInterno>) => { setSiMsg(null); setSi(si.map((x, j) => (j === i ? { ...x, ...cambio } : x))); };
   const [prueba, setPrueba] = useState<string | null>(null);
+  const [resumenTexto, setResumenTexto] = useState<string | null>(null);
   const [copiado, setCopiado] = useState(false);
   const base = datos.appUrl.replace(/\/$/, '');
   async function copiar(texto: string) {
@@ -97,8 +98,11 @@ export function Resumen({ datos, pedidos }: { datos: Datos; pedidos: PedidoVista
             <button type="button" className="btn btn-secondary btn-sm" onClick={() => { setPrueba(null); run(() => detectarTelegram(), (d) => setPrueba(`Chat de Telegram detectado: ${d?.nombre}. Ahora pulsa "Enviar prueba".`)); }}>Detectar mi chat de Telegram</button>
           )}
           <button type="button" className="btn btn-secondary btn-sm" onClick={() => { setPrueba(null); run(() => probarNotificacion(), () => setPrueba('Prueba enviada. Revisa tu bandeja o Telegram (en el correo, la carpeta de spam la primera vez).')); }}>Enviar prueba</button>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => { setPrueba(null); run(() => enviarResumenProximos(), (d) => { setResumenTexto(d?.texto ?? null); setPrueba(d?.enviado ? 'Resumen enviado a tu Telegram.' : 'Sin Telegram configurado: aquí está el resumen.'); }); }}>Enviar resumen de próximos eventos</button>
           {prueba && <span className="fs-13" style={{ color: 'var(--color-accent-800)' }}>{prueba}</span>}
         </div>
+        {resumenTexto && <pre className="fs-12 m-0" style={{ whiteSpace: 'pre-wrap', fontFamily: 'var(--font-body)' }}>{resumenTexto}</pre>}
+        <p className="muted fs-12 m-0">El resumen de los próximos 7 días también llega solo cada día con el recordatorio diario.</p>
       </Marco>
       {(datos.notificaciones.canalEstudiantes || datos.notificaciones.telegramSinCanal) && (
         <Marco className="mt-4 p-4 stack-3">

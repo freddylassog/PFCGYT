@@ -1,6 +1,6 @@
 // Cálculos derivados que comparten el panel, el portal del estudiante, el
 // reporte Excel y los correos. Todo puro: entra `Datos`, salen vistas.
-import { ACTIVIDADES, UNIFORME, actividadesEtiquetasPedido, actividadesTextoPedido, cantidadDia, cantidadesDistintas, citaDevolucionTexto, citaEntregaTexto, comidasDias, compromisosPedido, convenioLabel, cruceClases, cruceTexto, diagnosticoCruce, cuposTexto, diasEstudiante, diasHasta, duracionTextoDias, estadoDevolucion, estadoVisible, estudiantesAfectados, fechaCorta, fechaCortaDias, fechaLarga, fechaLargaDias, fechasCruce, horarioTextoDias, horarioUniformeTexto, horasDias, horasEstudiante, infoUniforme, limiteDevolucion, lugaresTexto, MINIMO_EVENTOS, mismoLugar, pasa4hDias, redondear1, repartoDia, semanaDe, semCorto, semLabel, tagClass, tieneRepartoPorDia, tipoClass, tipoLabel, transporteDias, transporteMotivoDias, transporteTexto, type Compromiso, type EstadoDevolucion, type EstadoVisible, type Transporte, ultimoDia, VESTIMENTA } from './reglas';
+import { ACTIVIDADES, toDate, sumarDias, ordenarDias, DIAS, UNIFORME, actividadesEtiquetasPedido, actividadesTextoPedido, cantidadDia, cantidadesDistintas, citaDevolucionTexto, citaEntregaTexto, comidasDias, compromisosPedido, convenioLabel, cruceClases, cruceTexto, diagnosticoCruce, cuposTexto, diasEstudiante, diasHasta, duracionTextoDias, estadoDevolucion, estadoVisible, estudiantesAfectados, fechaCorta, fechaCortaDias, fechaLarga, fechaLargaDias, fechasCruce, horarioTextoDias, horarioUniformeTexto, horasDias, horasEstudiante, infoUniforme, limiteDevolucion, lugaresTexto, MINIMO_EVENTOS, mismoLugar, pasa4hDias, redondear1, repartoDia, semanaDe, semCorto, semLabel, tagClass, tieneRepartoPorDia, tipoClass, tipoLabel, transporteDias, transporteMotivoDias, transporteTexto, type Compromiso, type EstadoDevolucion, type EstadoVisible, type Transporte, ultimoDia, VESTIMENTA } from './reglas';
 import type { Aviso, Clase, Datos, Devolucion, DiaEvento, Docente, Estudiante, Novedad, Pedido, Semestre } from './tipos';
 
 export interface PedidoVista extends Pedido {
@@ -389,6 +389,44 @@ export function prendasFueraDeBodega(d: Datos): { item: string; n: number }[] {
   const activos = new Set(d.estudiantes.filter((e) => e.activo).map((e) => e.id));
   const items = [...UNIFORME.F, ...UNIFORME.M];
   return items.map((item) => ({ item, n: d.prendas.filter((p) => p.item === item && activos.has(p.studentId)).length })).filter((x) => x.n > 0);
+}
+
+// ---------------------------------------------------------------- próximos eventos
+
+export interface ProximoEvento {
+  p: PedidoVista;
+  /** Primer día del evento desde hoy. */
+  fecha: string;
+  enDias: number;
+  /** 'Hoy', 'Mañana' o 'sáb 24 oct'. */
+  cuando: string;
+  /** Cupos sin cubrir (sumados por día en eventos de varios días). */
+  faltan: number;
+  inscritosN: number;
+  uniforme: boolean;
+  conPrendasN: number;
+  sinPrendasN: number;
+  sinPrendas: Estudiante[];
+  /** Correos a docentes preparados y aún no enviados. */
+  correosPendientes: number;
+}
+
+/** Eventos aprobados con algún día entre hoy y hoy + `dias`, con lo que falta para cada uno. */
+export function proximosEventos(d: Datos, pedidos: PedidoVista[], dias = 7): ProximoEvento[] {
+  const hasta = sumarDias(d.hoy, dias);
+  const lista: ProximoEvento[] = [];
+  for (const p of pedidos) {
+    if (p.estado !== 'Aprobado' || p.finalizado) continue;
+    const proximo = ordenarDias(p.dias).find((x) => x.fecha >= d.hoy && x.fecha <= hasta);
+    if (!proximo) continue;
+    const enDias = Math.round((toDate(proximo.fecha).getTime() - toDate(d.hoy).getTime()) / 86400000);
+    const cuando = enDias === 0 ? 'Hoy' : enDias === 1 ? 'Mañana' : `${DIAS[toDate(proximo.fecha).getDay()].slice(0, 3)} ${fechaCorta(proximo.fecha)}`;
+    const faltan = p.cuposDias.length ? p.cuposDias.reduce((a, c) => a + Math.max(0, c.cantidad - c.confirmados), 0) : Math.max(0, p.cantidad - p.confirmadosN);
+    const uniforme = p.vestimenta === 'uniforme';
+    const sinPrendas = uniforme ? p.confirmados.filter((e) => !d.prendas.some((x) => x.studentId === e.id)) : [];
+    lista.push({ p, fecha: proximo.fecha, enDias, cuando, faltan, inscritosN: p.inscritosN, uniforme, conPrendasN: p.confirmadosN - sinPrendas.length, sinPrendasN: sinPrendas.length, sinPrendas, correosPendientes: p.cruces.filter((c) => c.aviso && !c.aviso.sentAt).length });
+  }
+  return lista.sort((a, b) => a.fecha.localeCompare(b.fecha) || a.p.inicio.localeCompare(b.p.inicio));
 }
 
 // ---------------------------------------------------------------- resumen de horas

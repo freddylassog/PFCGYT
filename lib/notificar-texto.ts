@@ -1,7 +1,7 @@
 // Texto de las notificaciones (puro, sin dependencias de servidor).
 import { cantidadDia, citaDevolucionTexto, citaEntregaTexto, citaEsPeriodo, diasEstudiante, fechaCorta, fechaLarga, fechaLargaDias, horarioCitaTexto, horarioTextoDias, horasDias, lugarDia, lugaresTexto, MINIMO_EVENTOS, repartoTexto, tipoLabel, type FaseDevolucion } from './reglas';
 import type { CitaUniforme, DiaEvento, Estudiante, Pedido } from './tipos';
-import { confirmadosEnDia, type PedidoVista } from './vista';
+import { confirmadosEnDia, type PedidoVista, type ProximoEvento } from './vista';
 
 export interface Mensaje { asunto: string; texto: string; html: string }
 
@@ -231,6 +231,23 @@ export function mensajeDevolucionCoordinacion(vencidos: { p: PedidoVista; e: Est
 }
 
 // ---------------------------------------------------------------- avisos a coordinación
+
+/** Resumen diario para coordinación: eventos de los próximos días con cupos, inscripciones por revisar y uniformes retirados. */
+export function mensajeProximosCoordinacion(items: ProximoEvento[], dias: number): string | null {
+  if (!items.length) return null;
+  const lineas = items.map((x) => {
+    const partes = [
+      `${x.cuando} · ${x.p.evento} (${x.p.codigo}) · ${x.p.horarioTexto}`,
+      x.p.multidia ? x.p.progreso : `${x.p.confirmadosN}/${x.p.cantidad} confirmados`,
+      x.faltan ? `faltan ${x.faltan}` : 'cupo completo',
+      x.inscritosN ? `${x.inscritosN} por revisar` : '',
+      x.uniforme && x.p.confirmadosN ? (x.sinPrendasN ? `uniformes: ${x.conPrendasN} de ${x.p.confirmadosN} retiraron (sin retirar: ${x.sinPrendas.map((e) => e.nombre).join(', ')})` : 'uniformes retirados') : '',
+      x.correosPendientes ? `${x.correosPendientes} correo(s) a docentes sin enviar` : '',
+    ].filter(Boolean);
+    return '• ' + partes.join(' · ');
+  });
+  return [`Próximos ${dias} días:`, ...lineas].join('\n');
+}
 
 export function mensajeInscripcionCoordinacion(p: PedidoVista, e: Estudiante, tipo: 'inscripcion' | 'retiro', appUrl: string): string {
   const cabecera = tipo === 'inscripcion' ? `📝 ${e.nombre} (${e.semestre}.º) se inscribió en` : `↩️ ${e.nombre} (${e.semestre}.º) retiró su inscripción de`;

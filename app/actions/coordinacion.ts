@@ -7,9 +7,9 @@ import { db } from '@/lib/db';
 import { ajustesActuales, cargarDatos, mapCita, mapPedido } from '@/lib/datos';
 import { asegurarEsquema } from '@/lib/migrar';
 import { activarWebhook, avisarCoordinacion, desactivarWebhook, detectarCanalTelegram, detectarChatTelegram, enviarDirecto, enviarPrueba, publicarEnCanal } from '@/lib/notificar';
-import { mensajeConvocatoriaCanal, mensajeEstudianteConfirmado, mensajeEstudianteNoConfirmado, mensajeEstudianteRetirado, mensajeUniformesCanal, mensajeUniformesPersonal } from '@/lib/notificar-texto';
+import { mensajeConvocatoriaCanal, mensajeEstudianteConfirmado, mensajeEstudianteNoConfirmado, mensajeEstudianteRetirado, mensajeUniformesCanal, mensajeUniformesPersonal, mensajeProximosCoordinacion } from '@/lib/notificar-texto';
 import { appUrl } from '@/lib/app-url';
-import { avanceEstudiante, vistaPedido } from '@/lib/vista';
+import { avanceEstudiante, vistaPedido, proximosEventos, vistaPedidos } from '@/lib/vista';
 import { coincideNombre, esFormatoNrc, generoPorNombre, leerHojas, leerTabla, parseDocentes, parseEstudiantes, parseEstudiantesNrc, parseHorarios, type HojaCruda } from '@/lib/excel';
 import { borrarEvidencia, evidenciaExiste, prepararSubida } from '@/lib/storage';
 import { ACTIVIDADES, cantidadDia, claveDocente, correoValido, cruceClases, diasEstudiante, diasLlenos, esFechaISO, estudiantesAfectados, faltasCantidadesDias, faltasCitaUniforme, faltasDias, faltasHorarioUniforme, faltasReparto, genClave, hoyISO, MAX_ESTUDIANTES, nombrarDias, normalizarCorreo, normalizarParalelo, ordenarDias, telefonoValido, TIPOS_NOVEDAD, UNIFORME, unirRepartos, VESTIMENTA } from '@/lib/reglas';
@@ -540,6 +540,19 @@ export async function marcarMatriz(semestre: Semestre, enviada: boolean): Promis
 
 // ---------------------------------------------------------------- notificaciones
 
+/** Resumen de los próximos 7 días (cupos, inscripciones por revisar, uniformes retirados) a Telegram de coordinación; devuelve el texto. */
+export async function enviarResumenProximos(): Promise<Resultado<{ texto: string; enviado: boolean }>> {
+  try {
+    await exigir();
+    const datos = await cargarDatos();
+    const texto = mensajeProximosCoordinacion(proximosEventos(datos, vistaPedidos(datos), 7), 7);
+    if (!texto) return { ok: true, datos: { texto: 'No hay eventos aprobados en los próximos 7 días.', enviado: false } };
+    const telegram = datos.notificaciones.canales.some((n) => n.canal === 'telegram');
+    if (telegram) await avisarCoordinacion(texto, datos.ajustes);
+    return { ok: true, datos: { texto, enviado: telegram } };
+  } catch (e) { return fallo(e); }
+}
+
 export async function probarNotificacion(): Promise<Resultado> {
   try {
     await exigir();
@@ -651,7 +664,7 @@ export async function guardarEstudiante(e: { id?: string; nombre: string; correo
     const correo = normalizarCorreo(e.correo || '');
     if (!e.nombre.trim()) throw new Error('El nombre es obligatorio');
     if (correo && !correo.includes('@')) throw new Error('Correo inválido');
-    if (![1, 2, 3].includes(e.semestre)) throw new Error('Semestre inválido');
+    if (!Number.isInteger(e.semestre) || e.semestre < 1 || e.semestre > 10) throw new Error('Semestre inválido (1 a 10)');
     const paralelo = normalizarParalelo(e.paralelo) || null;
     if (e.id) {
       await sql`update students set nombre = ${e.nombre.trim()}, correo = ${correo || null}, semestre = ${e.semestre}, paralelo = ${paralelo}, genero = ${e.genero}, activo = ${e.activo} where id = ${e.id}`;
