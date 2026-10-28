@@ -201,6 +201,8 @@ export interface SolicitanteInterno {
   nombre: string;
   correo: string;
   cargo: string;
+  /** Puede registrar pedidos sin la anticipación mínima (incluso para hoy). Pensado para coordinación. */
+  sinAnticipacion: boolean;
 }
 
 export interface Ajustes {

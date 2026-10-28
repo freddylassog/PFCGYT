@@ -82,7 +82,7 @@ function mapSolicitantesInternos(v: unknown): Ajustes['solicitantesInternos'] {
   let x: unknown = v;
   if (typeof x === 'string') { try { x = JSON.parse(x); } catch { return []; } }
   if (!Array.isArray(x)) return [];
-  return x.map((o) => { const r = (o ?? {}) as Record<string, unknown>; return { nombre: s(r.nombre).trim(), correo: s(r.correo).trim().toLowerCase(), cargo: s(r.cargo).trim() }; }).filter((o) => o.correo.includes('@'));
+  return x.map((o) => { const r = (o ?? {}) as Record<string, unknown>; return { nombre: s(r.nombre).trim(), correo: s(r.correo).trim().toLowerCase(), cargo: s(r.cargo).trim(), sinAnticipacion: r.sinAnticipacion === true }; }).filter((o) => o.correo.includes('@'));
 }
 
 function mapAjustes(r: Fila): Ajustes {

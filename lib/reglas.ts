@@ -491,13 +491,15 @@ export function plazoTexto(fecha: string, hoy: string, horas = HORAS_ANTICIPACIO
   if (!fecha) return 'Elige la fecha';
   const dias = diasHasta(fecha, hoy);
   if (dias < 0) return 'Fecha pasada';
+  if (Number(horas) === 0) return dias === 0 ? 'Hoy · sin restricción de fecha' : `${dias} día${dias === 1 ? '' : 's'} · sin restricción de fecha`;
   if (dias < diasMinimos(horas)) return `${dias * 24} h · menos de ${horas} h`;
   return `${dias} día${dias === 1 ? '' : 's'} de anticipación`;
 }
 
-/** Días completos que exige una anticipación en horas (72 h → 3 días, 24 h → 1 día). */
+/** Días completos que exige una anticipación en horas (72 h → 3 días, 24 h → 1 día; 0 = sin restricción, solo no en el pasado). */
 export function diasMinimos(horas: number): number {
-  return Math.max(0, Math.ceil((Number(horas) || HORAS_ANTICIPACION) / 24));
+  const h = Number(horas);
+  return Number.isNaN(h) ? Math.ceil(HORAS_ANTICIPACION / 24) : Math.max(0, Math.ceil(h / 24));
 }
 
 /** Regla de anticipación (72 h normalmente): el evento debe estar al menos a esos días de hoy. */
@@ -985,7 +987,7 @@ export function repartoTexto(reparto: RepartoActividad[], actividades: string[])
 
 /** Devuelve, por paso, la lista de lo que falta (vacía = paso completo). */
 /** Solicitante interno frecuente al que pertenece ese correo (o null). */
-export function solicitanteInterno(lista: { nombre: string; correo: string; cargo: string }[], correo: string): { nombre: string; correo: string; cargo: string } | null {
+export function solicitanteInterno<T extends { correo: string }>(lista: T[], correo: string): T | null {
   const c = normalizarCorreo(correo);
   return (c && lista.find((x) => normalizarCorreo(x.correo) === c)) || null;
 }

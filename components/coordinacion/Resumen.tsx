@@ -136,7 +136,7 @@ export function Resumen({ datos, pedidos }: { datos: Datos; pedidos: PedidoVista
       )}
       <Marco as="form" className="p-4 stack-3 mt-4" onSubmit={(e: React.FormEvent) => { e.preventDefault(); run(() => guardarAjustes({ solicitantesInternos: si }), () => setSiMsg('Guardado.')); }}>
         <h6 className="h6-accent">Solicitantes internos frecuentes</h6>
-        <p className="muted fs-13 m-0">Personas de la universidad que piden eventos seguido. Cuando escriben su correo en el formulario público, el pedido se reconoce como <strong>evento interno</strong> y <strong>no necesita adjunto</strong>: el formulario es el pedido. Su nombre y cargo se prellenan.</p>
+        <p className="muted fs-13 m-0">Personas de la universidad que piden eventos seguido. Cuando escriben su correo en el formulario público, el pedido se reconoce como <strong>evento interno</strong> y <strong>no necesita adjunto</strong>: el formulario es el pedido. Su nombre y cargo se prellenan. Con «Sin restricción de fecha», esa persona puede registrar pedidos con menos anticipación que la mínima, incluso para hoy (úsalo solo para coordinación).</p>
         {si.length === 0 && <p className="muted fs-12 m-0">Aún no hay solicitantes internos registrados.</p>}
         <div className="stack-2">
           {si.map((x, i) => (
@@ -144,12 +144,13 @@ export function Resumen({ datos, pedidos }: { datos: Datos; pedidos: PedidoVista
               <input id={`si-nombre-${i}`} className="input" style={{ flex: 2, minWidth: 160 }} placeholder="Nombre" aria-label="Nombre" value={x.nombre} onChange={(e) => setSiFila(i, { nombre: e.target.value })} />
               <input id={`si-cargo-${i}`} className="input" style={{ flex: 2, minWidth: 140 }} placeholder="Cargo (opcional)" aria-label="Cargo" value={x.cargo} onChange={(e) => setSiFila(i, { cargo: e.target.value })} />
               <input id={`si-correo-${i}`} className="input" type="email" style={{ flex: 3, minWidth: 200 }} placeholder="correo@ute.edu.ec" aria-label="Correo" value={x.correo} onChange={(e) => setSiFila(i, { correo: e.target.value })} />
+              <label className="radio fs-12" style={{ flex: 'none' }} title="Puede registrar pedidos con menos anticipación que la mínima, incluso para hoy (pensado para coordinación)"><input id={`si-libre-${i}`} type="checkbox" checked={!!x.sinAnticipacion} onChange={(e) => setSiFila(i, { sinAnticipacion: e.target.checked })} /><span className="dot cuadro" />Sin restricción de fecha</label>
               <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setSiMsg(null); setSi(si.filter((_, j) => j !== i)); }}>Quitar</button>
             </div>
           ))}
         </div>
         <div className="row">
-          <button type="button" className="btn btn-secondary btn-sm" onClick={() => { setSiMsg(null); setSi([...si, { nombre: '', correo: '', cargo: '' }]); }}>Agregar solicitante</button>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => { setSiMsg(null); setSi([...si, { nombre: '', correo: '', cargo: '', sinAnticipacion: false }]); }}>Agregar solicitante</button>
           <button className="btn btn-primary btn-sm" type="submit">Guardar solicitantes</button>
           {siMsg && <span className="muted fs-12">{siMsg}</span>}
         </div>

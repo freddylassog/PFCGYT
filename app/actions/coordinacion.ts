@@ -503,7 +503,7 @@ export async function guardarAjustes(a: { horasSemana?: number; inicioSemestre?:
       await sql`update settings set anticipacion_hasta = ${a.anticipacionHasta || null} where periodo = ${periodo}`;
     }
     if (a.solicitantesInternos != null) {
-      const lista: SolicitanteInterno[] = (Array.isArray(a.solicitantesInternos) ? a.solicitantesInternos : []).map((x) => ({ nombre: String(x.nombre ?? '').trim().slice(0, 120), correo: normalizarCorreo(String(x.correo ?? '')), cargo: String(x.cargo ?? '').trim().slice(0, 120) })).filter((x) => x.nombre || x.correo);
+      const lista: SolicitanteInterno[] = (Array.isArray(a.solicitantesInternos) ? a.solicitantesInternos : []).map((x) => ({ nombre: String(x.nombre ?? '').trim().slice(0, 120), correo: normalizarCorreo(String(x.correo ?? '')), cargo: String(x.cargo ?? '').trim().slice(0, 120), sinAnticipacion: x.sinAnticipacion === true })).filter((x) => x.nombre || x.correo);
       const malo = lista.find((x) => !x.nombre || !correoValido(x.correo));
       if (malo) throw new Error(`Cada solicitante interno necesita nombre y correo válido${malo.nombre ? ` (${malo.nombre})` : ''}.`);
       const repetido = lista.find((x, i) => lista.findIndex((y) => y.correo === x.correo) !== i);

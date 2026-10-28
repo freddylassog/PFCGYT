@@ -19,7 +19,6 @@ const PASOS = ['Solicitante', 'Evento', 'Estudiantes', 'Compromisos'];
 type Auto = { nombre: string; cargo: string; institucion: string; correo: string };
 
 export function FormularioPedido({ hoy, anticipacion = { horas: 72, hasta: '' } }: { hoy: string; anticipacion?: { horas: number; hasta: string } }) {
-  const horasMin = anticipacion.horas;
   const [f, setF] = useState<FormPedido>(FORM_INICIAL);
   const [paso, setPaso] = useState(1);
   const [subiendo, setSubiendo] = useState(false);
@@ -30,7 +29,9 @@ export function FormularioPedido({ hoy, anticipacion = { horas: 72, hasta: '' } 
   const [enviando, startEnvio] = useTransition();
   const archivoRef = useRef<HTMLInputElement>(null);
   // Solicitante interno frecuente (por su correo): evento interno y sin adjunto; nombre y cargo prellenados.
-  const [interno, setInterno] = useState<{ nombre: string; cargo: string } | null>(null);
+  const [interno, setInterno] = useState<{ nombre: string; cargo: string; sinAnticipacion: boolean } | null>(null);
+  // Coordinación (marcada en Ajustes) registra sin anticipación mínima: solo no se admite el pasado.
+  const horasMin = interno?.sinAnticipacion ? 0 : anticipacion.horas;
 
   const set = <K extends keyof FormPedido>(k: K, v: FormPedido[K]) => setF((s) => ({ ...s, [k]: v }));
 
@@ -47,7 +48,7 @@ export function FormularioPedido({ hoy, anticipacion = { horas: 72, hasta: '' } 
   const clave = correoManual && correoValido(correo) ? `c:${correo}` : nombreManual && nombre.split(' ').length >= 2 ? `n:${nombre.toLowerCase()}` : '';
   useEffect(() => {
     let vivo = true;
-    const aplicar = (r: { nombre: string; cargo: string; correo: string } | null) => {
+    const aplicar = (r: { nombre: string; cargo: string; correo: string; sinAnticipacion: boolean } | null) => {
       const s = fRef.current, prev = autoRef.current;
       const libre = (actual: string, previo: string | undefined) => !actual.trim() || (!!previo && actual.trim() === previo);
       const auto: Auto = { nombre: '', cargo: '', institucion: '', correo: '' };
@@ -59,7 +60,7 @@ export function FormularioPedido({ hoy, anticipacion = { horas: 72, hasta: '' } 
       autoRef.current = r ? auto : null;
       setAutoVista({ nombre: auto.nombre, correo: auto.correo });
       setF((cur) => (r ? { ...cur, ...n, tipo: 'interno', convenio: 'si' } : { ...cur, ...n }));
-      setInterno(r ? { nombre: r.nombre, cargo: r.cargo } : null);
+      setInterno(r ? { nombre: r.nombre, cargo: r.cargo, sinAnticipacion: !!r.sinAnticipacion } : null);
     };
     const t = setTimeout(() => {
       if (!clave) { if (autoRef.current) aplicar(null); else setInterno(null); return; }
@@ -183,7 +184,7 @@ export function FormularioPedido({ hoy, anticipacion = { horas: 72, hasta: '' } 
             </div>
             <div className="field"><label htmlFor="correo">Correo de contacto</label><input id="correo" className="input" type="email" value={f.correoSolicitante} onChange={(e) => set('correoSolicitante', e.target.value)} placeholder="nombre@institucion.com" autoComplete="email" /></div>
             {interno && (
-              <div className="aviso-ok" role="status"><IconoCheck /><span><strong>Solicitante interno reconocido.</strong> Tu pedido se registra como evento interno de la Universidad UTE y no necesita adjunto: escribe los datos del evento en el siguiente paso.</span></div>
+              <div className="aviso-ok" role="status"><IconoCheck /><span><strong>Solicitante interno reconocido.</strong> Tu pedido se registra como evento interno de la Universidad UTE y no necesita adjunto: escribe los datos del evento en el siguiente paso.{interno.sinAnticipacion ? ' Sin restricción de fecha: puedes registrar incluso para hoy.' : ''}</span></div>
             )}
             {!interno && <div className="field">
               <label>Tipo de evento</label>

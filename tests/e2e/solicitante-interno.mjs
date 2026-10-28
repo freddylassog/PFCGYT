@@ -11,6 +11,7 @@ const errores = [];
 const correo = 'prueba.interna@ute.edu.ec';
 const evento = 'Pedido interno ' + Date.now();
 const fecha = (() => { const d = new Date(); d.setDate(d.getDate() + 12); while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1); return d.toISOString().slice(0, 10); })();
+const hoyISO = (() => { const d = new Date(); d.setHours(12); return d.toISOString().slice(0, 10); })();
 psql(`update settings set solicitantes_internos = '[]'::jsonb`);
 const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
 const ctx = await b.newContext({ viewport: { width: 1280, height: 900 } });
@@ -41,12 +42,33 @@ await p.waitForSelector('text=necesita nombre y correo válido', { timeout: 1500
 await p.click('div:has(> #si-nombre-1) button:has-text("Quitar")');
 paso('Ajustes: una fila sin correo válido no se guarda');
 
+// Sin la marca, un solicitante interno respeta la anticipación mínima: un pedido para hoy se bloquea
+const conPlazo = await (await b.newContext({ viewport: { width: 1280, height: 900 } })).newPage();
+await conPlazo.goto(base + '/');
+await conPlazo.fill('#correo', correo);
+await conPlazo.waitForSelector('text=Solicitante interno reconocido', { timeout: 15000 });
+if ((await conPlazo.locator('text=Sin restricción de fecha').count()) !== 0) throw new Error('sin la marca no debe decir "sin restricción de fecha"');
+await conPlazo.click('button:has-text("Continuar")');
+await conPlazo.fill('#evento', 'Hoy mismo');
+await conPlazo.fill('#dia-fecha-0', hoyISO);
+await conPlazo.fill('#dia-lugar-0', 'Aula');
+await conPlazo.waitForSelector('text=No se puede registrar el pedido', { timeout: 15000 });
+if (!(await conPlazo.locator('button:has-text("Continuar")').isDisabled())) throw new Error('con la anticipación mínima, un pedido para hoy debe bloquearse');
+paso('formulario: sin la marca, un pedido para hoy se bloquea por la anticipación mínima');
+// Coordinación marca «Sin restricción de fecha» a la solicitante de prueba
+await p.click('label:has(#si-libre-0)');
+await p.click('button:has-text("Guardar solicitantes")');
+await p.waitForSelector('text=Guardado.', { timeout: 15000 });
+if (!/"sinAnticipacion": ?true/.test(psql(`select solicitantes_internos::text from settings where actual`))) throw new Error('no se guardó la marca sin anticipación');
+paso('Ajustes: marcada «Sin restricción de fecha»');
+
 // 2. Formulario público: con el correo se reconoce, sin tipo ni adjunto
 const pub = await (await b.newContext({ viewport: { width: 1280, height: 900 } })).newPage();
 pub.on('pageerror', (e) => errores.push('PAGEERROR pub ' + e.message));
 await pub.goto(base + '/');
 await pub.fill('#correo', 'Prueba.Interna@ute.edu.ec');
 await pub.waitForSelector('text=Solicitante interno reconocido', { timeout: 15000 });
+await pub.waitForSelector('text=Sin restricción de fecha: puedes registrar incluso para hoy.', { timeout: 15000 });
 if ((await pub.inputValue('#nombre')) !== 'Prueba Interna' || (await pub.inputValue('#cargo')) !== 'Docente de la facultad' || (await pub.inputValue('#institucion')) !== 'Universidad UTE') throw new Error('no se prellenaron nombre, cargo e institución');
 if ((await pub.locator('button:has-text("Externo")').count()) !== 0) throw new Error('a un solicitante interno no se le pregunta el tipo de evento');
 paso('formulario: reconocida por el correo, datos prellenados, sin pregunta interno/externo');
@@ -54,14 +76,16 @@ await pub.click('button:has-text("Continuar")');
 if ((await pub.locator('input[type=file]').count()) !== 0) throw new Error('no debería pedir adjunto');
 await pub.waitForSelector('text=Sin adjunto: como solicitante interno, este formulario es tu pedido formal.');
 await pub.fill('#evento', evento);
-await pub.fill('#dia-fecha-0', fecha);
+await pub.fill('#dia-fecha-0', hoyISO); // para hoy: sin restricción de fecha
 await pub.fill('#dia-inicio-0', '10:00');
 await pub.fill('#dia-fin-0', '12:00');
 await pub.fill('#dia-lugar-0', 'Aula magna');
 await pub.fill('#responsable', 'Prueba Interna');
 await pub.fill('#telefono', '099 123 4567');
 await pub.waitForTimeout(700);
-if (await pub.locator('button:has-text("Continuar")').isDisabled()) throw new Error('el paso 2 debería continuar sin adjunto: ' + (await pub.locator('text=Falta:').textContent().catch(() => '')));
+if ((await pub.locator('text=No se puede registrar el pedido').count()) !== 0) throw new Error('con la marca no debe bloquear un pedido para hoy');
+if (!/Hoy · sin restricción de fecha/.test(await pub.locator('p:has-text("Plazo:")').textContent())) throw new Error('el plazo debería decir "Hoy · sin restricción de fecha"');
+if (await pub.locator('button:has-text("Continuar")').isDisabled()) throw new Error('el paso 2 debería continuar sin adjunto ni anticipación: ' + (await pub.locator('text=Falta:').textContent().catch(() => '')));
 await pub.click('button:has-text("Continuar")');
 await pub.fill('#cantidad', '2');
 await pub.click('label:has-text("Recepción y registro de invitados")');
@@ -76,7 +100,9 @@ await pub.waitForSelector('text=Pedido registrado', { timeout: 15000 });
 const codigo = (await pub.locator('h2').first().textContent()).trim();
 const fila = psql(`select tipo || '|' || convenio || '|' || coalesce(evidencia_path, '') || '|' || nombre || '|' || correo_solicitante from requests where codigo = '${codigo}'`);
 if (fila !== `interno|si||Prueba Interna|${correo}`) throw new Error('el pedido no quedó como interno sin adjunto: ' + fila);
-paso(`pedido ${codigo} registrado como interno, sin adjunto, con los datos de la solicitante`);
+if (psql(`select fecha::text from requests where codigo = '${codigo}'`) !== hoyISO) throw new Error('el pedido debería quedar para hoy');
+paso(`pedido ${codigo} registrado como interno, sin adjunto y para hoy (sin restricción de fecha)`);
+void fecha;
 
 // 3. Por nombre: al escribir nombre y apellido se completan cargo, institución y correo
 const porNombre = await (await b.newContext({ viewport: { width: 1280, height: 900 } })).newPage();

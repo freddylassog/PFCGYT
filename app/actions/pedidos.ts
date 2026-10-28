@@ -52,24 +52,24 @@ export interface PedidoCreado { id: string; codigo: string; evento: string; fech
 
 /** ¿Es un solicitante interno frecuente? Por correo (coincidencia exacta) o, si no hay correo, por nombre y apellido
  *  (una sola coincidencia). Devuelve sus datos para prellenar el formulario. */
-export async function reconocerSolicitante(correo: string, nombre = ''): Promise<{ interno: boolean; nombre: string; cargo: string; correo: string }> {
+export async function reconocerSolicitante(correo: string, nombre = ''): Promise<{ interno: boolean; nombre: string; cargo: string; correo: string; sinAnticipacion: boolean }> {
   const a = await ajustesActuales();
-  const nadie = { interno: false, nombre: '', cargo: '', correo: '' };
+  const nadie = { interno: false, nombre: '', cargo: '', correo: '', sinAnticipacion: false };
   let x = solicitanteInterno(a.solicitantesInternos, String(correo || ''));
   if (!x && String(nombre || '').trim()) {
     const candidatos = candidatosPorNombre(a.solicitantesInternos, String(nombre).slice(0, 120));
     if (candidatos.length === 1) x = candidatos[0];
   }
-  return x ? { interno: true, nombre: x.nombre, cargo: x.cargo, correo: x.correo } : nadie;
+  return x ? { interno: true, nombre: x.nombre, cargo: x.cargo, correo: x.correo, sinAnticipacion: !!x.sinAnticipacion } : nadie;
 }
 
 export async function crearPedido(f: FormPedido): Promise<Resultado<PedidoCreado>> {
   const hoy = hoyISO();
   const ajustes = await ajustesActuales();
-  const horasMin = anticipacionVigente(ajustes, hoy);
-  // Solicitante interno frecuente: evento interno, sin adjunto (este formulario es el pedido).
+  // Solicitante interno frecuente: evento interno, sin adjunto (este formulario es el pedido); si está marcado, sin anticipación mínima.
   const interno = solicitanteInterno(ajustes.solicitantesInternos, f.correoSolicitante);
   if (interno) f = { ...f, tipo: 'interno', convenio: 'si' };
+  const horasMin = interno?.sinAnticipacion ? 0 : anticipacionVigente(ajustes, hoy);
   const pedidos = await pedidosDelPeriodo();
   const dias = ordenarDias(f.dias || []).map((d) => ({ fecha: d.fecha, inicio: d.inicio, fin: d.fin, lugar: (d.lugar ?? '').trim().slice(0, 300), lejos: !!d.lejos, ...(!f.mismosEstudiantes && Number(d.cantidad) > 0 ? { cantidad: Math.round(Number(d.cantidad)) } : {}), ...(d.reparto?.length ? { reparto: limpiarReparto(d.reparto) } : {}) }));
   const lugar = dias[0]?.lugar || f.lugar.trim();

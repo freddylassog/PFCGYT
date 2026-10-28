@@ -24,3 +24,14 @@ test('la excepción caduca sola', () => {
   assert.equal(anticipacionVigente({ anticipacionHoras: 48, anticipacionHasta: '' }, '2027-01-01'), 48, 'sin fecha límite aplica siempre');
   assert.equal(anticipacionVigente({ anticipacionHoras: 0, anticipacionHasta: '' }, '2026-09-28'), 72, 'valor inválido → 72');
 });
+
+test('anticipación 0 = sin restricción de fecha (solo no en el pasado)', () => {
+  assert.equal(diasMinimos(0), 0);
+  assert.equal(diasMinimos(72), 3);
+  assert.equal(cumple72h('2026-10-28', '2026-10-28', 0), true, 'hoy vale');
+  assert.equal(cumple72h('2026-10-27', '2026-10-28', 0), false, 'el pasado no');
+  assert.equal(cumple72h('2026-10-29', '2026-10-28', 72), false);
+  assert.equal(plazoTexto('2026-10-28', '2026-10-28', 0), 'Hoy · sin restricción de fecha');
+  assert.equal(plazoTexto('2026-10-30', '2026-10-28', 0), '2 días · sin restricción de fecha');
+  assert.deepEqual(faltasDias([{ fecha: '2026-10-28', inicio: '10:00', fin: '12:00', lugar: 'Aula', lejos: false }], '2026-10-28', true, 0), []);
+});
