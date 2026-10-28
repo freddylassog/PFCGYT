@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   BLOQUEAR_CRUCE_EVENTOS, FORM_INICIAL, claveVigente, codigoPedido, cruceClases, cruceEventos, cumple72h, faltasDias, faltasPedido, fechaCortaDias, fechaLarga,
   fechaLargaDias, fmtDur, genClave, horarioTextoDias, horasDe, horasDias, infoUniforme, normalizarClave, overlap, pasa4h, pasa4hDias, plazoTexto, semanaDe, transporteMotivo, transporteMotivoDias,
-  alternarActividad, ajustarRepartoATotal, faltasReparto, repartoTexto,
+  alternarActividad, ajustarRepartoATotal, faltasReparto, repartoTexto, textosVestimenta,
 } from '../../lib/reglas';
 import type { Clase } from '../../lib/tipos';
 
@@ -135,4 +135,13 @@ test('reparto de estudiantes por actividad', () => {
   assert.deepEqual(alternarActividad(r, 'Guía de invitados', 4), [{ actividad: 'Acompañamiento en recorridos', cantidad: 4 }], 'al desmarcar, la restante recibe el total');
   assert.equal(repartoTexto([{ actividad: 'Guía de invitados', cantidad: 2 }, { actividad: 'Apoyo en mesa de honor', cantidad: 2 }], []), 'Guía de invitados (2), Apoyo en mesa de honor (2)');
   assert.equal(repartoTexto([], ['Guía de invitados']), 'Guía de invitados', 'pedidos antiguos sin reparto');
+});
+
+test('vestimenta «otra»: exige la descripción y la usa como texto', () => {
+  const base = { ...FORM_INICIAL, nombre: 'A', cargo: 'B', institucion: 'C', correoSolicitante: 'a@b.co', evento: 'E', evidenciaPath: 'x', responsable: 'R', responsableTelefono: '0991234567', reparto: [{ actividad: 'Recepción y registro de invitados', cantidad: 4 }], dias: [{ fecha: '2026-12-10', inicio: '09:00', fin: '12:00', lugar: 'Aula', lejos: false }] };
+  assert.ok(faltasPedido({ ...base, vestimenta: 'otra', vestimentaDetalle: '' }, '2026-09-08', null)[2].includes('describe la vestimenta'));
+  assert.deepEqual(faltasPedido({ ...base, vestimenta: 'otra', vestimentaDetalle: 'Camiseta del evento y jean' }, '2026-09-08', null)[2], []);
+  assert.equal(textosVestimenta('otra', ' Camiseta del evento y jean ').label, 'Camiseta del evento y jean');
+  assert.equal(textosVestimenta('otra', '').label, 'Otra');
+  assert.equal(textosVestimenta('formal', '').label, 'Ropa formal blanco y negro');
 });

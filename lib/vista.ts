@@ -1,6 +1,6 @@
 // Cálculos derivados que comparten el panel, el portal del estudiante, el
 // reporte Excel y los correos. Todo puro: entra `Datos`, salen vistas.
-import { ACTIVIDADES, toDate, sumarDias, ordenarDias, DIAS, UNIFORME, actividadesEtiquetasPedido, actividadesTextoPedido, cantidadDia, cantidadesDistintas, citaDevolucionTexto, citaEntregaTexto, comidasDias, compromisosPedido, convenioLabel, cruceClases, cruceTexto, diagnosticoCruce, cuposTexto, diasEstudiante, diasHasta, duracionTextoDias, estadoDevolucion, estadoVisible, estudiantesAfectados, fechaCorta, fechaCortaDias, fechaLarga, fechaLargaDias, fechasCruce, horarioTextoDias, horarioUniformeTexto, horasDias, horasEstudiante, infoUniforme, limiteDevolucion, lugaresTexto, MINIMO_EVENTOS, mismoLugar, pasa4hDias, redondear1, repartoDia, semanaDe, semCorto, semLabel, tagClass, tieneRepartoPorDia, tipoClass, tipoLabel, transporteDias, transporteMotivoDias, transporteTexto, type Compromiso, type EstadoDevolucion, type EstadoVisible, type Transporte, ultimoDia, VESTIMENTA } from './reglas';
+import { ACTIVIDADES, textosVestimenta, toDate, sumarDias, ordenarDias, DIAS, UNIFORME, actividadesEtiquetasPedido, actividadesTextoPedido, cantidadDia, cantidadesDistintas, citaDevolucionTexto, citaEntregaTexto, comidasDias, compromisosPedido, convenioLabel, cruceClases, cruceTexto, diagnosticoCruce, cuposTexto, diasEstudiante, diasHasta, duracionTextoDias, estadoDevolucion, estadoVisible, estudiantesAfectados, fechaCorta, fechaCortaDias, fechaLarga, fechaLargaDias, fechasCruce, horarioTextoDias, horarioUniformeTexto, horasDias, horasEstudiante, infoUniforme, limiteDevolucion, lugaresTexto, MINIMO_EVENTOS, mismoLugar, pasa4hDias, redondear1, repartoDia, semanaDe, semCorto, semLabel, tagClass, tieneRepartoPorDia, tipoClass, tipoLabel, transporteDias, transporteMotivoDias, transporteTexto, type Compromiso, type EstadoDevolucion, type EstadoVisible, type Transporte, ultimoDia } from './reglas';
 import type { Aviso, Clase, Datos, Devolucion, DiaEvento, Docente, Estudiante, Novedad, Pedido, Semestre } from './tipos';
 
 export interface PedidoVista extends Pedido {
@@ -141,7 +141,7 @@ export function vistaPedido(d: Datos, p: Pedido): PedidoVista {
   const uniformeAvisoTexto = p.vestimenta !== 'uniforme' ? null
     : citaEvento ? [citaEntregaTexto(citaEvento) ? `entrega ${citaEntregaTexto(citaEvento)}` : '', citaDevolucionTexto(citaEvento) ? `devolución (lavado) ${citaDevolucionTexto(citaEvento)}` : `devuélvelo lavado hasta el ${fechaLarga(devolucionLimite)}`, citaEvento.lugar].filter(Boolean).join(' · ')
     : horarioFijo ? `retíralo antes del evento y devuélvelo lavado hasta el ${fechaLarga(devolucionLimite)} (${devolucionDias} días después), en ${horarioFijo}` : `devuélvelo lavado hasta el ${fechaLarga(devolucionLimite)}`;
-  const v = VESTIMENTA[p.vestimenta] ?? VESTIMENTA.uniforme;
+  const v = textosVestimenta(p.vestimenta, p.vestimentaDetalle);
   const tm = transporteMotivoDias(p);
   const p4 = pasa4hDias(p.dias);
   const compromisos = compromisosPedido(p);

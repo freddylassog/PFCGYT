@@ -10,7 +10,7 @@ import { EditorReparto } from '@/components/EditorReparto';
 import { CantidadesPorDia } from '@/components/CantidadesPorDia';
 import {
   BLOQUEAR_CRUCE_EVENTOS, FORM_INICIAL, MAX_ESTUDIANTES, VESTIMENTA, ajustarRepartoATotal, cumple72h, duracionTextoDias, esFechaISO, esHora, faltasPedido, fechaCorta, fechaLarga,
-  actividadesTextoPedido, cantidadDia, compromisosPedido, cuposTexto, fechaLargaDias, sincronizarDias, horarioTextoDias, lugaresTexto, ordenarDias, plazoTexto, primerDia, type FormPedido, correoValido,
+  actividadesTextoPedido, cantidadDia, compromisosPedido, cuposTexto, fechaLargaDias, sincronizarDias, horarioTextoDias, lugaresTexto, ordenarDias, plazoTexto, primerDia, type FormPedido, correoValido, VESTIMENTAS_ELEGIBLES, textosVestimenta,
 } from '@/lib/reglas';
 
 const PASOS = ['Solicitante', 'Evento', 'Estudiantes', 'Compromisos'];
@@ -287,10 +287,11 @@ export function FormularioPedido({ hoy, anticipacion = { horas: 72, hasta: '' } 
             <div className="field">
               <label>Vestimenta de los estudiantes</label>
               <div className="stack-2">
-                {(Object.keys(VESTIMENTA) as (keyof typeof VESTIMENTA)[]).map((k) => (
+                {VESTIMENTAS_ELEGIBLES.map((k) => (
                   <label key={k} className="radio linea arriba fs-14"><input type="radio" name="vest" checked={f.vestimenta === k} onChange={() => set('vestimenta', k)} /><span className="dot" /><span>{VESTIMENTA[k].label}<div className="muted fs-12">{VESTIMENTA[k].nota}</div></span></label>
                 ))}
               </div>
+              {f.vestimenta === 'otra' && <input id="vest-detalle" className="input mt-2" value={f.vestimentaDetalle} onChange={(e) => set('vestimentaDetalle', e.target.value)} placeholder="Describe la vestimenta (p. ej. camiseta del evento y jean)" maxLength={200} aria-label="Describe la vestimenta" />}
             </div>
             {faltas[2].length > 0 && <p className="falta fs-12 m-0">Falta: {faltas[2].join(', ')}</p>}
             <div className="between"><button className="btn btn-secondary" type="button" onClick={anterior}>Atrás</button><button className="btn btn-primary btn-40" type="button" onClick={siguiente} disabled={faltas[2].length > 0}>Continuar</button></div>
@@ -304,7 +305,7 @@ export function FormularioPedido({ hoy, anticipacion = { horas: 72, hasta: '' } 
               <dt className="muted">Evento</dt><dd>{f.evento} · {resumenTipo}</dd>
               <dt className="muted">Fecha</dt><dd>{fechaLargaDias(f.dias)} · {horarioTextoDias(ordenarDias(f.dias))} ({durTexto})</dd>
               <dt className="muted">Estudiantes</dt><dd>{cuposTexto({ cantidad: f.cantidad, dias: ordenarDias(f.dias), mismosEstudiantes: f.mismosEstudiantes })} · {actividadesTextoPedido({ reparto: f.reparto, actividades: [], dias: ordenarDias(f.dias) })}</dd>
-              <dt className="muted">Vestimenta</dt><dd>{VESTIMENTA[f.vestimenta].label}</dd>
+              <dt className="muted">Vestimenta</dt><dd>{textosVestimenta(f.vestimenta, f.vestimentaDetalle).label}</dd>
               <dt className="muted">Lugar</dt><dd>{lugaresTexto({ ...f, dias: ordenarDias(f.dias) }, true)}</dd>
               <dt className="muted">Responsable</dt><dd>{f.responsable} · {f.responsableTelefono}</dd>
               <dt className="muted">Evidencia</dt><dd>{f.evidenciaNombre || (interno ? 'No requerida (solicitante interno)' : '—')}</dd>

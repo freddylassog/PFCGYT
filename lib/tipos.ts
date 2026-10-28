@@ -4,7 +4,7 @@
 export type Estado = 'Pendiente' | 'Ajustes' | 'Aprobado' | 'Rechazado';
 export type Tipo = 'interno' | 'externo';
 export type Convenio = 'si' | 'no';
-export type Vestimenta = 'uniforme' | 'formal' | 'ninguna';
+export type Vestimenta = 'uniforme' | 'formal' | 'ninguna' | 'otra';
 export type Genero = 'F' | 'M';
 export type Semestre = 1 | 2 | 3;
 export type EstadoInscripcion = 'inscrito' | 'confirmado' | 'rechazado';
@@ -75,6 +75,8 @@ export interface Pedido {
   actividades: string[];
   reparto: RepartoActividad[];
   vestimenta: Vestimenta;
+  /** Descripción libre cuando la vestimenta es «otra». */
+  vestimentaDetalle: string;
   evidenciaPath: string | null;
   evidenciaNombre: string | null;
   estado: Estado;

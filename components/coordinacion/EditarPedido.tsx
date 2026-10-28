@@ -15,7 +15,7 @@ export function EditarPedido({ p, onCerrar }: { p: PedidoVista; onCerrar: () => 
   const [c, setC] = useState<CambiosPedido>({
     nombre: p.nombre, cargo: p.cargo, institucion: p.institucion, correoSolicitante: p.correoSolicitante ?? '',
     evento: p.evento, dias: sincronizarDias(p.dias.map((d) => ({ ...d, reparto: d.reparto?.length ? d.reparto.map((x) => ({ ...x })) : ajustarRepartoATotal(p.reparto, cantidadDia(p, d)) })), p.cantidad, p.mismosEstudiantes), lugar: p.lugar, lejos: p.lejos, responsable: p.responsable, responsableTelefono: p.responsableTelefono,
-    cantidad: p.cantidad, mismosEstudiantes: p.mismosEstudiantes, vestimenta: p.vestimenta, reparto: p.reparto.length ? p.reparto.map((x) => ({ ...x })) : p.actividades.map((a, i) => ({ actividad: a, cantidad: i === 0 ? Math.max(1, p.cantidad - (p.actividades.length - 1)) : 1 })),
+    cantidad: p.cantidad, mismosEstudiantes: p.mismosEstudiantes, vestimenta: p.vestimenta, vestimentaDetalle: p.vestimentaDetalle, reparto: p.reparto.length ? p.reparto.map((x) => ({ ...x })) : p.actividades.map((a, i) => ({ actividad: a, cantidad: i === 0 ? Math.max(1, p.cantidad - (p.actividades.length - 1)) : 1 })),
   });
   const set = <K extends keyof CambiosPedido>(k: K, v: CambiosPedido[K]) => setC((s) => ({ ...s, [k]: v }));
   return (
@@ -36,7 +36,8 @@ export function EditarPedido({ p, onCerrar }: { p: PedidoVista; onCerrar: () => 
         <div className="field"><label>Responsable en sitio</label><input className="input" value={c.responsable} onChange={(e) => set('responsable', e.target.value)} required /></div>
         <div className="field"><label>Teléfono</label><input className="input" type="tel" value={c.responsableTelefono} onChange={(e) => set('responsableTelefono', e.target.value)} required /></div>
       </div>
-      <div className="field"><label>Vestimenta</label><select className="input" value={c.vestimenta} onChange={(e) => set('vestimenta', e.target.value)}>{(Object.keys(VESTIMENTA) as Vestimenta[]).map((k) => <option key={k} value={k}>{VESTIMENTA[k].label}</option>)}</select></div>
+      <div className="field"><label>Vestimenta</label><select className="input" value={c.vestimenta} onChange={(e) => set('vestimenta', e.target.value)}>{(Object.keys(VESTIMENTA) as Vestimenta[]).filter((k) => k !== 'ninguna' || c.vestimenta === 'ninguna').map((k) => <option key={k} value={k}>{VESTIMENTA[k].label}</option>)}</select>
+        {c.vestimenta === 'otra' && <input className="input mt-2" value={c.vestimentaDetalle ?? ''} onChange={(e) => set('vestimentaDetalle', e.target.value)} placeholder="Describe la vestimenta" maxLength={200} required aria-label="Describe la vestimenta" />}</div>
       <div className="field"><label>Actividades y estudiantes en cada una</label>
         {c.dias.length > 1 ? (
           <div className="stack-3">

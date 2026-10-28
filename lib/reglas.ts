@@ -48,7 +48,23 @@ export const VESTIMENTA: Record<Vestimenta, { label: string; corta: string; nota
     nota: 'Evento informal (p. ej. open house), sin uniforme.',
     est: 'Evento informal, sin uniforme.',
   },
+  otra: {
+    label: 'Otra (escríbela)',
+    corta: 'Otra',
+    nota: 'Describe la vestimenta que necesitas, p. ej. camiseta del evento y jean.',
+    est: 'Vestimenta indicada por el organizador.',
+  },
 };
+
+/** Opciones que se ofrecen al pedir: «ninguna» quedó solo para pedidos antiguos. */
+export const VESTIMENTAS_ELEGIBLES: Vestimenta[] = ['uniforme', 'formal', 'otra'];
+
+/** Textos de la vestimenta de un pedido: con «otra», la descripción del organizador. */
+export function textosVestimenta(vestimenta: Vestimenta, detalle: string): { label: string; corta: string; est: string } {
+  const v = VESTIMENTA[vestimenta] ?? VESTIMENTA.uniforme;
+  if (vestimenta === 'otra') { const d = (detalle || '').trim(); return { label: d || 'Otra', corta: v.corta, est: v.est }; }
+  return { label: v.label, corta: v.corta, est: v.est };
+}
 
 export const TIPOS_NOVEDAD = ['Mal uniformado', 'Llegó tarde', 'No asistió', 'Abandonó antes de la hora', 'Otra'];
 export const ESTADOS: Estado[] = ['Pendiente', 'Ajustes', 'Aprobado', 'Rechazado'];
@@ -898,6 +914,7 @@ export interface FormPedido {
   mismosEstudiantes: boolean;
   reparto: RepartoActividad[];
   vestimenta: Vestimenta;
+  vestimentaDetalle: string;
   acepta: boolean;
   evidenciaNombre: string;
   evidenciaPath: string;
@@ -908,7 +925,7 @@ export const DIA_INICIAL: DiaEvento = { fecha: '', inicio: '09:00', fin: '13:00'
 export const FORM_INICIAL: FormPedido = {
   nombre: '', cargo: '', institucion: '', correoSolicitante: '', tipo: 'interno', convenio: 'si',
   evento: '', dias: [{ ...DIA_INICIAL }], lugar: '', lejos: false, responsable: '', responsableTelefono: '',
-  cantidad: 4, mismosEstudiantes: true, reparto: [], vestimenta: 'uniforme', acepta: false, evidenciaNombre: '', evidenciaPath: '',
+  cantidad: 4, mismosEstudiantes: true, reparto: [], vestimenta: 'uniforme', vestimentaDetalle: '', acepta: false, evidenciaNombre: '', evidenciaPath: '',
 };
 
 /** Al menos 7 dígitos (acepta espacios, guiones, paréntesis y +). */
@@ -1017,6 +1034,7 @@ export function faltasPedido(f: FormPedido, hoy: string, cruce: { evento: string
     f.dias.forEach((d, i) => f3.push(...faltasReparto(d.reparto ?? [], cantidadDia(f, d)).map((m) => `día ${i + 1}: ${m}`)));
   } else f3.push(...faltasReparto(f.reparto, f.cantidad));
   if (!VESTIMENTA[f.vestimenta]) f3.push('vestimenta');
+  else if (f.vestimenta === 'otra' && !(f.vestimentaDetalle || '').trim()) f3.push('describe la vestimenta');
 
   const f4: string[] = [];
   if (!f.acepta) f4.push('aceptar compromisos');
