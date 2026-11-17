@@ -46,6 +46,7 @@ export function Horarios({ datos }: { datos: Datos }) {
     const p = pedidos.find((x) => x.id === a.requestId);
     const c = datos.clases.find((x) => x.id === a.classId);
     if (!p || !c) return null;
+    if (!a.sentAt && c.porUnion) return null; // clase de aula de otro paralelo que ya no se dicta (paralelos unidos): no se envía
     const cruce = { ...c, docente: docenteDe(datos, c.teacherId), semLabel: semLabel(c.semestre), aviso: a, fechas: fechasCruce(p.dias, c).map((x) => x.fecha), cuando: cruceTexto(p.dias, c) };
     const est = estudiantesDeAviso(p, c, a, datos.estudiantes);
     return { a, p, c: cruce, est, correo: correoAvisoDocente(p, cruce, est) };
