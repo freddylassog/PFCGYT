@@ -137,10 +137,11 @@ export function vistaPedido(d: Datos, p: Pedido): PedidoVista {
   const devolucionDias = d.ajustes.uniformeDiasDevolucion;
   // Si coordinación fijó una devolución especial para el evento, el plazo es ese día (o el último del periodo fijado).
   const devolucionLimite = citaEvento?.devolucionFecha ? (citaEvento.devolucionHasta || citaEvento.devolucionFecha) : limiteDevolucion(ultimoDia(p.dias)?.fecha ?? p.fecha, devolucionDias);
-  const devolucionDondeTexto = citaEvento && citaDevolucionTexto(citaEvento) ? `${citaDevolucionTexto(citaEvento)}${citaEvento.lugar ? ` · ${citaEvento.lugar}` : ''}` : horarioFijo || d.ajustes.uniformeLugar;
+  // Sin horario fijo (suspendido o aún no fijado) el horario queda «por confirmar»: coordinación avisará.
+  const devolucionDondeTexto = citaEvento && citaDevolucionTexto(citaEvento) ? `${citaDevolucionTexto(citaEvento)}${citaEvento.lugar ? ` · ${citaEvento.lugar}` : ''}` : horarioFijo || [d.ajustes.uniformeLugar, 'horario por confirmar'].filter(Boolean).join(' · ');
   const uniformeAvisoTexto = p.vestimenta !== 'uniforme' ? null
     : citaEvento ? [citaEntregaTexto(citaEvento) ? `entrega ${citaEntregaTexto(citaEvento)}` : '', citaDevolucionTexto(citaEvento) ? `devolución (lavado) ${citaDevolucionTexto(citaEvento)}` : `devuélvelo lavado hasta el ${fechaLarga(devolucionLimite)}`, citaEvento.lugar].filter(Boolean).join(' · ')
-    : horarioFijo ? `retíralo antes del evento y devuélvelo lavado hasta el ${fechaLarga(devolucionLimite)} (${devolucionDias} días después), en ${horarioFijo}` : `devuélvelo lavado hasta el ${fechaLarga(devolucionLimite)}`;
+    : horarioFijo ? `retíralo antes del evento y devuélvelo lavado hasta el ${fechaLarga(devolucionLimite)} (${devolucionDias} días después), en ${horarioFijo}` : `devuélvelo lavado hasta el ${fechaLarga(devolucionLimite)}; el horario de retiro y devolución está por confirmar, coordinación te avisará`;
   const v = textosVestimenta(p.vestimenta, p.vestimentaDetalle);
   const tm = transporteMotivoDias(p);
   const p4 = pasa4hDias(p.dias);

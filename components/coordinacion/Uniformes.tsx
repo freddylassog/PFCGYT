@@ -64,7 +64,7 @@ export function Uniformes({ datos, pedidos }: { datos: Datos; pedidos: PedidoVis
           <h6 className="m-0" style={{ display: 'inline' }}>Horario fijo del periodo {datos.ajustes.periodo}: </h6>
           {datos.ajustes.uniformeHorario.length
             ? <span><strong>{horarioUniformeTexto(datos.ajustes.uniformeHorario)}</strong>{datos.ajustes.uniformeLugar ? ` · ${datos.ajustes.uniformeLugar}` : ''} · se retira antes del evento y se devuelve lavado dentro de los {datos.ajustes.uniformeDiasDevolucion} días siguientes.</span>
-            : <span className="falta">sin horario fijo. Fíjalo en Resumen → Ajustes o cada evento necesitará su propia entrega y devolución.</span>}
+            : <span><strong>por confirmar.</strong> <span className="muted">Los estudiantes ven «horario por confirmar». Cuando tengas los nuevos horarios, fíjalos en Resumen → Ajustes; mientras tanto puedes fijar entrega y devolución por evento en cada tarjeta.</span></span>}
           <div className="muted fs-12 mt-2"><strong>Fuera de bodega:</strong> {fuera.length ? fuera.map((x) => `${x.item} ${x.n}`).join(' · ') : 'ninguna prenda; todo en bodega'}. Se marcan solo las prendas que cada uno se lleva (puede usar prendas propias); al marcar «Recibido lavado» vuelven a bodega.</div>
         </div>
         <a className="btn btn-ghost btn-sm" href="/coordinacion?tab=resumen">Cambiar en Ajustes</a>

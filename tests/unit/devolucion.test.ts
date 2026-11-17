@@ -46,6 +46,10 @@ test('vista: pendientes y vencidos por evento, resumen por estudiante y textos',
   assert.equal(estadoDevolucionDe(p, 's2', d.hoy).clave, 'vencido');
   assert.deepEqual(pendientesDevolucion(p, d.hoy).map((x) => x.e.id), ['s2']);
   assert.match(p.uniformeAvisoTexto!, /devuélvelo lavado hasta el viernes 18 sep 2026 \(7 días después\), en lunes 11:00–13:00 \(Estudiantes de apoyo\) · Oficina de protocolo/);
+  // Horario fijo suspendido: los textos dicen «por confirmar»
+  const sinHorario = vistaPedido({ ...d, ajustes: { ...d.ajustes, uniformeHorario: [] } }, d.pedidos[0]);
+  assert.match(sinHorario.uniformeAvisoTexto!, /devuélvelo lavado hasta el viernes 18 sep 2026; el horario de retiro y devolución está por confirmar/);
+  assert.equal(sinHorario.devolucionDondeTexto, 'Oficina de protocolo · horario por confirmar');
   assert.equal(p.devolucionDondeTexto, 'lunes 11:00–13:00 (Estudiantes de apoyo) · Oficina de protocolo');
   const u = vistaUniformes(d);
   assert.equal(u.find((x) => x.id === 's1')!.devLabel, 'Al día');
