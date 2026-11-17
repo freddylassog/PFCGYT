@@ -1,6 +1,9 @@
 'use client';
 import { useState } from 'react';
-import { mailtoUrl, outlookWebUrl, type Correo } from '@/lib/correos';
+import { FORMAS_OUTLOOK, mailtoUrl, outlookWebUrl, type Correo, type FormaOutlook } from '@/lib/correos';
+import { usePreferencia } from './usePreferencia';
+
+const CLAVES_FORMA = FORMAS_OUTLOOK.map((f) => f.clave);
 import { IconoCopiar, IconoCorreo } from './Iconos';
 
 const AVISO_COPIADO = 'Texto del correo copiado. Si Outlook te pide escoger la cuenta y abre sin el correo, vuelve aquí y pulsa el botón otra vez (con la sesión ya abierta sí lo llena), o crea un correo nuevo y pega con Ctrl+V.';
@@ -9,12 +12,13 @@ const AVISO_COPIADO = 'Texto del correo copiado. Si Outlook te pide escoger la c
  *  porque si Microsoft pide escoger la cuenta, Outlook pierde el borrador y abre vacío. */
 export function AbrirCorreo({ correo, compacto = false }: { correo: Correo; compacto?: boolean }) {
   const [aviso, setAviso] = useState(false);
+  const [forma] = usePreferencia<FormaOutlook>('pf_outlook', 'office', CLAVES_FORMA);
   const copiarAlAbrir = () => {
     try {
       navigator.clipboard.writeText(correo.cuerpo).then(() => { setAviso(true); setTimeout(() => setAviso(false), 12000); }).catch(() => {});
     } catch { /* sin portapapeles: el enlace igual se abre */ }
   };
-  const web = <a key="web" className="btn btn-secondary btn-sm" href={outlookWebUrl(correo)} target="_blank" rel="noreferrer" onClick={copiarAlAbrir} title="Redactar en outlook.office.com con la cuenta institucional del navegador">Outlook web</a>;
+  const web = <a key="web" className="btn btn-secondary btn-sm" href={outlookWebUrl(correo, forma)} target="_blank" rel="noreferrer" onClick={copiarAlAbrir} title="Redactar en outlook.office.com con la cuenta institucional del navegador">Outlook web</a>;
   const programa = compacto
     ? <a key="programa" className="btn btn-ghost btn-sm" href={mailtoUrl(correo)} onClick={copiarAlAbrir} title="Abrir en el programa de correo del equipo">Abrir correo</a>
     : <a key="programa" className="btn btn-primary btn-sm" href={mailtoUrl(correo)} onClick={copiarAlAbrir}><IconoCorreo /> Abrir en Outlook</a>;
@@ -33,6 +37,7 @@ export function CorreoBox({
 }: { correo: Correo; titulo: string; abierto?: boolean; extra?: React.ReactNode; nota?: string }) {
   const [ver, setVer] = useState(abierto);
   const [copiado, setCopiado] = useState<string | null>(null);
+  const [forma, elegirForma] = usePreferencia<FormaOutlook>('pf_outlook', 'office', CLAVES_FORMA);
 
   async function copiar(texto: string, que: string) {
     try {
@@ -72,7 +77,19 @@ export function CorreoBox({
         {extra}
       </div>
       {sinDestino && <p className="muted fs-12 m-0">Sin destinatario configurado: agrega el correo en Outlook antes de enviar.</p>}
-      <p className="muted fs-12 m-0">Si Outlook te pide escoger la cuenta y abre sin el correo, pulsa el botón otra vez con la sesión ya abierta, o arma el correo con «Copiar destinatario», «Copiar asunto» y «Copiar texto».</p>
+      <details className="fs-12">
+        <summary style={{ cursor: 'pointer' }}>¿Outlook pide escoger la cuenta y abre sin el correo? Prueba otra forma</summary>
+        <div className="stack-2 mt-2">
+          <p className="muted m-0">Abre cada forma con este correo. Si una llega con el destinatario, el asunto y el texto, pulsa «Usar siempre esta»: desde entonces el botón «Outlook web» la usa en este navegador.</p>
+          {FORMAS_OUTLOOK.map((f) => (
+            <div key={f.clave} className="row" style={{ gap: 6, alignItems: 'center' }}>
+              <a className="btn btn-ghost btn-sm" href={outlookWebUrl(correo, f.clave)} target="_blank" rel="noreferrer">Abrir {f.label}</a>
+              {forma === f.clave ? <span className="tag tag-verde" style={{ fontSize: 10 }}>en uso</span> : <button type="button" className="btn btn-secondary btn-sm" onClick={() => elegirForma(f.clave)}>Usar siempre esta</button>}
+            </div>
+          ))}
+          <p className="muted m-0">Si ninguna llega llena: arma el correo con «Copiar destinatario», «Copiar asunto» y «Copiar texto» (al abrir Outlook el texto ya queda copiado).</p>
+        </div>
+      </details>
       {nota && <p className="muted fs-12 m-0">{nota}</p>}
     </div>
   );

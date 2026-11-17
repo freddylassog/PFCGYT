@@ -59,6 +59,9 @@ test('correo de convocatoria y mailto', () => {
   assert.match(web, /^https:\/\/outlook\.office\.com\/mail\/deeplink\/compose\?to=docente%40ute\.edu\.ec&subject=Ausencia%20justificada/);
   assert.match(web, /body=Hola%0A%0AAdi%C3%B3s/);
   assert.doesNotMatch(web, /\+/);
+  assert.match(outlookWebUrl({ para: ['d@ute.edu.ec'], asunto: 'A', cuerpo: 'B' }, 'office365'), /^https:\/\/outlook\.office365\.com\/mail\/deeplink\/compose\?to=d%40ute\.edu\.ec&subject=A&body=B$/);
+  assert.match(outlookWebUrl({ para: ['d@ute.edu.ec'], asunto: 'A', cuerpo: 'B' }, 'cuenta0'), /^https:\/\/outlook\.office\.com\/mail\/0\/deeplink\/compose\?to=d%40ute\.edu\.ec/);
+  assert.match(outlookWebUrl({ para: ['d@ute.edu.ec'], asunto: 'A', cuerpo: 'B' }, 'owa'), /^https:\/\/outlook\.office\.com\/owa\/\?path=%2Fmail%2Faction%2Fcompose&to=d%40ute\.edu\.ec&subject=A&body=B$/);
   const conCco = outlookWebUrl(c);
   assert.match(conCco, /^https:\/\/outlook\.office\.com\/mail\/deeplink\/compose\?mailtouri=mailto%3A%3Fbcc%3Dcamila\.rios%2540ute\.edu\.ec%252Candres\.molina%2540ute\.edu\.ec%26subject%3D/, 'con CCO va el mailto completo');
   assert.doesNotMatch(conCco, /\+/);

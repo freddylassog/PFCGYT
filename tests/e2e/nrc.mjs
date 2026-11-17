@@ -124,6 +124,14 @@ if (!/^Ausencia justificada en Lenguaje/.test(await p.evaluate(() => navigator.c
 await caja.locator('button:has-text("Copiar destinatario")').click();
 if ((await p.evaluate(() => navigator.clipboard.readText())) !== 'mcobo@ute.edu.ec') throw new Error('Copiar destinatario no copió el correo del docente');
 paso('al abrir Outlook se copia el texto; destinatario y asunto se copian por separado');
+// Otra forma de Outlook: «Usar siempre esta» cambia el enlace del botón «Outlook web» (se recuerda en el navegador)
+await caja.locator('summary:has-text("Prueba otra forma")').click();
+await caja.locator('div:has(> a:has-text("Forma 2")) button:has-text("Usar siempre esta")').click();
+await caja.locator('div:has(> a:has-text("Forma 2")) .tag:has-text("en uso")').waitFor({ timeout: 10000 });
+const hrefForma2 = await p.locator('aside .punteado:has(h6:has-text("Cruce con clases")) a:has-text("Outlook web")').first().getAttribute('href');
+if (!/^https:\/\/outlook\.office365\.com\/mail\/deeplink\/compose\?to=mcobo%40ute\.edu\.ec/.test(hrefForma2 || '')) throw new Error('el botón Outlook web no usa la forma elegida: ' + hrefForma2);
+await caja.locator('div:has(> a:has-text("Forma 1")) button:has-text("Usar siempre esta")').click();
+paso('«Usar siempre esta» cambia la forma de abrir Outlook web y se puede volver a la 1');
 await p.screenshot({ path: shots + '/nrc-cruce.png', fullPage: false, caret: 'initial' });
 // El aviso al docente preparado lleva solo a Andrés
 await p.goto(base + '/horarios');

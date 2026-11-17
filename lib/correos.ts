@@ -26,12 +26,27 @@ export function mailtoUrl(c: Correo): string {
 /** Redacción en Outlook web (la cuenta institucional abierta en el navegador), independiente del programa
  *  de correo del equipo. Sin CCO van los campos directos (to, subject, body); con CCO va el mailto completo en
  *  `mailtouri`, el parámetro con que Outlook web recibe los enlaces mailto del navegador (incluye la copia oculta). */
-export function outlookWebUrl(c: Correo): string {
-  const q = c.cco?.length
-    ? `mailtouri=${encodeURIComponent(mailtoUrl(c))}`
-    : new URLSearchParams({ to: c.para.join(';'), subject: c.asunto, body: c.cuerpo, online: '1' }).toString().replace(/\+/g, '%20');
-  return `https://outlook.office.com/mail/deeplink/compose?${q}`;
+export function outlookWebUrl(c: Correo, forma: FormaOutlook = 'office'): string {
+  const campos = (extra: Record<string, string> = {}) => new URLSearchParams({ ...extra, to: c.para.join(';'), subject: c.asunto, body: c.cuerpo }).toString().replace(/\+/g, '%20');
+  const conCco = !!c.cco?.length;
+  const mailtouri = `mailtouri=${encodeURIComponent(mailtoUrl(c))}`;
+  switch (forma) {
+    case 'office365': return `https://outlook.office365.com/mail/deeplink/compose?${conCco ? mailtouri : campos()}`;
+    case 'cuenta0': return `https://outlook.office.com/mail/0/deeplink/compose?${conCco ? mailtouri : campos()}`;
+    case 'owa': return conCco ? `https://outlook.office.com/mail/deeplink/compose?${mailtouri}` : `https://outlook.office.com/owa/?${campos({ path: '/mail/action/compose' })}`;
+    default: return `https://outlook.office.com/mail/deeplink/compose?${conCco ? mailtouri : campos({ online: '1' }).replace(/^online=1&(.*)$/, '$1&online=1')}`;
+  }
 }
+
+/** Formas de abrir la redacción en Outlook web: si con una Microsoft pide escoger la cuenta y el borrador se pierde,
+ *  otra puede llegar llena (cada navegador recuerda la que funcionó). */
+export type FormaOutlook = 'office' | 'office365' | 'cuenta0' | 'owa';
+export const FORMAS_OUTLOOK: { clave: FormaOutlook; label: string }[] = [
+  { clave: 'office', label: 'Forma 1 (outlook.office.com)' },
+  { clave: 'office365', label: 'Forma 2 (outlook.office365.com)' },
+  { clave: 'cuenta0', label: 'Forma 3 (primera cuenta)' },
+  { clave: 'owa', label: 'Forma 4 (Outlook clásico web)' },
+];
 
 export function textoCorreo(c: Correo): string {
   const lineas = [`Para: ${c.para.join(', ') || '—'}`];
