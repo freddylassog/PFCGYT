@@ -7,8 +7,9 @@ const base = process.env.BASE_URL || 'http://localhost:3000';
 const shots = process.env.SHOTS || '/tmp/claude-0/-home-user-PFCGYT/5a10c32a-d366-574f-b48c-ac6051283a90/scratchpad/shots';
 const fx = new URL('../fixtures/', import.meta.url).pathname;
 const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
-const ctx = await b.newContext({ viewport: { width: 1280, height: 900 } });
+const ctx = await b.newContext({ viewport: { width: 1280, height: 900 }, permissions: ['clipboard-read', 'clipboard-write'] });
 const p = await ctx.newPage();
+ctx.on('page', (nueva) => { if (nueva !== p) nueva.close().catch(() => {}); }); // Outlook web se abre en otra pestaña: aquí se cierra
 const errores = [];
 p.on('pageerror', (e) => errores.push('PAGEERROR ' + e.message));
 p.on('console', (m) => { if (m.type() === 'error') errores.push('CONSOLE ' + m.text()); });
@@ -113,6 +114,16 @@ const hrefWeb = await caja.locator('a:has-text("Outlook web")').getAttribute('hr
 if (!/^https:\/\/outlook\.office\.com\/mail\/deeplink\/compose\?to=mcobo%40ute\.edu\.ec&subject=Ausencia%20justificada/.test(hrefWeb || '')) throw new Error('enlace a Outlook web: ' + hrefWeb);
 if ((await caja.locator('button:has-text("Copiar texto")').count()) !== 1) throw new Error('falta Copiar texto');
 paso('correo al docente visible con Outlook web y Copiar texto');
+// Al pulsar Outlook web también se copia el texto (si Microsoft pide escoger cuenta, Outlook abre vacío y se pega)
+await p.locator('aside .punteado:has(h6:has-text("Cruce con clases")) a:has-text("Outlook web")').first().click();
+await p.waitForSelector('aside [role=status]:has-text("Texto del correo copiado")', { timeout: 10000 });
+const portapapeles = await p.evaluate(() => navigator.clipboard.readText());
+if (!/^Estimado\/a docente:/.test(portapapeles) || !/Andrés Molina/.test(portapapeles)) throw new Error('al abrir Outlook web no se copió el texto del correo: ' + portapapeles.slice(0, 120));
+await caja.locator('button:has-text("Copiar asunto")').click();
+if (!/^Ausencia justificada en Lenguaje/.test(await p.evaluate(() => navigator.clipboard.readText()))) throw new Error('Copiar asunto no copió el asunto');
+await caja.locator('button:has-text("Copiar destinatario")').click();
+if ((await p.evaluate(() => navigator.clipboard.readText())) !== 'mcobo@ute.edu.ec') throw new Error('Copiar destinatario no copió el correo del docente');
+paso('al abrir Outlook se copia el texto; destinatario y asunto se copian por separado');
 await p.screenshot({ path: shots + '/nrc-cruce.png', fullPage: false, caret: 'initial' });
 // El aviso al docente preparado lleva solo a Andrés
 await p.goto(base + '/horarios');
