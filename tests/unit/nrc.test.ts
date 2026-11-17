@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { candidatosPorNombre, claveNombreEstudiante, semestreDeHoja, coincideNombre, esFormatoNrc, formatearNombreNrc, generoPorNombre, parseEstudiantesNrc, parseHorariosAncho, tituloNombre } from '../../lib/importar';
-import { claseAplica, claveDocente, cruceClases, cruceTexto, diagnosticoCruce, estudiantesAfectados, fechasCruce } from '../../lib/reglas';
+import { aplicarUnionParalelos, claseAplica, claveDocente, cruceClases, cruceTexto, diagnosticoCruce, estudiantesAfectados, fechasCruce, horasMaxPorDia } from '../../lib/reglas';
 import type { Clase } from '../../lib/tipos';
 
 test('nombres del listado por materia: "NOMBRE, APELLIDO/APELLIDO I." → nombre legible', () => {
@@ -131,4 +131,36 @@ test('evento de dos días: cada estudiante cuenta solo en los días a los que va
   assert.deepEqual(fechasCruce(ev.dias, clases[1]).map((d) => d.fecha), ['2026-10-16']);
   assert.equal(cruceTexto(ev.dias, clases[0]), 'miércoles 14 oct · 07:00–11:00');
   assert.equal(cruceTexto(ev.dias, clases[1]), 'viernes 16 oct · 07:00–12:00');
+});
+
+test('paralelos unidos: aula con el horario de 1C para todos; talleres por paralelo', () => {
+  const k = (id: string, paralelo: string, dia: number, inicio: string, fin: string, materia: string, nrc: string): Clase => ({ id, semestre: 1, paralelo, dia, inicio, fin, materia, teacherId: null, nrc, activo: true });
+  const clases: Clase[] = [
+    k('matA', 'A', 1, '07:00', '09:00', 'MATEMÁTICA', '1101'), k('matC', 'C', 3, '07:00', '09:00', 'MATEMÁTICA', '3176'),
+    k('lenA', 'A', 2, '09:00', '11:00', 'LENGUAJE', '1102'), k('lenC1', 'C', 2, '07:00', '08:00', 'LENGUAJE', '3175'), k('lenC2', 'C', 4, '07:00', '09:00', 'LENGUAJE', '3175'),
+    k('tbcA', 'A', 3, '07:00', '12:00', 'TBC I', '1103'), k('tbcC', 'C1', 5, '07:00', '12:00', 'TBC I', '3180'),
+    k('solaA', 'A', 5, '14:00', '16:00', 'SOLO EN A', '1104'),
+    { ...k('mat2', 'A', 1, '07:00', '09:00', 'OTRO SEMESTRE', '2201'), semestre: 2 },
+  ];
+  assert.equal(horasMaxPorDia(clases, 1).get('TBC I'), 5);
+  assert.equal(horasMaxPorDia(clases, 1).get('MATEMATICA'), 2);
+  const u = aplicarUnionParalelos(clases, [{ semestre: 1, paralelo: 'C', horasMax: 2 }]);
+  const por = (id: string) => u.find((c) => c.id === id)!;
+  assert.deepEqual([por('matA').activo, por('matA').porUnion, por('matC').unificada, por('matC').nrcsUnidos], [false, true, true, ['1101', '3176']]);
+  assert.deepEqual([por('lenA').activo, por('lenC1').unificada, por('lenC2').unificada], [false, true, true]);
+  assert.deepEqual([por('tbcA').activo, por('tbcC').activo, !!por('tbcA').unificada], [true, true, false], 'taller (5 h en un día): sigue por paralelo');
+  assert.equal(por('solaA').activo, true, 'materia que 1C no dicta: queda igual');
+  assert.equal(por('mat2').activo, true, 'otro semestre: sin cambios');
+  assert.equal(clases[0].activo, true, 'no modifica la lista original');
+  // Un estudiante de 1A (NRC de 1A) recibe Matemática de 1C (miércoles) y su taller de 1A (miércoles 07–12), no la Matemática de 1A (lunes)
+  const deA = { semestre: 1, paralelo: 'A', nrcs: ['1101', '1102', '1103'] };
+  assert.equal(claseAplica(por('matC'), deA), true);
+  assert.equal(claseAplica(por('tbcC'), deA), false, 'el taller de C no es suyo');
+  const mie = { dias: [{ fecha: '2026-10-14', inicio: '07:00', fin: '10:00' }] };
+  assert.deepEqual(cruceClases(mie, u, [deA]).map((c) => c.id), ['tbcA', 'matC'], 'ordenadas por paralelo');
+  assert.deepEqual(cruceClases({ dias: [{ fecha: '2026-10-12', inicio: '07:00', fin: '09:00' }] }, u, [deA]).map((c) => c.id), [], 'lunes: Matemática de 1A ya no se dicta');
+  assert.equal(diagnosticoCruce(mie, u, deA).nrcsSinHorario.length, 0, 'sus NRC de aula de 1A cuentan por la unión');
+  // Sin NRC: por semestre
+  assert.equal(claseAplica(por('matC'), { semestre: 1, paralelo: 'B', nrcs: [] }), true);
+  assert.equal(claseAplica(por('matC'), { semestre: 2, paralelo: 'B', nrcs: [] }), false);
 });

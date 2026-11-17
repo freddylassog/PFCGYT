@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { eliminarClase, guardarClase, guardarDocente, importarDocentes, importarHorarios, marcarAviso } from '@/app/actions/coordinacion';
+import { eliminarClase, guardarAjustes, guardarClase, guardarDocente, importarDocentes, importarHorarios, marcarAviso } from '@/app/actions/coordinacion';
 import { CorreoBox } from '@/components/CorreoBox';
 import { Marco } from '@/components/Marco';
 import { useAccion } from '@/components/useAccion';
@@ -25,8 +25,16 @@ export function Horarios({ datos }: { datos: Datos }) {
   // Estudiantes activos matriculados en cada NRC (del listado por materia): 0 delata un NRC que no coincide entre horario y listado.
   const activos = datos.estudiantes.filter((e) => e.activo);
   const hayNrc = activos.some((e) => e.nrcs.length > 0);
-  const matriculados = (nrc: string | null) => (nrc ? activos.filter((e) => e.nrcs.includes(nrc)).length : 0);
-  const sinMatriculados = hayNrc ? clases.filter((c) => c.nrc && !matriculados(c.nrc)) : [];
+  // Una clase unida (materia de aula de paralelos unidos) cuenta a quien tenga el NRC de esa materia en cualquier paralelo.
+  const nrcsDe = (c: { nrc: string | null; nrcsUnidos?: string[] }) => [...new Set([...(c.nrcsUnidos ?? []), ...(c.nrc ? [c.nrc] : [])])];
+  const matriculados = (c: { nrc: string | null; nrcsUnidos?: string[] }) => { const ns = nrcsDe(c); return ns.length ? activos.filter((e) => ns.some((n) => e.nrcs.includes(n))).length : 0; };
+  const sinMatriculados = hayNrc ? clases.filter((c) => c.nrc && !matriculados(c)) : [];
+  // Paralelos unidos (Horarios → Paralelos unidos): materias de aula con el horario de un paralelo para todos.
+  const [unionForm, setUnionForm] = useState(() => datos.ajustes.unionParalelos.map((u) => ({ ...u })));
+  const [unionMsg, setUnionMsg] = useState<string | null>(null);
+  const unionSem = datos.ajustes.unionParalelos.find((u) => u.semestre === sem);
+  const sinEfecto = datos.clases.filter((c) => c.porUnion && c.semestre === sem);
+  const materiasSinEfecto = [...new Set(sinEfecto.map((c) => c.materia))];
 
   function subir(clave: 'horarios' | 'docentes', archivo: File) {
     const fd = new FormData(); fd.set('archivo', archivo);
@@ -88,6 +96,28 @@ export function Horarios({ datos }: { datos: Datos }) {
           </div>
         </Marco>
       )}
+      <Marco as="form" className="p-4 mt-4 stack-3" onSubmit={(e: React.FormEvent) => { e.preventDefault(); setUnionMsg(null); run(() => guardarAjustes({ unionParalelos: unionForm }), () => setUnionMsg('Guardado.')); }}>
+        <h6 className="h6-accent">Paralelos unidos</h6>
+        <p className="muted fs-13 m-0">Cuando un semestre se une en un solo paralelo para las materias de aula, sus clases se toman del paralelo de referencia para todos los estudiantes del semestre. Los talleres prácticos (más horas de clase en un mismo día que el límite) siguen con el horario de cada paralelo.</p>
+        {unionForm.length === 0 && <p className="muted fs-12 m-0">Ningún semestre unido.</p>}
+        {unionForm.map((u, i) => (
+          <div key={i} className="row" style={{ gap: 6, alignItems: 'center' }}>
+            <label className="fs-13" htmlFor={`un-sem-${i}`}>Semestre</label>
+            <select id={`un-sem-${i}`} className="input" style={{ width: 'auto' }} value={u.semestre} onChange={(e) => setUnionForm(unionForm.map((x, j) => (j === i ? { ...x, semestre: Number(e.target.value) } : x)))}>{SEMESTRES.map((n) => <option key={n} value={n}>{n}.º</option>)}</select>
+            <label className="fs-13" htmlFor={`un-par-${i}`}>con el horario del paralelo</label>
+            <input id={`un-par-${i}`} className="input" style={{ width: 70 }} value={u.paralelo} onChange={(e) => setUnionForm(unionForm.map((x, j) => (j === i ? { ...x, paralelo: e.target.value.toUpperCase() } : x)))} placeholder="C" />
+            <label className="fs-13" htmlFor={`un-h-${i}`}>· talleres: más de</label>
+            <input id={`un-h-${i}`} className="input" type="number" min={1} max={12} style={{ width: 70 }} value={u.horasMax} onChange={(e) => setUnionForm(unionForm.map((x, j) => (j === i ? { ...x, horasMax: Number(e.target.value) } : x)))} />
+            <span className="fs-13">h por día</span>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setUnionForm(unionForm.filter((_, j) => j !== i))}>Quitar</button>
+          </div>
+        ))}
+        <div className="row">
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => setUnionForm([...unionForm, { semestre: 1, paralelo: 'C', horasMax: 2 }])}>Agregar unión</button>
+          <button className="btn btn-primary btn-sm" type="submit">Guardar</button>
+          {unionMsg && <span className="muted fs-12">{unionMsg}</span>}
+        </div>
+      </Marco>
       {verDoc && (
         <Marco as="form" className="p-4 mt-3 stack-3" onSubmit={(e: React.FormEvent) => { e.preventDefault(); run(() => guardarDocente({ ...doc, id: doc.id || undefined, activo: true }), () => { setVerDoc(false); setDoc({ id: '', nombre: '', correo: '' }); }); }}>
           <h6 className="h6-accent">{doc.id ? 'Editar docente' : 'Nuevo docente'}</h6>
@@ -108,13 +138,14 @@ export function Horarios({ datos }: { datos: Datos }) {
               const d = docenteDe(datos, c.teacherId);
               return (
                 <tr key={c.id}>
-                  <td>{DIAS_CLASE[c.dia]}</td><td className="nowrap">{c.inicio}–{c.fin}</td><td>{c.materia}</td><td className="muted fs-13">{c.nrc ?? '—'}</td><td className="fs-13">{!c.nrc || !hayNrc ? <span className="muted">—</span> : matriculados(c.nrc) || <span className="tag tag-outline" title="Ningún estudiante activo tiene este NRC: no se cruzará con nadie">0</span>}</td><td>{c.paralelo ?? '—'}</td><td>{d?.nombre ?? '—'}</td><td className="muted fs-13">{d?.correo ?? <span className="tag tag-outline">sin correo</span>}</td>
+                  <td>{DIAS_CLASE[c.dia]}</td><td className="nowrap">{c.inicio}–{c.fin}</td><td>{c.materia}</td><td className="muted fs-13">{c.nrc ?? '—'}</td><td className="fs-13">{!c.nrc || !hayNrc ? <span className="muted">—</span> : matriculados(c) || <span className="tag tag-outline" title="Ningún estudiante activo tiene este NRC: no se cruzará con nadie">0</span>}</td><td>{c.paralelo ?? '—'}{c.unificada && <> <span className="tag tag-verde" style={{ fontSize: 10 }} title={`Materia de aula: la reciben todos los paralelos de ${c.semestre}.º (NRC ${(c.nrcsUnidos ?? []).join(', ')})`}>todos</span></>}</td><td>{d?.nombre ?? '—'}</td><td className="muted fs-13">{d?.correo ?? <span className="tag tag-outline">sin correo</span>}</td>
                   <td className="nowrap"><button type="button" className="btn btn-ghost btn-sm" onClick={() => { setClase({ id: c.id, semestre: c.semestre, paralelo: c.paralelo ?? '', dia: c.dia, inicio: c.inicio, fin: c.fin, materia: c.materia, nrc: c.nrc ?? '', teacherId: c.teacherId ?? '', activo: true }); setVerClase(true); }}>Editar</button><button type="button" className="btn btn-ghost btn-sm" onClick={() => { if (confirm(`¿Eliminar ${c.materia} (${DIAS_CLASE[c.dia]} ${c.inicio})?`)) run(() => eliminarClase(c.id)); }}>Quitar</button></td>
                 </tr>
               );
             })}
           </tbody>
         </table>
+        {unionSem && <p className="fs-12 mt-2 m-0"><span className="tag tag-verde" style={{ fontSize: 10 }}>todos</span> {sem}.º semestre unido: las materias de aula (hasta {unionSem.horasMax} h de clase por día) usan el horario de {sem}{unionSem.paralelo} para todos los paralelos; los talleres siguen por paralelo.{materiasSinEfecto.length ? ` Sin efecto ${sinEfecto.length} clase(s) de aula de otros paralelos: ${materiasSinEfecto.join(', ')}.` : ''}</p>}
         {sinMatriculados.length > 0 && <p className="muted fs-12 mt-2 m-0">{sinMatriculados.length} clase(s) de {sem}.º sin estudiantes matriculados: su NRC no aparece en el listado por materia cargado, así que no se cruzarán con nadie. Revisa la columna NRC del horario ({sinMatriculados.map((c) => c.nrc).join(', ')}) o vuelve a subir el listado por materia de {sem}.º.</p>}
       </Marco>
 

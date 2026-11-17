@@ -1,7 +1,7 @@
 // Reglas de negocio y formato. Solo funciones puras: se usan igual en el
 // navegador y en el servidor (validaciones, reporte, correos).
 import type {
-  CitaUniforme, Clase, DiaEvento, Estado, EstadoDevolucion as EstadoDevolucionRegistro, FranjaUniforme, Genero, RepartoActividad, Semestre, Vestimenta,
+  CitaUniforme, Clase, DiaEvento, Estado, EstadoDevolucion as EstadoDevolucionRegistro, FranjaUniforme, Genero, RepartoActividad, Semestre, Vestimenta, UnionParalelos,
 } from './tipos';
 
 export const ZONA_HORARIA = 'America/Guayaquil';
@@ -741,7 +741,12 @@ export function normalizarParalelo(p: string | null | undefined): string {
 
 /** ¿La clase aplica a este estudiante? Mismo semestre y, si ambos tienen
  *  paralelo, el mismo paralelo. Sin paralelo en alguno de los dos = aplica. */
-export function claseAplica(c: { semestre: number; paralelo: string | null; nrc?: string | null }, e: { semestre: number; paralelo: string | null; nrcs?: string[] }): boolean {
+export function claseAplica(c: { semestre: number; paralelo: string | null; nrc?: string | null; unificada?: boolean; nrcsUnidos?: string[] }, e: { semestre: number; paralelo: string | null; nrcs?: string[] }): boolean {
+  // Materia de aula con paralelos unidos: la recibe quien cursa esa materia en cualquier paralelo (o, sin NRC, todo el semestre).
+  if (c.unificada) {
+    if (e.nrcs && e.nrcs.length) return [...(c.nrcsUnidos ?? []), ...(c.nrc ? [c.nrc] : [])].some((n) => e.nrcs!.includes(n));
+    return c.semestre === e.semestre;
+  }
   // Con matrícula por NRC (listado por materia) la clase aplica solo si el estudiante cursa ese NRC.
   if (c.nrc && e.nrcs && e.nrcs.length) return e.nrcs.includes(c.nrc);
   if (c.semestre !== e.semestre) return false;
@@ -808,7 +813,7 @@ export function diagnosticoCruce(e: { dias: DiaEvento[] }, clases: Clase[], st: 
   const dias = ordenarDias(st.dias?.length ? st.dias : e.dias).filter((d) => !!d.fecha && !!d.inicio && !!d.fin);
   const cruzan = mias.filter((c) => fechasCruce(dias, c).length > 0);
   const nrcs = st.nrcs ?? [];
-  const nrcsSinHorario = nrcs.filter((n) => !activas.some((c) => c.nrc === n));
+  const nrcsSinHorario = nrcs.filter((n) => !activas.some((c) => c.nrc === n || !!c.nrcsUnidos?.includes(n)));
   let motivo: string | null = null;
   if (!cruzan.length) {
     const sem = semLabel(st.semestre);
@@ -825,6 +830,46 @@ export function diagnosticoCruce(e: { dias: DiaEvento[] }, clases: Clase[], st: 
     }
   }
   return { clases: mias, cruzan, nrcsSinHorario, motivo };
+}
+
+/** Horas máximas de clase en un mismo día de cada materia de un semestre (sumando sus bloques del día, en cualquier paralelo). */
+export function horasMaxPorDia(clases: Clase[], semestre: number): Map<string, number> {
+  const porGrupoDia = new Map<string, number>();
+  for (const c of clases) {
+    if (!c.activo || c.semestre !== semestre) continue;
+    const k = `${claveNombre(c.materia)}|${normalizarParalelo(c.paralelo)}|${c.dia}`;
+    porGrupoDia.set(k, (porGrupoDia.get(k) ?? 0) + Math.max(0, min(c.fin) - min(c.inicio)));
+  }
+  const res = new Map<string, number>();
+  for (const [k, m] of porGrupoDia) { const mat = k.split('|')[0]; res.set(mat, Math.max(res.get(mat) ?? 0, m / 60)); }
+  return res;
+}
+
+/** Aplica las uniones de paralelos: en cada semestre unido, las materias de aula (≤ horasMax por día) quedan solo con
+ *  las clases del paralelo de referencia, que reciben todos (por cualquier NRC de esa materia); las de otros paralelos
+ *  quedan sin efecto (`porUnion`). Los talleres y las materias sin clases en el paralelo de referencia no cambian. */
+export function aplicarUnionParalelos(clases: Clase[], uniones: UnionParalelos[]): Clase[] {
+  if (!uniones.length) return clases;
+  const res = clases.map((c) => ({ ...c }));
+  for (const u of uniones) {
+    const ref = normalizarParalelo(u.paralelo);
+    if (!ref) continue;
+    const horas = horasMaxPorDia(res, u.semestre);
+    const delSem = res.filter((c) => c.activo && c.semestre === u.semestre);
+    const materias = new Set(delSem.map((c) => claveNombre(c.materia)));
+    for (const m of materias) {
+      if ((horas.get(m) ?? 0) > u.horasMax) continue; // taller práctico: sigue por paralelo
+      const deMateria = delSem.filter((c) => claveNombre(c.materia) === m);
+      const deRef = deMateria.filter((c) => normalizarParalelo(c.paralelo) === ref);
+      if (!deRef.length) continue; // el paralelo de referencia no dicta esa materia: se deja como está
+      const nrcs = [...new Set(deMateria.map((c) => c.nrc).filter((n): n is string => !!n))];
+      for (const c of deMateria) {
+        if (deRef.includes(c)) { c.unificada = true; c.nrcsUnidos = nrcs; }
+        else { c.activo = false; c.porUnion = true; }
+      }
+    }
+  }
+  return res;
 }
 
 /** Como claveNombre pero sin importar el orden de las palabras (APELLIDOS NOMBRES o NOMBRES APELLIDOS). */

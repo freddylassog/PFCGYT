@@ -130,6 +130,20 @@ export interface Clase {
   /** Código de la materia-paralelo en el sistema de la universidad (NRC); vacío si la clase se agregó a mano. */
   nrc: string | null;
   activo: boolean;
+  /** Materia de aula de un semestre con paralelos unidos: esta clase (del paralelo de referencia) la reciben todos. */
+  unificada?: boolean;
+  /** NRC de esa materia en todos los paralelos del semestre: quien tenga cualquiera de ellos recibe esta clase. */
+  nrcsUnidos?: string[];
+  /** Clase de aula de otro paralelo que dejó de dictarse por la unión (no cuenta en el cruce). */
+  porUnion?: boolean;
+}
+
+/** En un semestre, las materias de aula (hasta `horasMax` horas de clase por día) usan el horario del paralelo de
+ *  referencia para todos; las que tienen más horas en un día (talleres prácticos) siguen por paralelo. */
+export interface UnionParalelos {
+  semestre: number;
+  paralelo: string;
+  horasMax: number;
 }
 
 export interface MateriaNota {
@@ -238,6 +252,8 @@ export interface Ajustes {
   uniformeDiasDevolucion: number;
   /** Solicitantes internos frecuentes (se editan en Ajustes). */
   solicitantesInternos: SolicitanteInterno[];
+  /** Semestres con paralelos unidos para las materias de aula (se editan en Horarios). */
+  unionParalelos: UnionParalelos[];
 }
 
 /** Todo lo que necesita el panel de coordinación, cargado en una sola pasada. */

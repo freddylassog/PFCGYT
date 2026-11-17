@@ -14,7 +14,7 @@ import { coincideNombre, esFormatoNrc, generoPorNombre, leerHojas, leerTabla, pa
 import { borrarEvidencia, evidenciaExiste, prepararSubida } from '@/lib/storage';
 import { ACTIVIDADES, cantidadDia, claveDocente, correoValido, cruceClases, diasEstudiante, diasLlenos, esFechaISO, estudiantesAfectados, faltasCantidadesDias, faltasCitaUniforme, faltasDias, faltasHorarioUniforme, faltasReparto, genClave, hoyISO, MAX_ESTUDIANTES, nombrarDias, normalizarCorreo, normalizarParalelo, ordenarDias, telefonoValido, TIPOS_NOVEDAD, UNIFORME, unirRepartos, VESTIMENTA } from '@/lib/reglas';
 import { iniciarSesionCoordinacion, passwordCoordinacionOk, sesionCoordinacion } from '@/lib/sesion';
-import type { CitaUniforme, DiaEvento, Estado, FranjaUniforme, RepartoActividad, Resultado, Semestre, SolicitanteInterno } from '@/lib/tipos';
+import type { CitaUniforme, DiaEvento, Estado, FranjaUniforme, RepartoActividad, Resultado, Semestre, SolicitanteInterno, UnionParalelos } from '@/lib/tipos';
 
 async function exigir(): Promise<void> {
   if (!(await sesionCoordinacion())) throw new Error('No autorizado. Vuelve a iniciar sesión.');
@@ -481,7 +481,7 @@ export async function fijarDevolucion(requestId: string, studentId: string, esta
 
 // ---------------------------------------------------------------- ajustes
 
-export async function guardarAjustes(a: { horasSemana?: number; inicioSemestre?: string; correoDecanato?: string; correoGrupoEstudiantes?: string; correoCoordinacion?: string; uniformeLugar?: string; anticipacionHoras?: number; anticipacionHasta?: string; uniformeHorario?: FranjaUniforme[]; uniformeDiasDevolucion?: number; solicitantesInternos?: SolicitanteInterno[] }): Promise<Resultado> {
+export async function guardarAjustes(a: { horasSemana?: number; inicioSemestre?: string; correoDecanato?: string; correoGrupoEstudiantes?: string; correoCoordinacion?: string; uniformeLugar?: string; anticipacionHoras?: number; anticipacionHasta?: string; uniformeHorario?: FranjaUniforme[]; uniformeDiasDevolucion?: number; solicitantesInternos?: SolicitanteInterno[]; unionParalelos?: UnionParalelos[] }): Promise<Resultado> {
   try {
     await exigir();
     const sql = db();
@@ -503,6 +503,13 @@ export async function guardarAjustes(a: { horasSemana?: number; inicioSemestre?:
     if (a.anticipacionHasta != null) {
       if (a.anticipacionHasta && !esFechaISO(a.anticipacionHasta)) throw new Error('Fecha límite de la anticipación inválida');
       await sql`update settings set anticipacion_hasta = ${a.anticipacionHasta || null} where periodo = ${periodo}`;
+    }
+    if (a.unionParalelos != null) {
+      const lista: UnionParalelos[] = (Array.isArray(a.unionParalelos) ? a.unionParalelos : []).map((u) => ({ semestre: Math.round(Number(u.semestre)), paralelo: String(u.paralelo ?? '').trim().toUpperCase().slice(0, 8), horasMax: Number(u.horasMax) }));
+      const mala = lista.find((u) => !(u.semestre >= 1 && u.semestre <= 3) || !u.paralelo || !(u.horasMax > 0 && u.horasMax <= 12));
+      if (mala) throw new Error('Cada unión necesita semestre (1 a 3), paralelo de referencia y horas máximas por día (1 a 12).');
+      if (new Set(lista.map((u) => u.semestre)).size !== lista.length) throw new Error('Solo una unión por semestre.');
+      await sql`update settings set union_paralelos = ${sql.json(lista as unknown as JSONValue)} where periodo = ${periodo}`;
     }
     if (a.solicitantesInternos != null) {
       const lista: SolicitanteInterno[] = (Array.isArray(a.solicitantesInternos) ? a.solicitantesInternos : []).map((x) => ({ nombre: String(x.nombre ?? '').trim().slice(0, 120), correo: normalizarCorreo(String(x.correo ?? '')), cargo: String(x.cargo ?? '').trim().slice(0, 120), sinAnticipacion: x.sinAnticipacion === true })).filter((x) => x.nombre || x.correo);

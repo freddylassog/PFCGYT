@@ -4,7 +4,7 @@ import { asegurarEsquema } from './migrar';
 import { appUrl } from './app-url';
 import { estadoCanales } from './notificar';
 export { appUrl };
-import { hhmm, hoyISO, mapHorarioUniforme } from './reglas';
+import { hhmm, hoyISO, mapHorarioUniforme, aplicarUnionParalelos } from './reglas';
 import type {
   Ajustes, Aviso, Clase, Datos, Devolucion, DiaEvento, Docente, Estudiante, Inscripcion,
   MateriaNota, Novedad, Pedido, PrendaEntregada, RepartoActividad, Semestre,
@@ -85,6 +85,14 @@ function mapSolicitantesInternos(v: unknown): Ajustes['solicitantesInternos'] {
   return x.map((o) => { const r = (o ?? {}) as Record<string, unknown>; return { nombre: s(r.nombre).trim(), correo: s(r.correo).trim().toLowerCase(), cargo: s(r.cargo).trim(), sinAnticipacion: r.sinAnticipacion === true }; }).filter((o) => o.correo.includes('@'));
 }
 
+function mapUnionParalelos(v: unknown): Ajustes['unionParalelos'] {
+  let x: unknown = v;
+  if (typeof x === 'string') { try { x = JSON.parse(x); } catch { return []; } }
+  if (!Array.isArray(x)) return [];
+  return x.map((o) => { const r = (o ?? {}) as Record<string, unknown>; return { semestre: Math.round(Number(r.semestre)), paralelo: s(r.paralelo).trim().toUpperCase(), horasMax: Number(r.horasMax) > 0 ? Number(r.horasMax) : 2 }; })
+    .filter((u) => u.semestre >= 1 && u.semestre <= 3 && !!u.paralelo);
+}
+
 function mapAjustes(r: Fila): Ajustes {
   return {
     periodo: s(r.periodo), inicioSemestre: s(r.inicio_semestre), semanas: Number(r.semanas), horasSemana: Number(r.horas_semana),
@@ -93,7 +101,7 @@ function mapAjustes(r: Fila): Ajustes {
     telegramChatId: s(r.telegram_chat_id), telegramChatNombre: s(r.telegram_chat_nombre),
     telegramCanalId: s(r.telegram_canal_id), telegramCanalNombre: s(r.telegram_canal_nombre), ultimoRecordatorio: s(r.ultimo_recordatorio),
     telegramBotUsername: s(r.telegram_bot_username), telegramWebhookUrl: s(r.telegram_webhook_url), uniformeLugar: s(r.uniforme_lugar), calendarioToken: s(r.calendario_token),
-    anticipacionHoras: Number(r.anticipacion_horas ?? 72) || 72, anticipacionHasta: s(r.anticipacion_hasta).slice(0, 10), solicitantesInternos: mapSolicitantesInternos(r.solicitantes_internos), uniformeHorario: mapHorarioUniforme(r.uniforme_horario), uniformeDiasDevolucion: Math.max(1, Math.round(Number(r.uniforme_dias_devolucion ?? 7)) || 7),
+    anticipacionHoras: Number(r.anticipacion_horas ?? 72) || 72, anticipacionHasta: s(r.anticipacion_hasta).slice(0, 10), solicitantesInternos: mapSolicitantesInternos(r.solicitantes_internos), unionParalelos: mapUnionParalelos(r.union_paralelos), uniformeHorario: mapHorarioUniforme(r.uniforme_horario), uniformeDiasDevolucion: Math.max(1, Math.round(Number(r.uniforme_dias_devolucion ?? 7)) || 7),
   };
 }
 
@@ -131,7 +139,8 @@ export async function cargarDatos(): Promise<Datos> {
     pedidos: pedidos.map(mapPedido),
     estudiantes: estudiantes.map(mapEstudiante),
     docentes: docentes.map(mapDocente),
-    clases: clases.map(mapClase),
+    // Paralelos unidos: las materias de aula del semestre se toman del paralelo de referencia para todos.
+    clases: aplicarUnionParalelos(clases.map(mapClase), ajustes.unionParalelos),
     materias: materias.map((r): MateriaNota => ({ semestre: Number(r.semestre) as Semestre, materia: s(r.materia), teacherId: sn(r.teacher_id) })),
     inscripciones: inscripciones.map((r): Inscripcion => ({ id: s(r.id), requestId: s(r.request_id), studentId: s(r.student_id), estado: r.estado as Inscripcion['estado'], dias: mapDiasInscripcion(r.dias), createdAt: iso(r.created_at) })),
     avisos: avisos.map((r): Aviso => ({ id: s(r.id), requestId: s(r.request_id), classId: s(r.class_id), studentIds: (r.student_ids as string[]) ?? [], sentAt: sn(r.sent_at), createdAt: iso(r.created_at) })),
