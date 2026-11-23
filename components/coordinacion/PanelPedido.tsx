@@ -16,7 +16,11 @@ import { diasDeEstudiante, diasLlenosDe, estudiantesDeAviso, type CruceVista, ty
 import type { CruceEvento } from '@/lib/reglas';
 
 export function PanelPedido({ p, datos, pedidos, cruceEvento, onCerrar }: { p: PedidoVista; datos: Datos; pedidos: PedidoVista[]; cruceEvento: CruceEvento<PedidoVista> | null; onCerrar: () => void }) {
-  const { pending, error, run } = useAccion();
+  const { pending, error, run: correr } = useAccion();
+  // El error se muestra junto a la sección donde se pulsó: inscripciones o el resto del panel.
+  const [zonaError, setZonaError] = useState<'inscripciones' | 'general'>('general');
+  const run: typeof correr = (fn, ok) => { setZonaError('general'); correr(fn, ok); };
+  const runIns: typeof correr = (fn, ok) => { setZonaError('inscripciones'); correr(fn, ok); };
   const [nv, setNv] = useState({ stId: '', tipo: TIPOS_NOVEDAD[0], nota: '' });
   const [verDecanato, setVerDecanato] = useState(false);
   const [agregarId, setAgregarId] = useState('');
@@ -54,7 +58,7 @@ export function PanelPedido({ p, datos, pedidos, cruceEvento, onCerrar }: { p: P
         {p.dias.map((d, i) => {
           const va = mios.includes(d.fecha);
           return <button key={d.fecha} type="button" className={`tag ${va ? 'tag-accent' : 'tag-outline'}`} style={{ fontSize: 10, padding: '1px 6px', cursor: 'pointer' }} aria-pressed={va} aria-label={`Día ${i + 1} · ${fechaCorta(d.fecha)}`}
-            onClick={() => { const nuevos = va ? mios.filter((f) => f !== d.fecha) : [...mios, d.fecha]; if (!nuevos.length) return; run(() => fijarDiasEstudiante(p.id, studentId, nuevos.length === p.dias.length ? null : nuevos)); }}>D{i + 1}</button>;
+            onClick={() => { const nuevos = va ? mios.filter((f) => f !== d.fecha) : [...mios, d.fecha]; if (!nuevos.length) return; runIns(() => fijarDiasEstudiante(p.id, studentId, nuevos.length === p.dias.length ? null : nuevos)); }}>D{i + 1}</button>;
         })}
       </span>
     );
@@ -137,8 +141,15 @@ export function PanelPedido({ p, datos, pedidos, cruceEvento, onCerrar }: { p: P
                   <div key={s.id} className="linea-item">
                     <span style={{ minWidth: 0 }}>{s.nombre} <span className="muted fs-11">{semCorto(s.semestre)} · {eventosPor(s.id)} ev.</span>{sinCupo && <> <span className="tag tag-alerta-suave" style={{ fontSize: 10 }} title={todoLleno ? 'Sus días ya tienen el cupo completo' : 'Ese día ya tiene el cupo completo: apágalo para aceptarlo en los demás'}>{p.multidia && !todoLleno ? `Sin cupo ${llenos.map((f) => `D${p.dias.findIndex((d) => d.fecha === f) + 1}`).join(', ')}` : 'Sin cupo'}</span></>}{chipsDias(s.id)}</span>
                     <span style={{ display: 'flex', gap: 4, flex: 'none' }}>
-                      <button className="btn btn-primary btn-sm" type="button" disabled={sinCupo} title={sinCupo ? (todoLleno ? 'Cupos completos para sus días' : 'Apaga el día lleno (D1, D2…) o quita a otro confirmado') : ''} onClick={() => run(() => decidirInscripcion(p.id, s.id, 'aceptar'))}>Aceptar</button>
-                      <button className="btn btn-ghost btn-sm" type="button" onClick={() => run(() => decidirInscripcion(p.id, s.id, 'rechazar'))}>Rechazar</button>
+                      {(() => {
+                        const fechas = p.dias.map((d) => d.fecha);
+                        const mios = diasDeEstudiante(p, s.id).map((d) => d.fecha);
+                        const libres = p.cuposDias.filter((c) => c.confirmados < c.cantidad).map((c) => c.fecha);
+                        const objetivo = !sinCupo ? [] : todoLleno ? libres : mios.filter((f) => !llenos.includes(f));
+                        if (sinCupo && p.multidia && objetivo.length) return <button className="btn btn-primary btn-sm" type="button" title="Sus días elegidos están llenos: se acepta en los días con cupo" onClick={() => runIns(() => decidirInscripcion(p.id, s.id, 'aceptar', { ajustarDias: true }))}>Aceptar en {objetivo.map((f) => `D${fechas.indexOf(f) + 1}`).join(' y ')}</button>;
+                        return <button className="btn btn-primary btn-sm" type="button" disabled={sinCupo} title={sinCupo ? 'Todos los días tienen el cupo completo: quita a otro confirmado para hacer espacio' : ''} onClick={() => runIns(() => decidirInscripcion(p.id, s.id, 'aceptar'))}>Aceptar</button>;
+                      })()}
+                      <button className="btn btn-ghost btn-sm" type="button" onClick={() => runIns(() => decidirInscripcion(p.id, s.id, 'rechazar'))}>Rechazar</button>
                     </span>
                   </div>
                 ); })}
@@ -152,7 +163,7 @@ export function PanelPedido({ p, datos, pedidos, cruceEvento, onCerrar }: { p: P
                     <span>{s.nombre} <span className="muted fs-11">{semCorto(s.semestre)}</span>{chipsDias(s.id)}</span>
                     <span style={{ display: 'flex', gap: 4, flex: 'none' }}>
                       <a className="btn btn-ghost btn-sm" href={mailtoUrl(correoEstudianteDecision(p, s, true))} title="Correo de confirmación">Correo</a>
-                      <button className="btn btn-ghost btn-sm" type="button" onClick={() => run(() => decidirInscripcion(p.id, s.id, 'quitar'))}>Quitar</button>
+                      <button className="btn btn-ghost btn-sm" type="button" onClick={() => runIns(() => decidirInscripcion(p.id, s.id, 'quitar'))}>Quitar</button>
                     </span>
                   </div>
                 ))}
@@ -165,9 +176,10 @@ export function PanelPedido({ p, datos, pedidos, cruceEvento, onCerrar }: { p: P
                   <option value="">{p.multidia && p.cuposDias.some((c) => c.confirmados >= c.cantidad) ? 'Agregar estudiante (solo a los días con cupo)…' : 'Agregar estudiante…'}</option>
                   {disponibles.map((e) => <option key={e.id} value={e.id}>{e.nombre} · {semCorto(e.semestre)}</option>)}
                 </select>
-                <button className="btn btn-secondary btn-sm" type="button" disabled={!agregarId} onClick={() => run(() => confirmarDirecto(p.id, agregarId), () => setAgregarId(''))}>Confirmar</button>
+                <button className="btn btn-secondary btn-sm" type="button" disabled={!agregarId} onClick={() => runIns(() => confirmarDirecto(p.id, agregarId), () => setAgregarId(''))}>Confirmar</button>
               </div>
             )}
+            {error && zonaError === 'inscripciones' && <p className="error m-0" role="alert">{error}</p>}
             {p.estado === 'Aprobado' && p.confirmadosN > 0 && <CorreoBox titulo="Recordatorio 24 h a confirmados" correo={correoRecordatorio(p)} />}
           </>
         )}
@@ -250,7 +262,7 @@ export function PanelPedido({ p, datos, pedidos, cruceEvento, onCerrar }: { p: P
       </div>
 
       {p.bloqueo && <p className="error">{p.bloqueo}</p>}
-      {error && <p className="error" role="alert">{error}</p>}
+      {error && zonaError === 'general' && <p className="error" role="alert">{error}</p>}
       <div className="cols-2" style={{ gap: 'var(--space-2)' }}>
         <button className="btn btn-primary btn-40" type="button" style={{ gridColumn: '1/-1' }} disabled={!!p.bloqueo || p.estado === 'Aprobado'} onClick={() => cambiar('Aprobado')}>Aprobar y convocar estudiantes</button>
         {p.estado === 'Aprobado' && (p.finalizado

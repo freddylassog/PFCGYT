@@ -290,7 +290,9 @@ async function recalcularAvisos(requestId: string): Promise<void> {
   await prepararAvisos(requestId);
 }
 
-export async function decidirInscripcion(requestId: string, studentId: string, decision: 'aceptar' | 'rechazar' | 'quitar'): Promise<Resultado> {
+/** `directo`: coordinación agrega a alguien que no está inscrito (aunque antes lo hayan rechazado): va a los días con cupo.
+ *  `ajustarDias`: aceptar a un inscrito cuyos días están llenos en los días que aún tienen cupo (botón «Aceptar en D2»). */
+export async function decidirInscripcion(requestId: string, studentId: string, decision: 'aceptar' | 'rechazar' | 'quitar', opciones: { directo?: boolean; ajustarDias?: boolean } = {}): Promise<Resultado> {
   try {
     await exigir();
     const sql = db();
@@ -299,18 +301,25 @@ export async function decidirInscripcion(requestId: string, studentId: string, d
       if (!fila || fila.estado !== 'Aprobado') throw new Error('El pedido debe estar aprobado.');
       const p = mapPedido(fila);
       const conf = await sql`select student_id, dias from enrollments where request_id = ${requestId} and estado = 'confirmado'`;
-      const [propia] = await sql`select dias from enrollments where request_id = ${requestId} and student_id = ${studentId}`;
+      const [fila0] = await sql`select dias, estado from enrollments where request_id = ${requestId} and student_id = ${studentId}`;
+      // Agregado directamente: una inscripción anterior que ya no se ve (rechazada) no fija sus días.
+      const propia = opciones.directo && fila0?.estado !== 'inscrito' ? undefined : fila0;
       const otros = conf.filter((r) => String(r.student_id) !== studentId).map((r) => mapDiasJson(r.dias));
       const fechas = p.dias.map((d) => d.fecha);
       let valorDias: string[] | null = propia ? mapDiasJson(propia.dias) : null;
       const mios = diasEstudiante(p, valorDias).map((d) => d.fecha);
-      // El cupo es por día. Un inscrito con algún día lleno no se acepta hasta apagar ese día (D1, D2…) o quitar a otro;
-      // un estudiante agregado directamente por coordinación queda solo en los días con cupo.
+      // El cupo es por día. Un inscrito con algún día lleno no se acepta hasta apagar ese día (D1, D2…), quitar a otro
+      // o usar «Aceptar en D2» (ajustarDias); un estudiante agregado directamente queda solo en los días con cupo.
       const llenos = diasLlenos(p, otros, mios);
-      if (llenos.length === mios.length) throw new Error(p.dias.length > 1 ? 'Cupos completos para los días de este estudiante. Cambia sus días (D1, D2…) o quita a otro confirmado.' : 'Cupos completos.');
-      if (llenos.length) {
-        if (propia) throw new Error(`${nombrarDias(llenos, fechas)} ya ${llenos.length > 1 ? 'tienen' : 'tiene'} los cupos completos. Apaga ${llenos.map((f) => `D${fechas.indexOf(f) + 1}`).join(' y ')} junto al estudiante antes de aceptarlo, o quita a otro confirmado.`);
-        valorDias = mios.filter((f) => !llenos.includes(f));
+      const libresTodos = fechas.filter((f) => !diasLlenos(p, otros, [f]).length);
+      if (llenos.length && (!propia || opciones.ajustarDias)) {
+        const objetivo = llenos.length < mios.length ? mios.filter((f) => !llenos.includes(f)) : libresTodos;
+        if (!objetivo.length) throw new Error(p.dias.length > 1 ? 'Todos los días del evento tienen el cupo completo. Quita a otro confirmado para hacer espacio.' : 'Cupos completos.');
+        valorDias = objetivo.length === fechas.length ? null : objetivo;
+      } else if (llenos.length === mios.length) {
+        throw new Error(p.dias.length > 1 ? `Cupos completos para los días de este estudiante.${libresTodos.length ? ` Usa «Aceptar en ${libresTodos.map((f) => `D${fechas.indexOf(f) + 1}`).join(' y ')}».` : ' Quita a otro confirmado para hacer espacio.'}` : 'Cupos completos.');
+      } else if (llenos.length) {
+        throw new Error(`${nombrarDias(llenos, fechas)} ya ${llenos.length > 1 ? 'tienen' : 'tiene'} los cupos completos. Apaga ${llenos.map((f) => `D${fechas.indexOf(f) + 1}`).join(' y ')} junto al estudiante antes de aceptarlo, o quita a otro confirmado.`);
       }
       await sql`insert into enrollments (request_id, student_id, estado, dias) values (${requestId}, ${studentId}, 'confirmado', ${valorDias ? sql.json(valorDias) : null})
         on conflict (request_id, student_id) do update set estado = 'confirmado', dias = excluded.dias, updated_at = now()`;
@@ -338,7 +347,7 @@ export async function decidirInscripcion(requestId: string, studentId: string, d
 
 /** Coordinación agrega directamente a un estudiante como confirmado. */
 export async function confirmarDirecto(requestId: string, studentId: string): Promise<Resultado> {
-  return decidirInscripcion(requestId, studentId, 'aceptar');
+  return decidirInscripcion(requestId, studentId, 'aceptar', { directo: true });
 }
 
 /** Días a los que asiste un estudiante (inscrito o confirmado) en un evento de varios días; null = todos. */

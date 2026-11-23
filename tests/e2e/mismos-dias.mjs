@@ -84,7 +84,7 @@ paso('Mateo: día 1 bloqueado (cupos completos), inscrito solo al día 2');
 // Valeria pidió los dos días pero el día 1 está lleno: "Sin cupo D1" y no se puede aceptar hasta apagar D1
 await abrirPanel();
 const fv = fila('Valeria');
-if ((await fv.locator('.tag:has-text("Sin cupo D1")').count()) !== 1 || !(await fv.locator('button:has-text("Aceptar")').isDisabled())) throw new Error('Valeria debería mostrar "Sin cupo D1" con Aceptar deshabilitado: ' + (await fv.textContent()));
+if ((await fv.locator('.tag:has-text("Sin cupo D1")').count()) !== 1 || (await fv.locator('button:has-text("Aceptar en D2")').count()) !== 1) throw new Error('Valeria debería mostrar "Sin cupo D1" con «Aceptar en D2»: ' + (await fv.textContent()));
 await p.screenshot({ path: shots + '/mismos-sin-cupo.png', fullPage: false, caret: 'initial' });
 await fv.locator('button:has-text("D1")').click();
 await fv.locator('.tag:has-text("Sin cupo")').waitFor({ state: 'detached', timeout: 15000 });
