@@ -24,6 +24,8 @@ export function PanelPedido({ p, datos, pedidos, cruceEvento, onCerrar }: { p: P
   const [nv, setNv] = useState({ stId: '', tipo: TIPOS_NOVEDAD[0], nota: '' });
   const [verDecanato, setVerDecanato] = useState(false);
   const [agregarId, setAgregarId] = useState('');
+  // Días del estudiante que coordinación agrega (varios días): por defecto, los que tienen cupo; null = sin tocar aún.
+  const [agregarDias, setAgregarDias] = useState<string[] | null>(null);
   const [editando, setEditando] = useState(false);
   const [verCorreo, setVerCorreo] = useState<string | null>(null);
   const [subiendoActa, setSubiendoActa] = useState(false);
@@ -118,7 +120,7 @@ export function PanelPedido({ p, datos, pedidos, cruceEvento, onCerrar }: { p: P
       {/* Convocatoria e inscripciones */}
       <div className="stack-2 borde-arriba">
         <div className="between"><h6 className="m-0">Convocatoria a estudiantes</h6><span className="heading">{p.multidia ? p.progreso : `${p.confirmadosN} / ${p.cantidad} confirmados`}</span></div>
-        {p.multidia && <p className="muted fs-12 m-0">{p.mismosEstudiantes ? `Se necesitan ${p.cantidad} estudiantes cada día, en lo posible los mismos` : 'Distintos estudiantes cada día'}: {p.cuposDias.map((c, i) => `día ${i + 1} (${fechaCorta(c.fecha)}): ${c.confirmados}/${c.cantidad}`).join(' · ')}. Cada estudiante marca al inscribirse los días que puede; los botones D1, D2… junto a su nombre muestran y cambian sus días. Si un día ya está lleno, apaga ese día antes de aceptar a alguien más.</p>}
+        {p.multidia && <p className="muted fs-12 m-0">{p.mismosEstudiantes ? `Se necesitan ${p.cantidad} estudiantes cada día, en lo posible los mismos` : 'Distintos estudiantes cada día'}: {p.cuposDias.map((c, i) => `día ${i + 1} (${fechaCorta(c.fecha)}): ${c.confirmados}/${c.cantidad}`).join(' · ')}. Cada estudiante marca al inscribirse los días que puede; los botones D1, D2… junto a su nombre muestran y cambian sus días. Si un día ya está lleno, usa «Aceptar en D2» o agrega estudiantes sobre el cupo.</p>}
         {!p.convocadaAt && <p className="muted fs-12 m-0">Al aprobar, el sistema genera la clave del evento y el correo de convocatoria (fecha, horario, horas, actividades y vestimenta) para los {nEstudiantes} estudiantes de 1.º a 3.º con el link para inscribirse. Tú lo envías desde Outlook y confirmas quién entra.</p>}
         {p.convocadaAt && (
           <>
@@ -147,7 +149,8 @@ export function PanelPedido({ p, datos, pedidos, cruceEvento, onCerrar }: { p: P
                         const libres = p.cuposDias.filter((c) => c.confirmados < c.cantidad).map((c) => c.fecha);
                         const objetivo = !sinCupo ? [] : todoLleno ? libres : mios.filter((f) => !llenos.includes(f));
                         if (sinCupo && p.multidia && objetivo.length) return <button className="btn btn-primary btn-sm" type="button" title="Sus días elegidos están llenos: se acepta en los días con cupo" onClick={() => runIns(() => decidirInscripcion(p.id, s.id, 'aceptar', { ajustarDias: true }))}>Aceptar en {objetivo.map((f) => `D${fechas.indexOf(f) + 1}`).join(' y ')}</button>;
-                        return <button className="btn btn-primary btn-sm" type="button" disabled={sinCupo} title={sinCupo ? 'Todos los días tienen el cupo completo: quita a otro confirmado para hacer espacio' : ''} onClick={() => runIns(() => decidirInscripcion(p.id, s.id, 'aceptar'))}>Aceptar</button>;
+                        if (sinCupo) return <button className="btn btn-secondary btn-sm" type="button" title="Todos sus días tienen el cupo completo" onClick={() => { if (confirm(`Los días de ${s.nombre} ya tienen el cupo completo. ¿Aceptarlo de todos modos, sobre el cupo pedido?`)) runIns(() => decidirInscripcion(p.id, s.id, 'aceptar', { sobrecupo: true })); }}>Aceptar sobre el cupo</button>;
+                        return <button className="btn btn-primary btn-sm" type="button" onClick={() => runIns(() => decidirInscripcion(p.id, s.id, 'aceptar'))}>Aceptar</button>;
                       })()}
                       <button className="btn btn-ghost btn-sm" type="button" onClick={() => runIns(() => decidirInscripcion(p.id, s.id, 'rechazar'))}>Rechazar</button>
                     </span>
@@ -170,15 +173,44 @@ export function PanelPedido({ p, datos, pedidos, cruceEvento, onCerrar }: { p: P
               </>
             )}
             {!p.inscritosN && !p.confirmadosN && <p className="muted fs-12 m-0">Aún no hay inscripciones.</p>}
-            {!p.lleno && disponibles.length > 0 && (
-              <div className="row" style={{ gap: 4 }}>
-                <select className="input" style={{ flex: 1, minWidth: 160 }} value={agregarId} onChange={(e) => setAgregarId(e.target.value)} aria-label="Agregar estudiante directamente">
-                  <option value="">{p.multidia && p.cuposDias.some((c) => c.confirmados >= c.cantidad) ? 'Agregar estudiante (solo a los días con cupo)…' : 'Agregar estudiante…'}</option>
-                  {disponibles.map((e) => <option key={e.id} value={e.id}>{e.nombre} · {semCorto(e.semestre)}</option>)}
-                </select>
-                <button className="btn btn-secondary btn-sm" type="button" disabled={!agregarId} onClick={() => runIns(() => confirmarDirecto(p.id, agregarId), () => setAgregarId(''))}>Confirmar</button>
-              </div>
-            )}
+            {p.estado === 'Aprobado' && disponibles.length > 0 && (() => {
+              // Coordinación siempre puede sumar estudiantes: a los días con cupo o, confirmando, sobre el cupo.
+              const fechas = p.dias.map((d) => d.fecha);
+              const conCupo = p.cuposDias.filter((c) => c.confirmados < c.cantidad).map((c) => c.fecha);
+              // Mismos estudiantes: todos los días con cupo; distintos cada día: solo el primero con cupo (no ocupa los demás).
+              const porDefecto = p.mismosEstudiantes ? conCupo : conCupo.slice(0, 1);
+              const elegidos = p.multidia ? (agregarDias ?? porDefecto) : fechas;
+              const llenosSel = p.multidia ? p.cuposDias.filter((c) => elegidos.includes(c.fecha) && c.confirmados >= c.cantidad) : (p.lleno ? p.cuposDias.length ? p.cuposDias : [{ fecha: p.fecha, cantidad: p.cantidad, confirmados: p.confirmadosN }] : []);
+              const etiquetaDia = (f: string) => `D${fechas.indexOf(f) + 1}`;
+              const confirmar = () => {
+                if (p.multidia && !elegidos.length) return;
+                if (llenosSel.length && !confirm(`${llenosSel.map((c) => `${p.multidia ? etiquetaDia(c.fecha) : 'El evento'} ya tiene ${c.confirmados}/${c.cantidad}`).join(' y ')}. ¿Agregar de todos modos? Quedará un estudiante sobre el cupo pedido.`)) return;
+                runIns(() => confirmarDirecto(p.id, agregarId, { dias: p.multidia ? elegidos : undefined, sobrecupo: llenosSel.length > 0 }), () => { setAgregarId(''); setAgregarDias(null); });
+              };
+              return (
+                <div className="stack-2" style={{ gap: 4 }}>
+                  <div className="row" style={{ gap: 4 }}>
+                    <select className="input" style={{ flex: 1, minWidth: 160 }} value={agregarId} onChange={(e) => setAgregarId(e.target.value)} aria-label="Agregar estudiante directamente">
+                      <option value="">{p.lleno ? 'Agregar estudiante (sobre el cupo)…' : 'Agregar estudiante…'}</option>
+                      {disponibles.map((e) => <option key={e.id} value={e.id}>{e.nombre} · {semCorto(e.semestre)}</option>)}
+                    </select>
+                    <button className="btn btn-secondary btn-sm" type="button" disabled={!agregarId || (p.multidia && !elegidos.length)} onClick={confirmar}>Confirmar</button>
+                  </div>
+                  {p.multidia && (
+                    <div className="row fs-12" style={{ gap: 4, alignItems: 'center' }} aria-label="Días del estudiante que agregas">
+                      <span className="muted">Va los días:</span>
+                      {p.cuposDias.map((c) => {
+                        const va = elegidos.includes(c.fecha);
+                        const lleno = c.confirmados >= c.cantidad;
+                        return <button key={c.fecha} type="button" className={`tag ${va ? 'tag-accent' : 'tag-outline'}`} style={{ fontSize: 10, padding: '1px 6px', cursor: 'pointer' }} aria-pressed={va} title={lleno ? 'Cupo completo: se agrega sobre el cupo' : 'Con cupo'}
+                          onClick={() => setAgregarDias(va ? elegidos.filter((f) => f !== c.fecha) : [...elegidos, c.fecha])}>{etiquetaDia(c.fecha)} · {c.confirmados}/{c.cantidad}</button>;
+                      })}
+                      {!elegidos.length ? <span className="falta">Toca el día al que va (un día lleno se suma sobre el cupo).</span> : <span className="muted">toca para cambiar</span>}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
             {error && zonaError === 'inscripciones' && <p className="error m-0" role="alert">{error}</p>}
             {p.estado === 'Aprobado' && p.confirmadosN > 0 && <CorreoBox titulo="Recordatorio 24 h a confirmados" correo={correoRecordatorio(p)} />}
           </>

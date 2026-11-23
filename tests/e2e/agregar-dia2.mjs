@@ -68,10 +68,10 @@ await p.waitForSelector('aside .linea-item:has-text("Valeria") button:has-text("
 const diasValeria = await fila('Valeria').locator('button[aria-pressed="true"]').allTextContents();
 if (diasValeria.join() !== 'D2') throw new Error('Valeria debería quedar solo en el día 2: ' + diasValeria.join());
 paso('Valeria (rechazada antes) agregada directamente: queda en el día 2');
-// Ahora el día 2 también está lleno: Mateo (pidió el día 1) no se puede aceptar y lo dice junto a su fila
+// Ahora el día 2 también está lleno: Mateo (pidió el día 1) solo se acepta «sobre el cupo»
 const fm = fila('Mateo');
-if (!(await fm.locator('button:has-text("Aceptar")').first().isDisabled())) throw new Error('con los dos días llenos, Mateo no debería poder aceptarse');
-paso('con los dos días llenos, Mateo queda sin cupo');
+if ((await fm.locator('button:has-text("Aceptar sobre el cupo")').count()) !== 1) throw new Error('con los dos días llenos, Mateo debería ofrecer «Aceptar sobre el cupo»');
+paso('con los dos días llenos, Mateo ofrece «Aceptar sobre el cupo»');
 
 // 2. Se quita a Valeria: Mateo (pidió el día 1, lleno) tiene el botón «Aceptar en D2»
 await fila('Valeria').locator('button:has-text("Quitar")').click();
@@ -81,10 +81,19 @@ await p.waitForSelector('aside .linea-item:has-text("Mateo") button:has-text("Qu
 if ((await fila('Mateo').locator('button[aria-pressed="true"]').allTextContents()).join() !== 'D2') throw new Error('Mateo debería quedar en el día 2');
 paso('Mateo (pidió el día 1 lleno) aceptado con «Aceptar en D2»');
 
-// 3. Un error al agregar se ve junto a la sección de estudiantes (no al fondo del panel)
+// 3. Con los dos días llenos, coordinación igual puede sumar a alguien al día 2 (confirma «sobre el cupo»)
 const otroSel = p.locator('aside select[aria-label="Agregar estudiante directamente"]');
-if ((await otroSel.count()) !== 0) throw new Error('con los dos días llenos no debe ofrecer agregar');
-paso('con todo lleno ya no ofrece agregar');
+if ((await otroSel.count()) !== 1) throw new Error('coordinación siempre debe poder agregar estudiantes');
+const opD = (await otroSel.locator('option').allTextContents()).find((o) => o.includes('Daniela Ortiz'));
+await otroSel.selectOption({ label: opD });
+const chips = p.locator('aside [aria-label="Días del estudiante que agregas"]');
+if (!/D1 · 2\/2/.test(await chips.textContent()) || !/D2 · 1\/1/.test(await chips.textContent())) throw new Error('los días del nuevo estudiante deberían mostrar el cupo: ' + (await chips.textContent()));
+await chips.locator('button:has-text("D2")').click(); // ningún día tiene cupo: se elige el día 2
+await p.click('aside button:has-text("Confirmar")');
+await p.waitForSelector('aside .linea-item:has-text("Daniela") button:has-text("Quitar")', { timeout: 15000 });
+if ((await fila('Daniela').locator('button[aria-pressed="true"]').allTextContents()).join() !== 'D2') throw new Error('Daniela debería quedar solo en el día 2');
+if (!/D2 2\/1/.test((await p.locator('aside').textContent()).replace(/\s+/g, ' '))) throw new Error('el avance debería mostrar D2 2/1');
+paso('con todo lleno, Daniela agregada al día 2 sobre el cupo (D2 2/1)');
 
 // Limpieza
 await p.click('aside button:has-text("Eliminar pedido")');

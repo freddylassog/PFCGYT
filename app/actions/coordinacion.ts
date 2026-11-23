@@ -290,9 +290,10 @@ async function recalcularAvisos(requestId: string): Promise<void> {
   await prepararAvisos(requestId);
 }
 
-/** `directo`: coordinación agrega a alguien que no está inscrito (aunque antes lo hayan rechazado): va a los días con cupo.
- *  `ajustarDias`: aceptar a un inscrito cuyos días están llenos en los días que aún tienen cupo (botón «Aceptar en D2»). */
-export async function decidirInscripcion(requestId: string, studentId: string, decision: 'aceptar' | 'rechazar' | 'quitar', opciones: { directo?: boolean; ajustarDias?: boolean } = {}): Promise<Resultado> {
+/** `directo`: coordinación agrega a alguien que no está inscrito (aunque antes lo hayan rechazado): va a los días con cupo,
+ *  o a los `dias` que coordinación elige. `ajustarDias`: aceptar a un inscrito cuyos días están llenos en los días que aún
+ *  tienen cupo (botón «Aceptar en D2»). `sobrecupo`: coordinación acepta aunque el cupo del día ya esté completo. */
+export async function decidirInscripcion(requestId: string, studentId: string, decision: 'aceptar' | 'rechazar' | 'quitar', opciones: { directo?: boolean; ajustarDias?: boolean; dias?: string[]; sobrecupo?: boolean } = {}): Promise<Resultado> {
   try {
     await exigir();
     const sql = db();
@@ -307,12 +308,22 @@ export async function decidirInscripcion(requestId: string, studentId: string, d
       const otros = conf.filter((r) => String(r.student_id) !== studentId).map((r) => mapDiasJson(r.dias));
       const fechas = p.dias.map((d) => d.fecha);
       let valorDias: string[] | null = propia ? mapDiasJson(propia.dias) : null;
+      // Días elegidos por coordinación al agregar directamente (en eventos de varios días).
+      if (opciones.directo && opciones.dias) {
+        const elegidos = fechas.filter((f) => opciones.dias!.includes(f));
+        if (!elegidos.length) throw new Error('Elige al menos un día para el estudiante.');
+        valorDias = elegidos.length === fechas.length ? null : elegidos;
+      }
       const mios = diasEstudiante(p, valorDias).map((d) => d.fecha);
       // El cupo es por día. Un inscrito con algún día lleno no se acepta hasta apagar ese día (D1, D2…), quitar a otro
       // o usar «Aceptar en D2» (ajustarDias); un estudiante agregado directamente queda solo en los días con cupo.
       const llenos = diasLlenos(p, otros, mios);
       const libresTodos = fechas.filter((f) => !diasLlenos(p, otros, [f]).length);
-      if (llenos.length && (!propia || opciones.ajustarDias)) {
+      if (llenos.length && opciones.sobrecupo) {
+        // Coordinación decide sumar a alguien aunque el día ya tenga su cupo (queda, p. ej., 3/2).
+      } else if (llenos.length && opciones.directo && opciones.dias) {
+        throw new Error(`${nombrarDias(llenos, fechas)} ya ${llenos.length > 1 ? 'tienen' : 'tiene'} el cupo completo. Confirma para agregarlo de todos modos.`);
+      } else if (llenos.length && (!propia || opciones.ajustarDias)) {
         const objetivo = llenos.length < mios.length ? mios.filter((f) => !llenos.includes(f)) : libresTodos;
         if (!objetivo.length) throw new Error(p.dias.length > 1 ? 'Todos los días del evento tienen el cupo completo. Quita a otro confirmado para hacer espacio.' : 'Cupos completos.');
         valorDias = objetivo.length === fechas.length ? null : objetivo;
@@ -346,8 +357,8 @@ export async function decidirInscripcion(requestId: string, studentId: string, d
 }
 
 /** Coordinación agrega directamente a un estudiante como confirmado. */
-export async function confirmarDirecto(requestId: string, studentId: string): Promise<Resultado> {
-  return decidirInscripcion(requestId, studentId, 'aceptar', { directo: true });
+export async function confirmarDirecto(requestId: string, studentId: string, opciones: { dias?: string[]; sobrecupo?: boolean } = {}): Promise<Resultado> {
+  return decidirInscripcion(requestId, studentId, 'aceptar', { directo: true, dias: opciones.dias, sobrecupo: !!opciones.sobrecupo });
 }
 
 /** Días a los que asiste un estudiante (inscrito o confirmado) en un evento de varios días; null = todos. */
