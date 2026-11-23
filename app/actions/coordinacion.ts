@@ -348,7 +348,7 @@ export async function decidirInscripcion(requestId: string, studentId: string, d
     const p = datos.pedidos.find((x) => x.id === requestId);
     if (e?.telegramChatId && p) {
       const pv = vistaPedido(datos, p);
-      const texto = decision === 'aceptar' ? mensajeEstudianteConfirmado(pv, e, avanceEstudiante(datos, e.id).eventosN) : decision === 'rechazar' ? mensajeEstudianteNoConfirmado(pv, e) : mensajeEstudianteRetirado(pv, e);
+      const texto = decision === 'aceptar' ? mensajeEstudianteConfirmado(pv, e, avanceEstudiante(datos, e.id).protocolosN) : decision === 'rechazar' ? mensajeEstudianteNoConfirmado(pv, e) : mensajeEstudianteRetirado(pv, e);
       await enviarDirecto(e.telegramChatId, texto);
     }
     refrescar();

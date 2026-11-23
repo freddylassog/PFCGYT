@@ -16,7 +16,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ sem: st
   return new NextResponse(new Uint8Array(buf), {
     headers: {
       'content-type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'content-disposition': `attachment; filename="matriz-protocolo-${n}-semestre-${datos.ajustes.periodo}.xlsx"`,
+      'content-disposition': `attachment; filename="informe-protocolo-${n}-semestre-${datos.ajustes.periodo}.xlsx"`,
     },
   });
 }

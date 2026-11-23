@@ -39,8 +39,8 @@ export function MisEventos({ datos, yo }: { datos: Datos; yo: Estudiante }) {
   return (
     <div className={pending ? 'pendiente' : ''}>
       <div className="between abajo mt-8 max-720" style={{ gap: 'var(--space-3)' }}>
-        <div><h1 className="m-0">Mis eventos</h1><p className="muted" style={{ margin: 'var(--space-1) 0 0' }}>{yo.nombre} · {semLabel(yo.semestre)} · mínimo {MINIMO_EVENTOS} eventos en el semestre</p></div>
-        <div style={{ textAlign: 'right' }}><div className="card-kicker">Mi avance</div><div className="num">{avance.eventosN} / {MINIMO_EVENTOS} <span className="muted" style={{ fontSize: 14, fontWeight: 400 }}>eventos · {avance.horas} h</span></div></div>
+        <div><h1 className="m-0">Mis eventos</h1><p className="muted" style={{ margin: 'var(--space-1) 0 0' }}>{yo.nombre} · {semLabel(yo.semestre)} · mínimo {MINIMO_EVENTOS} protocolos en el semestre (cada día de evento cuenta como uno)</p></div>
+        <div style={{ textAlign: 'right' }}><div className="card-kicker">Mi avance</div><div className="num">{avance.protocolosN} / {MINIMO_EVENTOS} <span className="muted" style={{ fontSize: 14, fontWeight: 400 }}>protocolos · {avance.horas} h</span></div></div>
       </div>
       <Marco className="mt-6 max-720 p-4 stack-2">
         <div className="between"><h6 className="m-0">Mi uniforme</h6><span className={`tag ${uni.tagClass}`}>{uni.estado}</span></div>

@@ -244,6 +244,10 @@ export function vistaPedidos(d: Datos): PedidoVista[] {
 
 export interface AvanceEstudiante {
   eventosN: number;
+  /** Protocolos del semestre: cada día de evento al que va cuenta como uno (un congreso de 2 días = 2). */
+  protocolosN: number;
+  /** De esos, los días que aún no llegan (después de hoy). */
+  porRealizarN: number;
   horas: number;
   eventos: PedidoVista[];
   cumple: boolean;
@@ -255,14 +259,19 @@ export interface AvanceEstudiante {
 export function avanceEstudiante(d: Datos, studentId: string, pedidos?: PedidoVista[]): AvanceEstudiante {
   const todos = pedidos ?? vistaPedidos(d);
   const eventos = todos.filter((p) => p.estado === 'Aprobado' && p.confirmados.some((e) => e.id === studentId));
-  const k = eventos.length;
+  // Un protocolo = un día de evento al que asiste (en eventos de varios días, solo sus días).
+  const dias = eventos.flatMap((e) => diasEstudiante(e, e.asistencia[studentId]).map((x) => x.fecha));
+  const k = dias.length;
+  const faltan = Math.max(0, MINIMO_EVENTOS - k);
   return {
-    eventosN: k,
+    eventosN: eventos.length,
+    protocolosN: k,
+    porRealizarN: dias.filter((f) => f > d.hoy).length,
     horas: redondear1(eventos.reduce((a, e) => a + horasEstudiante(e, e.asistencia[studentId]), 0)),
     eventos,
     cumple: k >= MINIMO_EVENTOS,
-    estado: k >= MINIMO_EVENTOS ? 'Cumple' : k === 1 ? 'Falta 1 evento' : 'Sin eventos · nota 0',
-    tagClass: k >= MINIMO_EVENTOS ? 'tag-accent' : k === 1 ? 'tag-alerta-suave' : 'tag-alerta',
+    estado: k >= MINIMO_EVENTOS ? 'Cumple' : k === 0 ? 'Sin protocolos · nota 0' : `Falta${faltan > 1 ? 'n' : ''} ${faltan} protocolo${faltan > 1 ? 's' : ''}`,
+    tagClass: k >= MINIMO_EVENTOS ? 'tag-accent' : k > 0 ? 'tag-alerta-suave' : 'tag-alerta',
     novedadesN: d.novedades.filter((n) => n.studentId === studentId).length,
   };
 }
@@ -295,13 +304,18 @@ export function docenteMateria(d: Datos, semestre: Semestre): { materia: string;
   return { materia: m.materia, docente };
 }
 
+/** 'Feria (23 oct); Congreso REDU (2 dic, 3 dic por realizar)': cada evento con los días que cuentan como protocolo. */
+export function detalleProtocolos(d: Datos, eventos: PedidoVista[], studentId: string): string {
+  return eventos.map((x) => `${x.evento} (${diasEstudiante(x, x.asistencia[studentId]).map((y) => `${fechaCorta(y.fecha)}${y.fecha > d.hoy ? ' por realizar' : ''}`).join(', ')})`).join('; ') || '—';
+}
+
 export function matrizSemestres(d: Datos, pedidos?: PedidoVista[]): MatrizSemestre[] {
   const todos = pedidos ?? vistaPedidos(d);
   return ([1, 2, 3] as Semestre[]).map((n) => {
     const { materia, docente } = docenteMateria(d, n);
     const filas: FilaMatriz[] = d.estudiantes.filter((e) => e.activo && e.semestre === n).map((e) => {
       const av = avanceEstudiante(d, e.id, todos);
-      return { ...e, ...av, detalle: av.eventos.map((x) => x.evento).join('; ') || '—' };
+      return { ...e, ...av, detalle: detalleProtocolos(d, av.eventos, e.id) };
     });
     return {
       semestre: n, semLabel: semLabel(n), materia, docente, filas, n: filas.length,

@@ -37,7 +37,11 @@ export function Resumen({ datos, pedidos }: { datos: Datos; pedidos: PedidoVista
     <div className={pending ? 'pendiente' : ''}>
       <div className="between abajo mt-6" style={{ gap: 'var(--space-3)' }}>
         <h3 className="m-0">Resumen del semestre {a.periodo}</h3>
-        <Marco as="a" className="btn btn-primary btn-40" href="/api/reporte"><IconoDescargar /> Descargar reporte del semestre (.xlsx)</Marco>
+        <div className="row" style={{ gap: 6, alignItems: 'center' }}>
+          <span className="fs-13 muted">Descargar reporte (.xlsx):</span>
+          {[1, 2, 3].map((n) => <a key={n} className="btn btn-primary btn-sm" href={`/api/reporte?sem=${n}`}><IconoDescargar /> {n}.º semestre</a>)}
+          <a className="btn btn-secondary btn-sm" href="/api/reporte">Todos</a>
+        </div>
       </div>
       <Marco className="mt-4 p-4 stack-3">
         <div className="cols-auto-150">

@@ -54,7 +54,7 @@ export function mensajeConvocatoriaCanal(p: PedidoVista, appUrl: string): string
     `${appUrl}/estudiante?clave=${encodeURIComponent(p.clave ?? '')}`,
     `Clave del evento: ${p.clave ?? '—'}`,
     ``,
-    `Coordinación confirma quién entra. Recuerda: mínimo ${MINIMO_EVENTOS} eventos en el semestre.`,
+    `Coordinación confirma quién entra. Recuerda: mínimo ${MINIMO_EVENTOS} protocolos en el semestre (cada día de evento cuenta como uno).`,
   ];
   return lineas.filter((l) => l !== '').join('\n');
 }
@@ -100,9 +100,9 @@ export function mensajeCorreoEnUso(correo: string): string {
   return `${correo} ya está registrado por otro estudiante. Si es tuyo, avisa a coordinación.`;
 }
 
-export function mensajeVinculado(e: Estudiante, eventosN: number): string {
+export function mensajeVinculado(e: Estudiante, protocolosN: number): string {
   const sinCorreo = e.correo ? '' : ' Tu ficha no tiene correo: si quieres usar también el portal web, escríbeme tu correo institucional.';
-  return `Listo, ${primerNombre(e)}. Quedaste vinculado como ${e.nombre} (${e.semestre}.º semestre). Te avisaré cuando coordinación confirme tu participación y el día antes de cada evento. Llevas ${eventosN} de ${MINIMO_EVENTOS} eventos del semestre.${sinCorreo}`;
+  return `Listo, ${primerNombre(e)}. Quedaste vinculado como ${e.nombre} (${e.semestre}.º semestre). Te avisaré cuando coordinación confirme tu participación y el día antes de cada evento. Llevas ${protocolosN} de ${MINIMO_EVENTOS} protocolos del semestre (cada día de evento cuenta como uno).${sinCorreo}`;
 }
 
 export function mensajeCorreoNoEncontrado(correo: string): string {
@@ -113,7 +113,7 @@ export function mensajeNoEntendido(): string {
   return 'No encuentro ese nombre. Escríbelo como en la lista de la facultad (nombre y dos apellidos), o escribe tu correo institucional (nombre.apellido@ute.edu.ec).';
 }
 
-export function mensajeEstudianteConfirmado(p: PedidoVista, e: Estudiante, eventosN: number): string {
+export function mensajeEstudianteConfirmado(p: PedidoVista, e: Estudiante, protocolosN: number): string {
   return [
     `✅ ${primerNombre(e)}, tu participación en ${p.evento} está CONFIRMADA.`,
     ``,
@@ -125,7 +125,7 @@ export function mensajeEstudianteConfirmado(p: PedidoVista, e: Estudiante, event
     ...(p.uniformeAvisoTexto ? [`Uniforme: ${p.uniformeAvisoTexto}`] : []),
     `Actividades del evento: ${p.actividadesTexto}`,
     ``,
-    `Con este evento llevas ${eventosN} de ${MINIMO_EVENTOS} del semestre. Realiza solo las actividades asignadas y retírate a la hora de salida.`,
+    `Con este evento llevas ${protocolosN} de ${MINIMO_EVENTOS} protocolos del semestre (cada día cuenta como uno). Realiza solo las actividades asignadas y retírate a la hora de salida.`,
   ].join('\n');
 }
 

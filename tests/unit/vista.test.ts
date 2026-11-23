@@ -27,7 +27,8 @@ test('avance y matriz por semestre', () => {
   const d = datosDemo();
   const av = avanceEstudiante(d, 's1');
   assert.equal(av.eventosN, 1);
-  assert.equal(av.estado, 'Falta 1 evento');
+  assert.equal(av.protocolosN, 1);
+  assert.equal(av.estado, 'Falta 1 protocolo');
   assert.equal(av.novedadesN, 1);
   const m = matrizSemestres(d);
   assert.equal(m[0].docente?.nombre, 'Lic. María Cobo', 'docente tomado del horario');
@@ -65,4 +66,22 @@ test('correo de convocatoria y mailto', () => {
   const conCco = outlookWebUrl(c);
   assert.match(conCco, /^https:\/\/outlook\.office\.com\/mail\/deeplink\/compose\?mailtouri=mailto%3A%3Fbcc%3Dcamila\.rios%2540ute\.edu\.ec%252Candres\.molina%2540ute\.edu\.ec%26subject%3D/, 'con CCO va el mailto completo');
   assert.doesNotMatch(conCco, /\+/);
+});
+
+test('protocolos: cada día de evento al que va cuenta como uno', () => {
+  const d = datosDemo();
+  const p = d.pedidos.find((x) => x.dias.length > 1)!; // pedido de dos días del demo
+  p.estado = 'Aprobado';
+  d.inscripciones = [
+    { id: 'i1', requestId: p.id, studentId: 's1', estado: 'confirmado', dias: null, createdAt: '' },
+    { id: 'i2', requestId: p.id, studentId: 's2', estado: 'confirmado', dias: [p.dias[1].fecha], createdAt: '' },
+  ];
+  d.hoy = p.dias[0].fecha;
+  const a1 = avanceEstudiante(d, 's1');
+  assert.deepEqual([a1.eventosN, a1.protocolosN, a1.porRealizarN, a1.cumple, a1.estado], [1, 2, 1, true, 'Cumple'], 'congreso de 2 días = 2 protocolos');
+  const a2 = avanceEstudiante(d, 's2');
+  assert.deepEqual([a2.protocolosN, a2.estado], [1, 'Falta 1 protocolo'], 'solo va el día 2');
+  const m = matrizSemestres(d).find((x) => x.filas.some((f) => f.id === 's1'))!;
+  assert.match(m.filas.find((f) => f.id === 's1')!.detalle, /\(\d+ \w+, \d+ \w+ por realizar\)/);
+  assert.equal(avanceEstudiante({ ...d, inscripciones: [] }, 's1').estado, 'Sin protocolos · nota 0');
 });

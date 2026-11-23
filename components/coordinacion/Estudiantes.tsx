@@ -57,7 +57,7 @@ export function Estudiantes({ datos, pedidos }: { datos: Datos; pedidos: PedidoV
         </Marco>
         <Marco className="p-4 stack-2" style={{ alignContent: 'start' }}>
           <div className="card-kicker">Regla del semestre</div>
-          <p className="m-0 fs-14">Cada estudiante debe cumplir <strong>al menos {MINIMO_EVENTOS} eventos</strong>. La matriz se envía al docente de la materia de cada semestre para la nota; quien no cumpla puede recibir <strong>0</strong> en esa materia.</p>
+          <p className="m-0 fs-14">Cada estudiante debe cumplir <strong>al menos {MINIMO_EVENTOS} protocolos</strong>: cada día de evento cuenta como uno (un congreso de 2 días son 2 protocolos). La matriz se envía al docente de la materia de cada semestre para la nota; quien no cumpla puede recibir <strong>0</strong> en esa materia.</p>
         </Marco>
       </div>
 
@@ -88,6 +88,7 @@ export function Estudiantes({ datos, pedidos }: { datos: Datos; pedidos: PedidoV
                 </div>
                 <div className="row">
                   <span className="muted fs-13">{m.cumplenN}/{m.n} cumplen{datos.notificaciones.botUsername || m.filas.some((f) => f.telegramChatId) ? ` · ${m.filas.filter((f) => f.telegramChatId).length} con Telegram` : ''}</span>
+                  <a className="btn btn-secondary" href={`/api/matriz/${m.semestre}`}>Descargar informe {m.semestre}.º (.xlsx)</a>
                   {m.enviada && <span className="tag tag-accent">Matriz enviada · {fechaCorta(m.enviada)}</span>}
                   <button className="btn btn-secondary" type="button" onClick={() => setVerCorreo(verCorreo === m.semestre ? null : m.semestre)}>Enviar matriz al docente</button>
                 </div>
@@ -96,14 +97,14 @@ export function Estudiantes({ datos, pedidos }: { datos: Datos; pedidos: PedidoV
                 <div style={{ marginBottom: 'var(--space-3)' }}>
                   <CorreoBox titulo={`Correo al docente · ${m.semLabel}`} abierto correo={correo} nota="Descarga la matriz en Excel y adjúntala al correo antes de enviarlo."
                     extra={<>
-                      <a className="btn btn-secondary btn-sm" href={`/api/matriz/${m.semestre}`}>Descargar matriz (.xlsx)</a>
+                      <a className="btn btn-secondary btn-sm" href={`/api/matriz/${m.semestre}`}>Descargar informe (.xlsx)</a>
                       {m.enviada ? <button type="button" className="btn btn-ghost btn-sm" onClick={() => run(() => marcarMatriz(m.semestre, false))}>Desmarcar envío</button> : <button type="button" className="btn btn-ghost btn-sm" onClick={() => run(() => marcarMatriz(m.semestre, true), () => setVerCorreo(null))}>Marcar como enviada</button>}
                     </>} />
                 </div>
               )}
               <Marco className="scroll-x">
                 <table className="table" style={{ minWidth: 640 }}>
-                  <thead><tr><th>Estudiante</th><th>Correo</th><th>Materias</th><th>Eventos</th><th>Horas</th><th>Detalle</th><th>Novedades</th><th>Estado</th><th></th></tr></thead>
+                  <thead><tr><th>Estudiante</th><th>Correo</th><th>Materias</th><th title="Cada día de evento cuenta como un protocolo">Protocolos</th><th>Horas</th><th>Detalle</th><th>Novedades</th><th>Estado</th><th></th></tr></thead>
                   <tbody>
                     {m.filas.length === 0 && <tr><td colSpan={9} className="muted">Sin estudiantes activos en este semestre.</td></tr>}
                     {m.filas.map((s) => (
@@ -111,7 +112,7 @@ export function Estudiantes({ datos, pedidos }: { datos: Datos; pedidos: PedidoV
                         <td>{s.nombre}{s.paralelo && <span className="muted fs-11"> · {s.paralelo}</span>}{s.telegramChatId && <> <span className="tag tag-accent" style={{ fontSize: 10 }} title="Recibe mensajes personales del bot">Telegram</span></>}</td>
                         <td className="muted fs-13">{s.correo || <span className="tag tag-alerta-suave" style={{ fontSize: 10 }}>sin correo</span>}</td>
                         <td className="fs-13">{s.nrcs.length ? <span title={materiasDe(s)} style={{ cursor: 'help', textDecoration: 'underline dotted' }}>{s.nrcs.length}</span> : <span className="muted">—</span>}</td>
-                        <td>{s.eventosN}</td>
+                        <td title={`${s.eventosN} evento(s)${s.porRealizarN ? ` · ${s.porRealizarN} día(s) por realizar` : ''}`}>{s.protocolosN}{s.porRealizarN ? <span className="muted fs-11"> ({s.porRealizarN} por realizar)</span> : null}</td>
                         <td className="nowrap">{s.horas} h</td>
                         <td className="muted fs-12">{s.detalle}</td>
                         <td className="fs-12">{s.novedadesN || '—'}</td>
@@ -128,7 +129,7 @@ export function Estudiantes({ datos, pedidos }: { datos: Datos; pedidos: PedidoV
         {otros.length > 0 && (
           <div>
             <div className="between abajo" style={{ gap: 'var(--space-3)', marginBottom: 'var(--space-2)' }}>
-              <div><h3 className="m-0">Otros semestres</h3><div className="muted fs-13">Apoyo puntual de estudiantes fuera del programa de protocolo (4.º en adelante): no entran en la matriz ni en el mínimo de eventos; sí se confirman en eventos y retiran uniformes.</div></div>
+              <div><h3 className="m-0">Otros semestres</h3><div className="muted fs-13">Apoyo puntual de estudiantes fuera del programa de protocolo (4.º en adelante): no entran en el informe ni en el mínimo de protocolos; sí se confirman en eventos y retiran uniformes.</div></div>
             </div>
             <Marco className="scroll-x">
               <table className="table" style={{ minWidth: 520 }}>

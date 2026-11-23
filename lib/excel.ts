@@ -1,6 +1,6 @@
 import 'server-only';
 import ExcelJS from 'exceljs';
-import { DIAS_CLASE, infoUniforme, semLabel, citaDevolucionTexto, citaEntregaTexto } from './reglas';
+import { DIAS_CLASE, infoUniforme, MINIMO_EVENTOS, semLabel, citaDevolucionTexto, citaEntregaTexto } from './reglas';
 import { CLAVES_HORA, normalizarClave, pad2, parsearCsv, type Fila, type HojaCruda } from './importar';
 export { parseDocentes, parseEstudiantes, parseEstudiantesNrc, esFormatoNrc, coincideNombre, generoPorNombre, parseHorarios, parseDia, parseGenero, parseHora, parseSemestre } from './importar';
 export type { HojaCruda } from './importar';
@@ -107,10 +107,13 @@ function devolucionTexto(d: Datos, studentId: string, enUso: boolean): string {
 }
 
 /** Reporte del semestre: hojas Eventos, Horas, Estudiantes y Novedades. */
-export async function generarReporte(d: Datos): Promise<Buffer> {
-  const pedidos = vistaPedidos(d);
-  const matriz = matrizSemestres(d, pedidos);
-  const horas = resumenHoras(d, pedidos);
+export async function generarReporte(d: Datos, semestre?: Semestre): Promise<Buffer> {
+  // Con semestre: solo sus estudiantes, sus novedades y los eventos donde participó alguno de ellos (sin la hoja de horas).
+  const todos = vistaPedidos(d);
+  const delSem = semestre ? new Set(d.estudiantes.filter((e) => e.semestre === semestre).map((e) => e.id)) : null;
+  const pedidos = delSem ? todos.filter((p) => p.confirmados.some((e) => delSem.has(e.id))) : todos;
+  const matriz = matrizSemestres(d, todos).filter((m) => !semestre || m.semestre === semestre);
+  const horas = resumenHoras(d, todos);
   const wb = new ExcelJS.Workbook();
   wb.creator = 'Protocolo FCGT';
 
@@ -118,18 +121,18 @@ export async function generarReporte(d: Datos): Promise<Buffer> {
   pedidos.forEach((e) => ev.push([e.codigo, e.evento, e.institucion, e.tipoLabel, e.tipo === 'externo' ? (e.convenio === 'si' ? 'Vigente' : 'Sin convenio') : 'UTE', e.estadoLabel, e.fecha, `${e.fechaLarga} · ${e.horarioTexto}`, e.horas, e.cantidad, e.actividadesTexto, e.confirmadosN, e.vestLabel, e.comidas, e.transporteTexto ?? 'No', e.lugarTexto, e.responsable, e.responsableTelefono, citaEntregaTexto(e.uniformeCita) ?? '', citaDevolucionTexto(e.uniformeCita) ?? '', e.uniformeCita?.lugar ?? '', e.createdAt.slice(0, 10), e.evidenciaTexto, e.confirmados.map((s) => s.nombre).join('; '), e.novedadesTexto]));
   hoja(wb, 'Eventos', ev, [14, 34, 28, 9, 13, 10, 11, 40, 7, 10, 40, 11, 24, 12, 11, 32, 26, 16, 11, 28, 40, 40]);
 
-  hoja(wb, 'Horas', [['Concepto', 'Horas'], ['Horas asignadas por semana', horas.horasSemana], [`Horas del semestre (${horas.semanas} semanas)`, horas.total], ['Horas registradas en eventos aprobados', horas.usadas], ['Horas disponibles', horas.restantes]], [40, 10]);
+  if (!semestre) hoja(wb, 'Horas', [['Concepto', 'Horas'], ['Horas asignadas por semana', horas.horasSemana], [`Horas del semestre (${horas.semanas} semanas)`, horas.total], ['Horas registradas en eventos aprobados', horas.usadas], ['Horas disponibles', horas.restantes]], [40, 10]);
 
-  const est: (string | number)[][] = [['Semestre', 'Estudiante', 'Correo', 'Eventos', 'Horas', 'Eventos (detalle)', 'Cumple mínimo 2', 'Novedades', 'Prendas de bodega', 'Cuáles', 'Devolución']];
+  const est: (string | number)[][] = [['Semestre', 'Estudiante', 'Correo', 'Protocolos (días)', 'Por realizar', 'Eventos', 'Horas', 'Detalle (evento y días)', `Cumple mínimo ${MINIMO_EVENTOS} protocolos`, 'Estado', 'Novedades', 'Prendas de bodega', 'Cuáles', 'Devolución']];
   matriz.forEach((m) => m.filas.forEach((r) => {
     const u = infoUniforme(r.genero, d.prendas.filter((p) => p.studentId === r.id).map((p) => p.item));
-    est.push([m.semestre, r.nombre, r.correo, r.eventosN, r.horas, r.detalle, r.cumple ? 'Sí' : 'No', r.novedadesN, u.estado, u.tiene.join('; '), devolucionTexto(d, r.id, u.n > 0)]);
+    est.push([m.semestre, r.nombre, r.correo, r.protocolosN, r.porRealizarN, r.eventosN, r.horas, r.detalle, r.cumple ? 'Sí' : 'No', r.estado, r.novedadesN, u.estado, u.tiene.join('; '), devolucionTexto(d, r.id, u.n > 0)]);
   }));
-  hoja(wb, 'Estudiantes', est, [9, 26, 30, 8, 7, 50, 14, 10, 14, 40, 30, 22]);
+  hoja(wb, 'Estudiantes', est, [9, 26, 30, 10, 10, 8, 7, 60, 14, 20, 10, 14, 40, 30]);
 
   const nov: (string | number)[][] = [['Fecha', 'Evento', 'Código', 'Estudiante', 'Semestre', 'Tipo de novedad', 'Detalle', 'Reportado a decanato']];
-  d.novedades.forEach((n) => {
-    const e = pedidos.find((x) => x.id === n.requestId);
+  d.novedades.filter((n) => !delSem || delSem.has(n.studentId)).forEach((n) => {
+    const e = todos.find((x) => x.id === n.requestId);
     const p = d.estudiantes.find((x) => x.id === n.studentId);
     nov.push([n.fecha, e?.evento ?? '', e?.codigo ?? '', p?.nombre ?? '', p?.semestre ?? '', n.tipo, n.nota, n.reportadoAt ?? 'Pendiente']);
   });
@@ -142,10 +145,10 @@ export async function generarReporte(d: Datos): Promise<Buffer> {
 export async function generarMatriz(d: Datos, semestre: Semestre): Promise<Buffer> {
   const m = matrizSemestres(d).find((x) => x.semestre === semestre)!;
   const wb = new ExcelJS.Workbook();
-  const filas: (string | number)[][] = [['Estudiante', 'Correo', 'Eventos', 'Horas', 'Eventos (detalle)', 'Cumple mínimo 2', 'Novedades', 'Estado']];
-  m.filas.forEach((r) => filas.push([r.nombre, r.correo, r.eventosN, r.horas, r.detalle, r.cumple ? 'Sí' : 'No', r.novedadesN, r.estado]));
-  const ws = hoja(wb, `${m.semestre}.º semestre`, filas, [26, 30, 8, 7, 50, 14, 10, 20]);
-  ws.insertRow(1, [`Matriz de protocolo · ${semLabel(m.semestre)} · periodo ${d.ajustes.periodo} · mínimo 2 eventos por estudiante`]);
+  const filas: (string | number)[][] = [['Estudiante', 'Correo', 'Protocolos (días)', 'Por realizar', 'Horas', 'Detalle (evento y días)', `Cumple mínimo ${MINIMO_EVENTOS}`, 'Novedades', 'Estado']];
+  m.filas.forEach((r) => filas.push([r.nombre, r.correo, r.protocolosN, r.porRealizarN, r.horas, r.detalle, r.cumple ? 'Sí' : 'No', r.novedadesN, r.estado]));
+  const ws = hoja(wb, `${m.semestre}.º semestre`, filas, [26, 30, 10, 10, 7, 60, 12, 10, 22]);
+  ws.insertRow(1, [`Informe de protocolo · ${semLabel(m.semestre)} · periodo ${d.ajustes.periodo} · mínimo ${MINIMO_EVENTOS} protocolos por estudiante (cada día de evento cuenta como un protocolo)`]);
   ws.getRow(1).font = { bold: true, size: 13 };
   ws.getRow(2).font = { bold: true };
   return Buffer.from(await wb.xlsx.writeBuffer());

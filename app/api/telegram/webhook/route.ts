@@ -51,7 +51,7 @@ export async function POST(req: Request) {
         on conflict (chat_id) do update set student_id = excluded.student_id, nombre = excluded.nombre, at = now()`;
       const datos = await cargarDatos();
       const e = datos.estudiantes.find((x) => x.id === studentId);
-      if (e) await enviarDirecto(chatId, mensajeVinculado(e, avanceEstudiante(datos, e.id).eventosN));
+      if (e) await enviarDirecto(chatId, mensajeVinculado(e, avanceEstudiante(datos, e.id).protocolosN));
     };
     const correo = normalizarCorreo((texto.match(/[^\s@]+@[^\s@]+\.[^\s@]+/) || [''])[0]);
     if (correo) {

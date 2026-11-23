@@ -89,7 +89,7 @@ export function correoConvocatoria(d: Datos, p: PedidoVista): Correo {
     `con tu correo institucional y la clave del evento: ${p.clave ?? '—'}`,
     `La clave sirve solo para inscribirse y vence al terminar el evento. Coordinación confirma quién entra.`,
     ``,
-    `Recuerda: cada estudiante debe cumplir al menos 2 eventos en el semestre para la nota de la materia asignada.`,
+    `Recuerda: cada estudiante debe cumplir al menos 2 protocolos en el semestre (cada día de evento cuenta como uno) para la nota de la materia asignada.`,
     ``,
     FIRMA,
   ].filter((l) => l !== '').join('\n');
@@ -157,12 +157,12 @@ export function correoEstudianteDecision(p: PedidoVista, e: Estudiante, aceptado
 // ---------------------------------------------------------------- 4. matriz al docente
 
 export function correoMatriz(d: Datos, m: MatrizSemestre): Correo {
-  const filas = m.filas.map((f) => `${f.nombre} · ${f.eventosN} evento(s) · ${f.horas} h · ${f.estado}${f.detalle !== '—' ? ` · ${f.detalle}` : ''}`);
+  const filas = m.filas.map((f) => `${f.nombre} · ${f.protocolosN} protocolo(s) · ${f.horas} h · ${f.estado}${f.detalle !== '—' ? ` · ${f.detalle}` : ''}`);
   const cuerpo = [
     `Estimado/a docente:`,
     ``,
-    `Adjunto la matriz de participación en eventos de protocolo de ${m.semLabel} (periodo ${d.ajustes.periodo}).`,
-    `Cada estudiante debe cumplir al menos 2 eventos; quien no cumpla puede recibir 0 en la materia correspondiente.`,
+    `Adjunto el informe de participación en protocolo de ${m.semLabel} (periodo ${d.ajustes.periodo}).`,
+    `Cada estudiante debe cumplir al menos 2 protocolos (cada día de evento cuenta como uno); quien no cumpla puede recibir 0 en la materia correspondiente.`,
     ``,
     `Cumplen: ${m.cumplenN} de ${m.n}.`,
     ``,
